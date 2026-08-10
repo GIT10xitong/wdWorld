@@ -201,6 +201,73 @@ export function getIncomingRelationItems(state) {
 }
 
 /**
+ * 正文引用使用 [[条目名]] 语法。统一解析摘要、正文和备注，
+ * 同时生成当前条目的出向引用与其他条目对它的反向引用。
+ */
+export function getTextReferenceContext(state) {
+  const selectedEntry = getSelectedEntry(state);
+
+  if (!selectedEntry) {
+    return { outgoingMentions: [], backlinks: [], suggestions: [] };
+  }
+
+  const labelLookup = new Map();
+  state.entries.forEach((entry) => {
+    [entry.title, ...(entry.aliases || [])].filter(Boolean).forEach((label) => {
+      labelLookup.set(normalizeReferenceLabel(label), entry);
+    });
+  });
+
+  const resolveMentions = (entry) => {
+    const text = [entry.summary, entry.content, entry.notes].filter(Boolean).join("\n");
+    const labels = Array.from(text.matchAll(/\[\[([^\]]+)\]\]/g), (match) => match[1].trim());
+    const seenEntryIds = new Set();
+
+    return labels
+      .map((label) => ({ label, entry: labelLookup.get(normalizeReferenceLabel(label)) || null }))
+      .filter((item) => {
+        if (!item.entry || item.entry.id === entry.id || seenEntryIds.has(item.entry.id)) return false;
+        seenEntryIds.add(item.entry.id);
+        return true;
+      });
+  };
+
+  const outgoingMentions = resolveMentions(selectedEntry);
+  const backlinks = state.entries
+    .filter((entry) => entry.id !== selectedEntry.id)
+    .filter((entry) => resolveMentions(entry).some((mention) => mention.entry.id === selectedEntry.id));
+
+  const explicitlyConnectedIds = new Set([
+    ...getSelectedRelationItems(state).map((relation) => relation.peerEntry?.id),
+    ...getIncomingRelationItems(state).map((relation) => relation.peerEntry?.id),
+    ...outgoingMentions.map((mention) => mention.entry.id),
+    ...backlinks.map((entry) => entry.id),
+  ]);
+
+  const selectedTags = new Set(selectedEntry.tags || []);
+  const suggestions = state.entries
+    .filter((entry) => entry.id !== selectedEntry.id && !explicitlyConnectedIds.has(entry.id))
+    .map((entry) => {
+      const sharedTags = (entry.tags || []).filter((tag) => selectedTags.has(tag)).length;
+      const sameRegion = Boolean(selectedEntry.region && entry.region === selectedEntry.region);
+      const score = sharedTags * 3 + (sameRegion ? 2 : 0) + (entry.type === "event" ? 1 : 0);
+      return {
+        entry,
+        score,
+        reason: sameRegion ? "同一区域" : sharedTags ? `${sharedTags} 个共同标签` : getEntryTypeLabel(entry.type),
+      };
+    })
+    .sort((a, b) => b.score - a.score || new Date(b.entry.updatedAt) - new Date(a.entry.updatedAt))
+    .slice(0, 6);
+
+  return { outgoingMentions, backlinks, suggestions };
+}
+
+function normalizeReferenceLabel(value) {
+  return String(value || "").trim().toLocaleLowerCase("zh-CN");
+}
+
+/**
  * 区域名的规范化键值用于匹配不同书写形式。
  */
 function normalizeRegionKey(value) {

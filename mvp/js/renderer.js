@@ -18,6 +18,7 @@ import {
   getSelectedRegionContext,
   getSelectedRegionEntries,
   getSelectedRelationItems,
+  getTextReferenceContext,
   getWikiNavigationGroups,
   getWikiPageModel,
 } from "./selectors.js";
@@ -81,32 +82,20 @@ export function createRenderer(domRefs) {
 
     domRefs.projectStats.innerHTML = `
       <article class="stat-card">
-        <span>总条目数</span>
+        <span>资料</span>
         <strong>${stats.totalEntries}</strong>
       </article>
       <article class="stat-card">
-        <span>当前可见</span>
-        <strong>${stats.visibleEntries}</strong>
-      </article>
-      <article class="stat-card">
-        <span>最近更新</span>
-        <strong>${escapeHtml(stats.latestEntryTitle)}</strong>
-      </article>
-      <article class="stat-card">
-        <span>关系总数</span>
+        <span>连接</span>
         <strong>${stats.relationCount}</strong>
       </article>
       <article class="stat-card">
-        <span>时间节点</span>
+        <span>剧情节点</span>
         <strong>${stats.timelineEventCount}</strong>
       </article>
       <article class="stat-card">
-        <span>世界时间</span>
-        <strong>${stats.worldTimelineEventCount}</strong>
-      </article>
-      <article class="stat-card">
-        <span>区域条目</span>
-        <strong>${stats.regionCount}</strong>
+        <span>最近编辑</span>
+        <strong class="stat-latest">${escapeHtml(stats.latestEntryTitle)}</strong>
       </article>
     `;
   }
@@ -460,6 +449,94 @@ export function createRenderer(domRefs) {
     );
 
     domRefs.relationList.innerHTML = [...outgoingMarkup, ...incomingMarkup].join("");
+  }
+
+  /**
+   * 右侧故事连接栏把明确关系、正文引用和反向引用汇总到同一处。
+   */
+  function renderContextRail(state) {
+    const selectedEntry = getSelectedEntry(state);
+
+    if (!selectedEntry) {
+      domRefs.contextCurrent.innerHTML = `<p class="context-empty">从左侧选择一条资料，查看它在故事中的连接。</p>`;
+      domRefs.contextReferences.innerHTML = "";
+      domRefs.contextSuggestions.innerHTML = "";
+      return;
+    }
+
+    const outgoingRelations = getSelectedRelationItems(state);
+    const incomingRelations = getIncomingRelationItems(state);
+    const textContext = getTextReferenceContext(state);
+    const connectionCount = outgoingRelations.length + incomingRelations.length + textContext.outgoingMentions.length + textContext.backlinks.length;
+
+    domRefs.contextCurrent.innerHTML = `
+      <div class="context-current-card">
+        <span class="context-type">${escapeHtml(getEntryTypeLabel(selectedEntry.type))}</span>
+        <h3>${escapeHtml(selectedEntry.title || "未命名资料")}</h3>
+        <p>${escapeHtml(selectedEntry.summary || "还没有摘要，先写下一句最重要的设定。")}</p>
+        <div class="context-counts">
+          <span><strong>${connectionCount}</strong> 条连接</span>
+          <span><strong>${selectedEntry.timelineEvents?.length || 0}</strong> 个节点</span>
+        </div>
+      </div>
+    `;
+
+    const groups = [
+      {
+        label: "我关联的",
+        items: outgoingRelations.map((relation) => ({
+          entry: relation.targetEntry,
+          meta: relation.type,
+          direction: "→",
+        })),
+      },
+      {
+        label: "关联到我",
+        items: incomingRelations.map((relation) => ({
+          entry: relation.sourceEntry,
+          meta: relation.type,
+          direction: "←",
+        })),
+      },
+      {
+        label: "正文引用",
+        items: textContext.outgoingMentions.map((mention) => ({
+          entry: mention.entry,
+          meta: "文中提及",
+          direction: "↗",
+        })),
+      },
+      {
+        label: "反向引用",
+        items: textContext.backlinks.map((entry) => ({
+          entry,
+          meta: "提到了当前资料",
+          direction: "↙",
+        })),
+      },
+    ].filter((group) => group.items.length > 0);
+
+    domRefs.contextReferences.innerHTML = groups.length
+      ? groups.map((group) => `
+          <div class="context-reference-group">
+            <h4>${group.label}<span>${group.items.length}</span></h4>
+            ${group.items.map((item) => `
+              <button type="button" class="context-link" data-entry-id="${item.entry.id}">
+                <span class="context-direction">${item.direction}</span>
+                <span><strong>${escapeHtml(item.entry.title)}</strong><small>${escapeHtml(item.meta)}</small></span>
+              </button>
+            `).join("")}
+          </div>
+        `).join("")
+      : `<p class="context-empty">这里还没有连接。可在正文中输入 <code>[[词条名]]</code>，或在编辑区建立明确关系。</p>`;
+
+    domRefs.contextSuggestions.innerHTML = textContext.suggestions.length
+      ? textContext.suggestions.map(({ entry, reason }) => `
+          <button type="button" class="reference-suggestion" data-insert-reference="${escapeHtml(entry.title)}">
+            <span>＋</span><strong>${escapeHtml(entry.title)}</strong><small>${escapeHtml(reason)}</small>
+          </button>
+        `).join("")
+      : `<p class="context-empty compact">暂无新的引用建议。</p>`;
   }
 
   /**
@@ -841,7 +918,7 @@ export function createRenderer(domRefs) {
 
       <section id="wiki-summary" class="wiki-section">
         <h4>摘要</h4>
-        <p class="wiki-body">${escapeHtml(selectedEntry.summary || "当前还没有摘要内容。")}</p>
+        <p class="wiki-body">${renderLinkedText(selectedEntry.summary, state.entries, "当前还没有摘要内容。")}</p>
       </section>
 
       <section id="wiki-facts" class="wiki-section">
@@ -859,12 +936,12 @@ export function createRenderer(domRefs) {
 
       <section id="wiki-content" class="wiki-section">
         <h4>正文</h4>
-        <p class="wiki-body">${escapeHtml(selectedEntry.content || "这个条目还没有正文内容。")}</p>
+        <p class="wiki-body">${renderLinkedText(selectedEntry.content, state.entries, "这个条目还没有正文内容。")}</p>
       </section>
 
       <section id="wiki-notes" class="wiki-section">
         <h4>备注</h4>
-        <p class="wiki-notes">${escapeHtml(selectedEntry.notes || "当前还没有额外备注。")}</p>
+        <p class="wiki-notes">${renderLinkedText(selectedEntry.notes, state.entries, "当前还没有额外备注。")}</p>
       </section>
 
       ${
@@ -1012,6 +1089,7 @@ export function createRenderer(domRefs) {
     renderFocusCard(state);
     renderEntryList(state);
     renderEditor(state);
+    renderContextRail(state);
     renderProjectTimelineList(state);
     renderMapView(state);
     renderCanvasView(state);
@@ -1638,4 +1716,34 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+/**
+ * 百科阅读模式把 [[条目名]] 渲染成可点击的站内引用。
+ */
+function renderLinkedText(value, entries, fallback) {
+  const text = String(value || fallback || "");
+  const entryLookup = new Map();
+  entries.forEach((entry) => {
+    [entry.title, ...(entry.aliases || [])].filter(Boolean).forEach((label) => {
+      entryLookup.set(String(label).trim().toLocaleLowerCase("zh-CN"), entry);
+    });
+  });
+
+  let markup = "";
+  let cursor = 0;
+  const referencePattern = /\[\[([^\]]+)\]\]/g;
+
+  for (const match of text.matchAll(referencePattern)) {
+    markup += escapeHtml(text.slice(cursor, match.index)).replaceAll("\n", "<br>");
+    const label = match[1].trim();
+    const targetEntry = entryLookup.get(label.toLocaleLowerCase("zh-CN"));
+    markup += targetEntry
+      ? `<button type="button" class="inline-reference" data-entry-id="${targetEntry.id}">${escapeHtml(label)}</button>`
+      : `<span class="inline-reference unresolved" title="未找到对应资料">${escapeHtml(label)}</span>`;
+    cursor = match.index + match[0].length;
+  }
+
+  markup += escapeHtml(text.slice(cursor)).replaceAll("\n", "<br>");
+  return markup;
 }

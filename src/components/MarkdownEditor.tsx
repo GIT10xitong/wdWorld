@@ -52,8 +52,8 @@ export function MarkdownEditor({ content, onChange, placeholder = '输入内容.
   }
 
   return (
-    <div className="rounded-lg bg-white/5 border border-white/10 overflow-hidden">
-      <div className="flex items-center gap-1 p-2 border-b border-white/10 bg-white/5">
+    <div className="rich-editor rounded-lg bg-white/5 border border-white/10 overflow-hidden">
+      <div className="editor-toolbar flex items-center gap-1 p-2 border-b border-white/10 bg-white/5">
         <ToggleButton
           onClick={() => editor.chain().focus().toggleBold().run()}
           isActive={editor.isActive('bold')}

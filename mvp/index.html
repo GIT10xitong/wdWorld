@@ -9,25 +9,24 @@
   <body>
     <header class="topbar">
       <div class="brand-block">
-        <p class="eyebrow">WD World Local</p>
-        <h1>本地世界观工作台 Alpha</h1>
-        <p class="topbar-summary">
-          这是一套本地优先的世界观创作工作台原型，围绕“编辑 / 地图 / 画布 / 关系图 / 百科”推进，
-          目标是在本地环境里逐步做出接近公开展示版创作体验的工作流。
-        </p>
+        <span class="app-mark" aria-hidden="true">W</span>
+        <div>
+          <p class="eyebrow">WD WORLD</p>
+          <h1>故事工作室</h1>
+        </div>
       </div>
 
       <div class="topbar-actions">
-        <label class="project-name-field">
-          <span>项目名称</span>
+        <label class="project-name-field" title="项目名称">
+          <span>当前作品</span>
           <input id="project-name-input" type="text" placeholder="输入你的世界观项目名" />
         </label>
 
         <select id="new-entry-type-select" class="action-button type-select"></select>
-        <button id="create-entry-button" class="action-button primary">新建条目</button>
-        <button id="seed-demo-button" class="action-button">填充示例</button>
-        <button id="export-button" class="action-button">导出 JSON</button>
-        <label class="action-button import-button" for="import-file-input">导入 JSON</label>
+        <button id="create-entry-button" class="action-button primary">＋ 新建资料</button>
+        <button id="seed-demo-button" class="action-button secondary-action">示例</button>
+        <button id="export-button" class="action-button secondary-action">导出</button>
+        <label class="action-button import-button secondary-action" for="import-file-input">导入</label>
         <input id="import-file-input" type="file" accept=".json,application/json" hidden />
       </div>
     </header>
@@ -36,20 +35,20 @@
       <aside class="sidebar">
         <section class="panel toolkit-panel">
           <div class="panel-header">
-            <h2>工具集</h2>
+            <h2>创作空间</h2>
           </div>
           <div id="toolkit-tabs" class="toolkit-tabs"></div>
         </section>
 
         <section class="panel search-panel">
           <div class="panel-header">
-            <h2>条目浏览</h2>
+            <h2>资料库</h2>
             <span id="entry-counter" class="counter-badge">0</span>
           </div>
 
           <label class="field">
-            <span>搜索条目</span>
-            <input id="search-input" type="search" placeholder="标题、摘要、正文、标签、别名" />
+            <span class="sr-only">搜索资料</span>
+            <input id="search-input" type="search" placeholder="搜索人物、地点、线索…" />
           </label>
 
           <div id="type-filter-bar" class="type-filter-bar"></div>
@@ -60,7 +59,7 @@
       <section class="editor-area">
         <section class="panel overview-panel">
           <div class="panel-header">
-            <h2>项目概览</h2>
+            <h2>作品概览</h2>
             <span id="save-status" class="save-status">尚未保存</span>
           </div>
           <div id="project-stats" class="stats-grid"></div>
@@ -68,14 +67,17 @@
 
         <section class="panel focus-panel">
           <div class="panel-header">
-            <h2>当前焦点</h2>
+            <h2>当前资料</h2>
           </div>
           <div id="focus-card" class="focus-card"></div>
         </section>
 
         <section id="editor-view" class="panel view-panel">
           <div class="panel-header">
-            <h2>编辑</h2>
+            <div>
+              <p class="panel-kicker">STORY BIBLE</p>
+              <h2>资料编辑</h2>
+            </div>
             <button id="delete-entry-button" class="danger-link" type="button">删除当前条目</button>
           </div>
 
@@ -147,6 +149,7 @@
             <label class="field">
               <span>正文</span>
               <textarea id="content-input" name="content" rows="8" placeholder="这里用于记录条目的主要叙事内容"></textarea>
+              <small class="field-hint">输入 <code>[[词条名称]]</code>，即可在正文中引用其他资料。</small>
             </label>
 
             <label class="field">
@@ -260,13 +263,22 @@
 
             <section class="relation-section">
               <div class="panel-header compact">
-                <h3>关系</h3>
+                <div>
+                  <h3>明确关系</h3>
+                  <p class="panel-subtitle">建立人物、地点、组织与事件之间的结构化连接。</p>
+                </div>
               </div>
 
               <div class="relation-composer">
                 <select id="relation-target-select"></select>
-                <input id="relation-type-input" type="text" placeholder="例如：隶属于 / 守望 / 竞争 / 位于" />
-                <button id="add-relation-button" type="button" class="action-button">添加</button>
+                <input id="relation-type-input" type="text" list="relation-type-suggestions" placeholder="关系：盟友 / 目击 / 导致…" />
+                <datalist id="relation-type-suggestions">
+                  <option value="亲属"></option><option value="盟友"></option><option value="敌对"></option>
+                  <option value="隶属于"></option><option value="位于"></option><option value="参与"></option>
+                  <option value="目击"></option><option value="持有"></option><option value="导致"></option>
+                  <option value="知晓秘密"></option><option value="情感牵连"></option><option value="伏笔指向"></option>
+                </datalist>
+                <button id="add-relation-button" type="button" class="action-button">建立连接</button>
               </div>
 
               <div id="relation-list" class="relation-list"></div>
@@ -401,6 +413,27 @@
           </div>
         </section>
       </section>
+
+      <aside id="context-rail" class="context-rail" aria-label="故事连接">
+        <section class="context-section context-current-section">
+          <div class="context-heading">
+            <div><p class="panel-kicker">CONTEXT</p><h2>故事连接</h2></div>
+            <span class="context-live-dot" title="随编辑实时更新"></span>
+          </div>
+          <div id="context-current"></div>
+        </section>
+
+        <section class="context-section">
+          <div class="context-section-title"><h3>关联与引用</h3><span>双向追踪</span></div>
+          <div id="context-references" class="context-reference-list"></div>
+        </section>
+
+        <section class="context-section context-suggestion-section">
+          <div class="context-section-title"><h3>快速引用</h3><span>插入正文</span></div>
+          <p class="context-help">点击资料，将 <code>[[引用]]</code> 插入正文光标处。</p>
+          <div id="context-suggestions" class="context-suggestions"></div>
+        </section>
+      </aside>
     </main>
 
     <script type="module" src="./js/app.js"></script>

@@ -1,9 +1,15 @@
 import { useState } from 'react'
 import { useStore } from '@/store'
-import { FolderPlus, FolderOpen, X } from 'lucide-react'
+import { ArrowRight, BookOpen, FolderOpen, FolderPlus, Orbit, Sparkles, X } from 'lucide-react'
 
 export function WelcomePage() {
-  const { createProject, toggleCreateProjectModal, toggleOpenProjectModal, showCreateProjectModal, showOpenProjectModal } = useStore()
+  const {
+    createProject,
+    toggleCreateProjectModal,
+    toggleOpenProjectModal,
+    showCreateProjectModal,
+    showOpenProjectModal,
+  } = useStore()
   const [projectName, setProjectName] = useState('')
   const [projectDescription, setProjectDescription] = useState('')
 
@@ -15,124 +21,100 @@ export function WelcomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-6">
-      <div className="w-full max-w-2xl">
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 mb-6">
-            <span className="text-4xl font-bold text-white">W</span>
+    <main className="welcome-shell">
+      <div className="welcome-orbit welcome-orbit-one" aria-hidden="true" />
+      <div className="welcome-orbit welcome-orbit-two" aria-hidden="true" />
+
+      <section className="welcome-panel">
+        <div className="welcome-copy">
+          <div className="brand-lockup">
+            <div className="brand-mark"><Orbit /></div>
+            <div>
+              <span className="brand-name">VVD WORLD</span>
+              <span className="brand-edition">WORLD BUILDER</span>
+            </div>
           </div>
-          <h1 className="text-4xl font-bold text-white mb-3">wdworld</h1>
-          <p className="text-slate-400 text-lg">本地优先的 OC 设定工具</p>
+
+          <div className="welcome-hero">
+            <div className="eyebrow"><Sparkles size={14} /> 本地优先 · 灵感永存</div>
+            <h1>让散落的灵感，<br /><span>生长为一个世界。</span></h1>
+            <p>在同一处编织人物、地点、事件与关系。你的设定保存在本地，随时可以继续书写。</p>
+          </div>
+
+          <div className="welcome-stats" aria-label="产品特点">
+            <div><strong>08</strong><span>类设定条目</span></div>
+            <div><strong>∞</strong><span>关系与分支</span></div>
+            <div><strong>01</strong><span>完整世界</span></div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          <button
-            onClick={toggleCreateProjectModal}
-            className="flex flex-col items-center justify-center p-6 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/50 transition-all duration-300 group"
-          >
-            <div className="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center mb-4 group-hover:bg-purple-500/30 transition-colors">
-              <FolderPlus className="w-6 h-6 text-purple-400" />
-            </div>
-            <span className="text-white font-medium">新建项目</span>
-            <span className="text-slate-500 text-sm mt-1">开始一个新的设定世界</span>
+        <div className="welcome-actions">
+          <div className="action-heading">
+            <span>开始创作</span>
+            <p>建立新宇宙，或回到正在生长的世界。</p>
+          </div>
+
+          <button className="project-action project-action-primary" onClick={toggleCreateProjectModal}>
+            <span className="project-action-icon"><FolderPlus /></span>
+            <span className="project-action-copy">
+              <strong>新建世界</strong>
+              <small>从一个名字开始你的设定</small>
+            </span>
+            <ArrowRight className="project-action-arrow" />
           </button>
 
-          <button
-            onClick={toggleOpenProjectModal}
-            className="flex flex-col items-center justify-center p-6 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-blue-500/50 transition-all duration-300 group"
-          >
-            <div className="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center mb-4 group-hover:bg-blue-500/30 transition-colors">
-              <FolderOpen className="w-6 h-6 text-blue-400" />
-            </div>
-            <span className="text-white font-medium">打开项目</span>
-            <span className="text-slate-500 text-sm mt-1">继续编辑已有世界</span>
+          <button className="project-action" onClick={toggleOpenProjectModal}>
+            <span className="project-action-icon"><FolderOpen /></span>
+            <span className="project-action-copy">
+              <strong>打开已有项目</strong>
+              <small>继续编辑本地保存的世界</small>
+            </span>
+            <ArrowRight className="project-action-arrow" />
           </button>
+
+          <div className="welcome-tip"><BookOpen size={15} /> 所有内容仅存储在你的设备中</div>
         </div>
-      </div>
+      </section>
 
       {showCreateProjectModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-md bg-slate-800 rounded-xl border border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between p-6 border-b border-white/10">
-              <h2 className="text-xl font-bold text-white">新建项目</h2>
-              <button
-                onClick={toggleCreateProjectModal}
-                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-              >
-                <X className="w-5 h-5 text-slate-400" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">项目名称</label>
-                <input
-                  type="text"
-                  value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
-                  placeholder="输入项目名称..."
-                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">项目描述</label>
-                <textarea
-                  value={projectDescription}
-                  onChange={(e) => setProjectDescription(e.target.value)}
-                  placeholder="输入项目描述（可选）..."
-                  rows={3}
-                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors resize-none"
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={toggleCreateProjectModal}
-                  className="flex-1 px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-colors"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={handleCreateProject}
-                  disabled={!projectName.trim()}
-                  className="flex-1 px-4 py-3 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-                >
-                  创建
-                </button>
+        <div className="modal-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && toggleCreateProjectModal()}>
+          <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="create-project-title">
+            <header className="modal-header">
+              <div><span className="modal-kicker">NEW WORLD</span><h2 id="create-project-title">创建新世界</h2></div>
+              <button className="icon-button" onClick={toggleCreateProjectModal} aria-label="关闭"><X /></button>
+            </header>
+            <div className="modal-body">
+              <label className="field-label">世界名称
+                <input value={projectName} onChange={(e) => setProjectName(e.target.value)} placeholder="例如：雾海纪元" autoFocus onKeyDown={(e) => e.key === 'Enter' && handleCreateProject()} />
+              </label>
+              <label className="field-label">一句话简介 <span>可选</span>
+                <textarea value={projectDescription} onChange={(e) => setProjectDescription(e.target.value)} placeholder="这个世界最独特的规则是什么？" rows={4} />
+              </label>
+              <div className="modal-actions">
+                <button className="button-secondary" onClick={toggleCreateProjectModal}>取消</button>
+                <button className="button-primary" onClick={handleCreateProject} disabled={!projectName.trim()}>创建并进入 <ArrowRight size={17} /></button>
               </div>
             </div>
-          </div>
+          </section>
         </div>
       )}
 
       {showOpenProjectModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-md bg-slate-800 rounded-xl border border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between p-6 border-b border-white/10">
-              <h2 className="text-xl font-bold text-white">打开项目</h2>
-              <button
-                onClick={toggleOpenProjectModal}
-                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-              >
-                <X className="w-5 h-5 text-slate-400" />
-              </button>
+        <div className="modal-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && toggleOpenProjectModal()}>
+          <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="open-project-title">
+            <header className="modal-header">
+              <div><span className="modal-kicker">OPEN ARCHIVE</span><h2 id="open-project-title">打开已有项目</h2></div>
+              <button className="icon-button" onClick={toggleOpenProjectModal} aria-label="关闭"><X /></button>
+            </header>
+            <div className="modal-body open-project-empty">
+              <span className="empty-folder"><FolderOpen /></span>
+              <h3>选择世界档案</h3>
+              <p>从本地选择一个已有项目，继续你的创作。</p>
+              <button className="button-primary" onClick={toggleOpenProjectModal}>浏览本地文件 <ArrowRight size={17} /></button>
             </div>
-            <div className="p-6">
-              <div className="text-center py-8">
-                <div className="w-16 h-16 rounded-xl bg-blue-500/20 flex items-center justify-center mx-auto mb-4">
-                  <FolderOpen className="w-8 h-8 text-blue-400" />
-                </div>
-                <p className="text-slate-400">选择要打开的项目</p>
-                <button
-                  onClick={toggleOpenProjectModal}
-                  className="mt-4 px-6 py-2 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-colors"
-                >
-                  浏览文件
-                </button>
-              </div>
-            </div>
-          </div>
+          </section>
         </div>
       )}
-    </div>
+    </main>
   )
 }

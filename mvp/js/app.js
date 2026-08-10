@@ -18,6 +18,10 @@ const domRefs = {
   canvasColumns: document.querySelector("#canvas-columns"),
   canvasView: document.querySelector("#canvas-view"),
   conditionInput: document.querySelector("#condition-input"),
+  contextCurrent: document.querySelector("#context-current"),
+  contextRail: document.querySelector("#context-rail"),
+  contextReferences: document.querySelector("#context-references"),
+  contextSuggestions: document.querySelector("#context-suggestions"),
   contentInput: document.querySelector("#content-input"),
   createEntryButton: document.querySelector("#create-entry-button"),
   deleteEntryButton: document.querySelector("#delete-entry-button"),
@@ -406,6 +410,28 @@ function bindEvents() {
     if (button && !button.disabled) {
       stateManager.removeRelation(button.dataset.relationId);
     }
+  });
+
+  domRefs.contextRail.addEventListener("click", (event) => {
+    const entryLink = event.target.closest("[data-entry-id]");
+    if (entryLink?.dataset.entryId) {
+      stateManager.selectEntry(entryLink.dataset.entryId);
+      return;
+    }
+
+    const referenceButton = event.target.closest("[data-insert-reference]");
+    if (!referenceButton) return;
+
+    const referenceText = `[[${referenceButton.dataset.insertReference}]]`;
+    const input = domRefs.contentInput;
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? start;
+    const needsLeadingSpace = start > 0 && !/\s/.test(input.value[start - 1]);
+    const insertion = `${needsLeadingSpace ? " " : ""}${referenceText}`;
+    input.value = `${input.value.slice(0, start)}${insertion}${input.value.slice(end)}`;
+    input.focus();
+    input.setSelectionRange(start + insertion.length, start + insertion.length);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
   });
 
   domRefs.timelineList.addEventListener("click", (event) => {

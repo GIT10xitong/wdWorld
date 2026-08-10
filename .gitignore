@@ -2,5 +2,8 @@
 node_modules/
 dist/
 build/
+release/
+*.exe
+*.log
 Thumbs.db
 Desktop.ini

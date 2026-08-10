@@ -296,14 +296,15 @@ export function Workspace() {
   const availableTags = tags.filter((tag) => !entryTags.find((et) => et.id === tag.id))
 
   return (
-    <div className="h-screen flex bg-slate-900">
+    <div className="workspace-shell h-screen flex bg-slate-900">
       <aside
-        className={`${sidebarCollapsed ? 'w-16' : 'w-72'} flex flex-col bg-slate-800 border-r border-white/10 transition-all duration-300`}
+        className={`workspace-sidebar ${sidebarCollapsed ? 'w-16 is-collapsed' : 'w-72'} flex flex-col bg-slate-800 border-r border-white/10 transition-all duration-300`}
       >
         <div className="p-4 border-b border-white/10">
           <div className="flex items-center justify-between">
             {!sidebarCollapsed && (
               <div className="flex-1 min-w-0">
+                <span className="workspace-kicker">WORLD ARCHIVE</span>
                 <h1 className="text-white font-bold truncate">{currentProject?.name}</h1>
                 <p className="text-slate-500 text-xs truncate">{currentProject?.description}</p>
               </div>
@@ -445,8 +446,8 @@ export function Workspace() {
         )}
       </aside>
 
-      <main className="flex-1 flex flex-col">
-        <header className="h-14 flex items-center justify-between px-6 bg-slate-800/50 border-b border-white/10">
+      <main className="workspace-main flex-1 flex flex-col min-w-0">
+        <header className="workspace-topbar flex items-center justify-between px-6 bg-slate-800/50 border-b border-white/10">
           <div className="flex items-center gap-4">
             <h2 className="text-white font-semibold">
               {selectedEntry ? selectedEntry.title : '选择一个条目'}
@@ -459,7 +460,7 @@ export function Workspace() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex items-center bg-white/10 rounded-lg p-1">
+            <div className="view-switcher flex items-center bg-white/10 rounded-lg p-1">
               <button
                 onClick={() => setActiveView('editor')}
                 className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
@@ -561,9 +562,9 @@ export function Workspace() {
 
         <div className="flex-1 overflow-hidden">
           {activeView === 'editor' ? (
-            <div className="h-full overflow-y-auto p-6">
+            <div className="editor-scroll h-full overflow-y-auto p-6">
               {selectedEntry ? (
-                <div className="max-w-4xl mx-auto space-y-6">
+                <div className="editor-canvas max-w-4xl mx-auto space-y-6">
               {selectedCoverAssetId && (
                 <div className="relative rounded-xl overflow-hidden border border-white/10">
                   <img
