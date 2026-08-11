@@ -140,25 +140,39 @@ export function MarkdownEditor({ content, onChange, placeholder = '输入内容.
 
         <div className="w-px h-6 bg-white/10 mx-1" />
 
-        <ToolbarButton onClick={() => {
-          const url = window.prompt('输入链接地址：')
-          if (url) editor.chain().focus().setLink({ href: url }).run()
-        }} title="插入链接">
+        <ToolbarButton
+          onClick={() => {
+            const url = window.prompt('输入链接地址：')
+            if (url) editor.chain().focus().setLink({ href: url }).run()
+          }}
+          title="插入链接"
+        >
           <LinkIcon className="w-4 h-4" />
         </ToolbarButton>
-        <ToolbarButton onClick={() => {
-          const url = window.prompt('输入图片地址：')
-          if (url) editor.chain().focus().setImage({ src: url }).run()
-        }} title="插入图片">
+        <ToolbarButton
+          onClick={() => {
+            const url = window.prompt('输入图片地址：')
+            if (url) editor.chain().focus().setImage({ src: url }).run()
+          }}
+          title="插入图片"
+        >
           <ImageIcon className="w-4 h-4" />
         </ToolbarButton>
 
         <div className="flex-1" />
 
-        <ToolbarButton onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} title="撤销">
+        <ToolbarButton
+          onClick={() => editor.chain().focus().undo().run()}
+          disabled={!editor.can().undo()}
+          title="撤销"
+        >
           <Undo className="w-4 h-4" />
         </ToolbarButton>
-        <ToolbarButton onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} title="重做">
+        <ToolbarButton
+          onClick={() => editor.chain().focus().redo().run()}
+          disabled={!editor.can().redo()}
+          title="重做"
+        >
           <Redo className="w-4 h-4" />
         </ToolbarButton>
       </div>
@@ -170,7 +184,17 @@ export function MarkdownEditor({ content, onChange, placeholder = '输入内容.
   )
 }
 
-function ToggleButton({ children, onClick, isActive, title }: { children: React.ReactNode; onClick: () => void; isActive: boolean; title: string }) {
+function ToggleButton({
+  children,
+  onClick,
+  isActive,
+  title,
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  isActive: boolean
+  title: string
+}) {
   return (
     <button
       onClick={onClick}
@@ -184,7 +208,17 @@ function ToggleButton({ children, onClick, isActive, title }: { children: React.
   )
 }
 
-function ToolbarButton({ children, onClick, disabled, title }: { children: React.ReactNode; onClick: () => void; disabled?: boolean; title: string }) {
+function ToolbarButton({
+  children,
+  onClick,
+  disabled,
+  title,
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  disabled?: boolean
+  title: string
+}) {
   return (
     <button
       onClick={onClick}

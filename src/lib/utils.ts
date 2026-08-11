@@ -7,7 +7,7 @@ export function generateSlug(text: string): string {
   return text
     .toLowerCase()
     .replace(/[\s]+/g, '-')
-    .replace(/[^a-z0-9\u4e00-\u9fa5\-]/g, '')
+    .replace(/[^a-z0-9\u4e00-\u9fa5-]/g, '')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
 }
@@ -25,7 +25,7 @@ export function formatDate(dateStr: string): string {
 
 export function debounce<T extends (...args: unknown[]) => void>(
   func: T,
-  wait: number
+  wait: number,
 ): ((...args: Parameters<T>) => void) & { cancel: () => void } {
   let timeout: ReturnType<typeof setTimeout> | null = null
   const debounced = (...args: Parameters<T>) => {
@@ -53,3 +53,27 @@ export function getNow(): string {
 export function normalizeString(str: string): string {
   return str.toLowerCase().trim().replace(/\s+/g, '')
 }
+
+declare global {
+  interface Window {
+    wdAPI?: {
+      isElectron: () => boolean
+      saveProject: (
+        projectId: string,
+        projectJson: string,
+        dbBase64: string,
+      ) => Promise<{ ok: boolean; error?: string }>
+      loadProject: (
+        projectId: string,
+      ) => Promise<{ projectJson: string | null; dbBase64: string | null; error?: string } | null>
+      listProjects: () => Promise<{
+        projects: Array<{ id: string; name: string; createdAt: string; updatedAt: string }>
+        error?: string
+      }>
+      deleteProject: (projectId: string) => Promise<{ ok: boolean; error?: string }>
+      saveRecentProjects: (list: unknown) => Promise<{ ok: boolean; error?: string }>
+      loadRecentProjects: () => Promise<{ list: unknown | null; error?: string }>
+    }
+  }
+}
+export {}

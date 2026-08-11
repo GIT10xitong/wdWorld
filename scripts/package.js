@@ -1,37 +1,37 @@
-const fs = require('fs');
-const path = require('path');
-const { execSync } = require('child_process');
+const fs = require('fs')
+const path = require('path')
+const { execSync } = require('child_process')
 
-const projectDir = path.dirname(__dirname);
-const distDir = path.join(projectDir, 'dist');
-const releaseDir = path.join(projectDir, 'release');
-const appDir = path.join(releaseDir, 'WDWorld');
+const projectDir = path.dirname(__dirname)
+const distDir = path.join(projectDir, 'dist')
+const releaseDir = path.join(projectDir, 'release')
+const appDir = path.join(releaseDir, 'WDWorld')
 
-console.log('=== WD World Packaging Script ===');
-console.log('Project Dir:', projectDir);
-console.log('Dist Dir:', distDir);
-console.log('Release Dir:', releaseDir);
+console.log('=== WD World Packaging Script ===')
+console.log('Project Dir:', projectDir)
+console.log('Dist Dir:', distDir)
+console.log('Release Dir:', releaseDir)
 
 if (!fs.existsSync(distDir)) {
-  console.error('Error: dist directory not found. Please run "npm run build" first.');
-  process.exit(1);
+  console.error('Error: dist directory not found. Please run "npm run build" first.')
+  process.exit(1)
 }
 
 try {
-  console.log('\nStep 1: Cleaning release directory...');
+  console.log('\nStep 1: Cleaning release directory...')
   if (fs.existsSync(releaseDir)) {
-    execSync(`rmdir /s /q "${releaseDir}"`, { stdio: 'ignore' });
+    execSync(`rmdir /s /q "${releaseDir}"`, { stdio: 'ignore' })
   }
-  fs.mkdirSync(appDir, { recursive: true });
-  console.log('Done.');
+  fs.mkdirSync(appDir, { recursive: true })
+  console.log('Done.')
 
-  console.log('\nStep 2: Copying application files...');
-  execSync(`xcopy /e /i "${distDir}\\assets" "${appDir}\\assets"`, { stdio: 'ignore' });
-  execSync(`copy "${distDir}\\index.html" "${appDir}\\index.html"`, { stdio: 'ignore' });
-  console.log('Done.');
+  console.log('\nStep 2: Copying application files...')
+  execSync(`xcopy /e /i "${distDir}\\assets" "${appDir}\\assets"`, { stdio: 'ignore' })
+  execSync(`copy "${distDir}\\index.html" "${appDir}\\index.html"`, { stdio: 'ignore' })
+  console.log('Done.')
 
-  console.log('\nStep 3: Creating startup script...');
-  
+  console.log('\nStep 3: Creating startup script...')
+
   const startupScript = `@echo off
 title WD World - Local Worldbuilding Tool
 cd /d "%~dp0"
@@ -41,13 +41,13 @@ echo.
 
 python -m http.server 4173
 
-pause`;
-  
-  fs.writeFileSync(path.join(appDir, 'start.bat'), startupScript);
-  console.log('Done.');
+pause`
 
-  console.log('\nStep 4: Creating README...');
-  
+  fs.writeFileSync(path.join(appDir, 'start.bat'), startupScript)
+  console.log('Done.')
+
+  console.log('\nStep 4: Creating README...')
+
   const readmeContent = `WD World - Local Worldbuilding Tool
 ================================
 
@@ -88,20 +88,20 @@ Features:
 Data Storage:
 - All data is stored locally in your browser's localStorage
 - No cloud dependency
-- Data is automatically saved`;
-  
-  fs.writeFileSync(path.join(appDir, 'README.txt'), readmeContent);
-  console.log('Done.');
+- Data is automatically saved`
 
-  console.log('\nStep 5: Checking if Python is available...');
+  fs.writeFileSync(path.join(appDir, 'README.txt'), readmeContent)
+  console.log('Done.')
+
+  console.log('\nStep 5: Checking if Python is available...')
   try {
-    const pythonVersion = execSync('python --version', { encoding: 'utf-8' });
-    console.log('Python found:', pythonVersion.trim());
+    const pythonVersion = execSync('python --version', { encoding: 'utf-8' })
+    console.log('Python found:', pythonVersion.trim())
   } catch (err) {
-    console.log('Python not found, trying python3...');
+    console.log('Python not found, trying python3...')
     try {
-      const pythonVersion = execSync('python3 --version', { encoding: 'utf-8' });
-      console.log('Python3 found:', pythonVersion.trim());
+      const pythonVersion = execSync('python3 --version', { encoding: 'utf-8' })
+      console.log('Python3 found:', pythonVersion.trim())
       const startupScriptPython3 = `@echo off
 title WD World - Local Worldbuilding Tool
 cd /d "%~dp0"
@@ -111,12 +111,12 @@ echo.
 
 python3 -m http.server 4173
 
-pause`;
-      fs.writeFileSync(path.join(appDir, 'start.bat'), startupScriptPython3);
+pause`
+      fs.writeFileSync(path.join(appDir, 'start.bat'), startupScriptPython3)
     } catch (err2) {
-      console.warn('Warning: Python not found. You may need to install Python or use Node.js.');
-      console.log('Creating Node.js startup script...');
-      
+      console.warn('Warning: Python not found. You may need to install Python or use Node.js.')
+      console.log('Creating Node.js startup script...')
+
       const nodeServer = `const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -159,10 +159,10 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log('WD World server running at http://localhost:' + PORT + '/');
   console.log('Press Ctrl+C to stop the server');
-});`;
-      
-      fs.writeFileSync(path.join(appDir, 'server.js'), nodeServer);
-      
+});`
+
+      fs.writeFileSync(path.join(appDir, 'server.js'), nodeServer)
+
       const startupScriptNode = `@echo off
 title WD World - Local Worldbuilding Tool
 cd /d "%~dp0"
@@ -172,23 +172,22 @@ echo.
 
 node server.js
 
-pause`;
-      fs.writeFileSync(path.join(appDir, 'start.bat'), startupScriptNode);
+pause`
+      fs.writeFileSync(path.join(appDir, 'start.bat'), startupScriptNode)
     }
   }
 
-  console.log('\n=== Packaging Complete! ===');
-  console.log('');
-  console.log('Your application is ready at:');
-  console.log(appDir);
-  console.log('');
-  console.log('To run:');
-  console.log('1. Navigate to the release folder');
-  console.log('2. Double-click start.bat');
-  console.log('3. Open http://localhost:4173 in your browser');
-  console.log('');
-
+  console.log('\n=== Packaging Complete! ===')
+  console.log('')
+  console.log('Your application is ready at:')
+  console.log(appDir)
+  console.log('')
+  console.log('To run:')
+  console.log('1. Navigate to the release folder')
+  console.log('2. Double-click start.bat')
+  console.log('3. Open http://localhost:4173 in your browser')
+  console.log('')
 } catch (err) {
-  console.error('Error:', err.message);
-  process.exit(1);
+  console.error('Error:', err.message)
+  process.exit(1)
 }

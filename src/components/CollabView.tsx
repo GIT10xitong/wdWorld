@@ -23,7 +23,21 @@ interface ExportData {
 }
 
 export function CollabView() {
-  const { currentProject, entries, tags, relations, projectAssets, anchors, entryTimelineEvents, worldTimelineEvents, templates, saveProject, openProject, initializeDatabase, database } = useStore()
+  const {
+    currentProject,
+    entries,
+    tags,
+    relations,
+    projectAssets,
+    anchors,
+    entryTimelineEvents,
+    worldTimelineEvents,
+    templates,
+    saveProject,
+    openProject,
+    initializeDatabase,
+    database,
+  } = useStore()
   const [exportData, setExportData] = useState<string>('')
   const [importStatus, setImportStatus] = useState<'idle' | 'importing' | 'success' | 'error'>('idle')
   const [importMessage, setImportMessage] = useState('')
@@ -89,14 +103,14 @@ export function CollabView() {
 
       if (database) {
         await database.createProject(data.project.name, data.project.description)
-        
+
         for (const entry of data.entries) {
           await database.createEntry(
             data.project.id,
             entry.type,
             entry.title,
             entry.summary || '',
-            entry.content || ''
+            entry.content || '',
           )
         }
 
@@ -105,23 +119,56 @@ export function CollabView() {
         }
 
         for (const relation of data.relations) {
-          await database.createRelation(relation.sourceEntryId, relation.targetEntryId, relation.type, relation.note || '')
+          await database.createRelation(
+            relation.sourceEntryId,
+            relation.targetEntryId,
+            relation.type,
+            relation.note || '',
+          )
         }
 
         for (const asset of data.assets) {
-          await database.createAsset(data.project.id, asset.kind, asset.filename, asset.relativePath, asset.mimeType, asset.size, asset.checksum || undefined)
+          await database.createAsset(
+            data.project.id,
+            asset.kind,
+            asset.filename,
+            asset.relativePath,
+            asset.mimeType,
+            asset.size,
+            asset.checksum || undefined,
+          )
         }
 
         for (const anchor of data.anchors) {
-          await database.createAnchor(anchor.entryId, anchor.label, anchor.x, anchor.y, anchor.notes || undefined)
+          await database.createAnchor(
+            anchor.entryId,
+            anchor.label,
+            anchor.x,
+            anchor.y,
+            anchor.notes || undefined,
+          )
         }
 
         for (const event of data.timelineEvents) {
-          await database.createTimelineEvent(event.entryId, event.pointLabel, event.title, event.sortValue, event.description)
+          await database.createTimelineEvent(
+            event.entryId,
+            event.pointLabel,
+            event.title,
+            event.sortValue,
+            event.description,
+          )
         }
 
         for (const template of data.templates) {
-          await database.createTemplate(data.project.id, template.name, template.type, template.description, template.content, template.tags, template.aliases)
+          await database.createTemplate(
+            data.project.id,
+            template.name,
+            template.type,
+            template.description,
+            template.content,
+            template.tags,
+            template.aliases,
+          )
         }
 
         await saveProject()
@@ -155,14 +202,14 @@ export function CollabView() {
 
       if (database) {
         await database.createProject(data.project.name, data.project.description)
-        
+
         for (const entry of data.entries) {
           await database.createEntry(
             data.project.id,
             entry.type,
             entry.title,
             entry.summary || '',
-            entry.content || ''
+            entry.content || '',
           )
         }
 
@@ -171,23 +218,56 @@ export function CollabView() {
         }
 
         for (const relation of data.relations) {
-          await database.createRelation(relation.sourceEntryId, relation.targetEntryId, relation.type, relation.note || '')
+          await database.createRelation(
+            relation.sourceEntryId,
+            relation.targetEntryId,
+            relation.type,
+            relation.note || '',
+          )
         }
 
         for (const asset of data.assets) {
-          await database.createAsset(data.project.id, asset.kind, asset.filename, asset.relativePath, asset.mimeType, asset.size, asset.checksum || undefined)
+          await database.createAsset(
+            data.project.id,
+            asset.kind,
+            asset.filename,
+            asset.relativePath,
+            asset.mimeType,
+            asset.size,
+            asset.checksum || undefined,
+          )
         }
 
         for (const anchor of data.anchors) {
-          await database.createAnchor(anchor.entryId, anchor.label, anchor.x, anchor.y, anchor.notes || undefined)
+          await database.createAnchor(
+            anchor.entryId,
+            anchor.label,
+            anchor.x,
+            anchor.y,
+            anchor.notes || undefined,
+          )
         }
 
         for (const event of data.timelineEvents) {
-          await database.createTimelineEvent(event.entryId, event.pointLabel, event.title, event.sortValue, event.description)
+          await database.createTimelineEvent(
+            event.entryId,
+            event.pointLabel,
+            event.title,
+            event.sortValue,
+            event.description,
+          )
         }
 
         for (const template of data.templates) {
-          await database.createTemplate(data.project.id, template.name, template.type, template.description, template.content, template.tags, template.aliases)
+          await database.createTemplate(
+            data.project.id,
+            template.name,
+            template.type,
+            template.description,
+            template.content,
+            template.tags,
+            template.aliases,
+          )
         }
 
         await saveProject()
@@ -293,8 +373,14 @@ export function CollabView() {
               <div
                 className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors"
                 style={{
-                  borderColor: importStatus === 'success' ? '#22c55e' : importStatus === 'error' ? '#ef4444' : '#475569',
-                  backgroundColor: importStatus === 'success' ? 'rgba(34, 197, 94, 0.1)' : importStatus === 'error' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(71, 85, 105, 0.1)',
+                  borderColor:
+                    importStatus === 'success' ? '#22c55e' : importStatus === 'error' ? '#ef4444' : '#475569',
+                  backgroundColor:
+                    importStatus === 'success'
+                      ? 'rgba(34, 197, 94, 0.1)'
+                      : importStatus === 'error'
+                        ? 'rgba(239, 68, 68, 0.1)'
+                        : 'rgba(71, 85, 105, 0.1)',
                 }}
                 onClick={() => fileInputRef.current?.click()}
               >

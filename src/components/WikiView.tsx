@@ -1,7 +1,21 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '@/store'
+import { getEntryPlaceholderSource, resolveAssetSource } from '@/lib/assetSources'
 import { Entry, EntryType, Relation } from '@/types'
-import { BookOpen, Search, ChevronRight, Clock, MapPin, Users, Building, Sword, Scroll, Folder, FileText, ExternalLink } from 'lucide-react'
+import {
+  BookOpen,
+  Search,
+  ChevronRight,
+  Clock,
+  MapPin,
+  Users,
+  Building,
+  Sword,
+  Scroll,
+  Folder,
+  FileText,
+  ExternalLink,
+} from 'lucide-react'
 
 const ENTRY_TYPE_ICONS: Record<EntryType, typeof BookOpen> = {
   character: Users,
@@ -19,6 +33,7 @@ export function WikiView() {
     entries,
     tags,
     relations,
+    projectAssets,
     selectedEntryId,
     selectEntry,
     fetchEntries,
@@ -41,24 +56,34 @@ export function WikiView() {
       return false
     }
     if (selectedTagId) {
-      const entryTags = tags.filter((tag) =>
-        relations.some((r) => r.sourceEntryId === entry.id && r.targetEntryId === tag.id) ||
-        relations.some((r) => r.targetEntryId === entry.id && r.sourceEntryId === tag.id)
+      const entryTags = tags.filter(
+        (tag) =>
+          relations.some((r) => r.sourceEntryId === entry.id && r.targetEntryId === tag.id) ||
+          relations.some((r) => r.targetEntryId === entry.id && r.sourceEntryId === tag.id),
       )
       return entryTags.some((tag) => tag.id === selectedTagId)
     }
     return true
   })
 
-  const groupedEntries = filteredEntries.reduce((acc, entry) => {
-    if (!acc[entry.type]) {
-      acc[entry.type] = []
-    }
-    acc[entry.type].push(entry)
-    return acc
-  }, {} as Record<EntryType, Entry[]>)
+  const groupedEntries = filteredEntries.reduce(
+    (acc, entry) => {
+      if (!acc[entry.type]) {
+        acc[entry.type] = []
+      }
+      acc[entry.type].push(entry)
+      return acc
+    },
+    {} as Record<EntryType, Entry[]>,
+  )
 
   const selectedEntry = entries.find((e) => e.id === selectedEntryId)
+
+  const getEntryCoverSource = (entry: Entry) =>
+    resolveAssetSource(
+      projectAssets.find((asset) => asset.id === entry.coverAssetId),
+      getEntryPlaceholderSource(entry.type),
+    )
 
   const getEntryRelations = (entryId: string): { targetEntry: Entry | undefined; relation: Relation }[] => {
     return relations
@@ -139,7 +164,9 @@ export function WikiView() {
                   key={tag.id}
                   onClick={() => setSelectedTagId(tag.id)}
                   className={`px-2 py-1 rounded-full text-xs transition-colors ${
-                    selectedTagId === tag.id ? 'bg-purple-500 text-white' : 'bg-white/10 text-slate-400 hover:bg-white/20'
+                    selectedTagId === tag.id
+                      ? 'bg-purple-500 text-white'
+                      : 'bg-white/10 text-slate-400 hover:bg-white/20'
                   }`}
                   style={tag.color ? { backgroundColor: `${tag.color}20`, color: tag.color } : {}}
                 >
@@ -171,17 +198,22 @@ export function WikiView() {
                   {expandedTypes.has(type) && (
                     <div className="ml-4 mt-1 space-y-1">
                       {typeEntries.map((entry) => (
-                        <div
+                        <button
                           key={entry.id}
                           onClick={() => selectEntry(entry.id)}
-                          className={`px-3 py-1.5 rounded-lg text-sm cursor-pointer transition-colors ${
+                          className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${
                             selectedEntryId === entry.id
                               ? 'bg-purple-500/20 text-white'
                               : 'text-slate-400 hover:bg-white/5 hover:text-white'
                           }`}
                         >
-                          {entry.title}
-                        </div>
+                          <img
+                            src={getEntryCoverSource(entry)}
+                            alt=""
+                            className="h-8 w-8 shrink-0 rounded-md object-cover opacity-80"
+                          />
+                          <span className="truncate">{entry.title}</span>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -201,6 +233,20 @@ export function WikiView() {
         <div className="flex-1 overflow-y-auto">
           {selectedEntry ? (
             <div className="max-w-3xl mx-auto p-8">
+              <div className="relative mb-7 h-56 overflow-hidden rounded-2xl border border-white/10">
+                <img
+                  src={getEntryCoverSource(selectedEntry)}
+                  alt={`${ENTRY_TYPE_LABELS[selectedEntry.type]}封面`}
+                  className="h-full w-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-6">
+                  <span className="rounded-full bg-black/35 px-2.5 py-1 text-xs text-slate-200 backdrop-blur">
+                    {ENTRY_TYPE_LABELS[selectedEntry.type]}
+                  </span>
+                  <h1 className="mt-2 text-3xl font-bold text-white">{selectedEntry.title}</h1>
+                </div>
+              </div>
               <div className="mb-6">
                 <div className="flex items-center gap-2 mb-2">
                   {(() => {
@@ -209,10 +255,7 @@ export function WikiView() {
                   })()}
                   <span className="text-sm text-slate-400">{ENTRY_TYPE_LABELS[selectedEntry.type]}</span>
                 </div>
-                <h1 className="text-3xl font-bold text-white">{selectedEntry.title}</h1>
-                {selectedEntry.summary && (
-                  <p className="text-slate-400 mt-2">{selectedEntry.summary}</p>
-                )}
+                {selectedEntry.summary && <p className="text-slate-400 mt-2">{selectedEntry.summary}</p>}
               </div>
 
               {selectedEntry.content && (
@@ -295,9 +338,7 @@ export function WikiView() {
                 </div>
               </div>
 
-              <div className="mt-8 text-xs text-slate-500">
-                更新于 {formatDate(selectedEntry.updatedAt)}
-              </div>
+              <div className="mt-8 text-xs text-slate-500">更新于 {formatDate(selectedEntry.updatedAt)}</div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-slate-500">
@@ -324,7 +365,7 @@ const ENTRY_TYPE_LABELS: Record<EntryType, string> = {
 }
 
 function markdownToHtml(markdown: string): string {
-  let html = markdown
+  const html = markdown
     .replace(/^### (.*$)/gim, '<h3>$1</h3>')
     .replace(/^## (.*$)/gim, '<h2>$1</h2>')
     .replace(/^# (.*$)/gim, '<h1>$1</h1>')
