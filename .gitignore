@@ -1,9 +1,6 @@
-.vs/
 node_modules/
 dist/
-build/
 release/
-*.exe
+coverage/
 *.log
-Thumbs.db
-Desktop.ini
+.DS_Store

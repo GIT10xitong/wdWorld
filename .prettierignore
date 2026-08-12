@@ -1,0 +1,7 @@
+dist
+release
+coverage
+node_modules
+package-lock.json
+public/sql-wasm.wasm
+src/assets/**/*.png

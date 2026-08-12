@@ -1,7 +1,14 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useStore } from '@/store'
-import { EntryType } from '@/types'
-import { GitBranch, ZoomIn, ZoomOut, Crosshair, MousePointer } from 'lucide-react'
+import { EntryType, RELATION_TYPE_META, RELATION_TYPE_LABELS, ENTRY_TYPE_LABELS, Entry } from '@/types'
+import { GitBranch, ZoomIn, ZoomOut, Crosshair, MousePointer, RefreshCw, Pin } from 'lucide-react'
+import {
+  runForceSimulation,
+  initializePositions,
+  getNodeRadius,
+  ForceNode,
+  ForceEdge,
+} from '@/lib/forceLayout'
 
 const ENTRY_TYPE_COLORS: Record<EntryType, string> = {
   character: '#3b82f6',
@@ -14,6 +21,9 @@ const ENTRY_TYPE_COLORS: Record<EntryType, string> = {
   note: '#6b7280',
 }
 
+const SIM_WIDTH = 1200
+const SIM_HEIGHT = 900
+
 export function GraphView() {
   const { entries, relations, selectedEntryId, selectEntry, fetchEntries, fetchRelations } = useStore()
 
@@ -22,97 +32,132 @@ export function GraphView() {
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>({})
+  const [pinnedNodes, setPinnedNodes] = useState<Set<string>>(new Set())
   const [hoveredNode, setHoveredNode] = useState<string | null>(null)
   const [selectedNodes, setSelectedNodes] = useState<string[]>([])
+  const [simKey, setSimKey] = useState(0)
+
+  const [draggingNode, setDraggingNode] = useState<string | null>(null)
+  const [dragNodeOffset, setDragNodeOffset] = useState({ x: 0, y: 0 })
+  const [preDragPos, setPreDragPos] = useState<{ x: number; y: number } | null>(null)
+
   const containerRef = useRef<HTMLDivElement>(null)
+  const svgRef = useRef<SVGSVGElement>(null)
 
   useEffect(() => {
     fetchEntries()
     fetchRelations()
   }, [])
 
-  useEffect(() => {
-    const positions: Record<string, { x: number; y: number }> = {}
-    const width = 800
-    const height = 600
-    const padding = 100
+  const visibleRelations = useMemo(() => {
+    return relations.filter((r) => {
+      if (!selectedEntryId) return true
+      return r.sourceEntryId === selectedEntryId || r.targetEntryId === selectedEntryId
+    })
+  }, [relations, selectedEntryId])
 
-    const centerX = width / 2 + padding
-    const centerY = height / 2 + padding
-
-    if (selectedEntryId) {
-      positions[selectedEntryId] = { x: centerX, y: centerY }
-
-      const relatedRelations = relations.filter(
-        (r) => r.sourceEntryId === selectedEntryId || r.targetEntryId === selectedEntryId
+  const visibleEntries = useMemo(() => {
+    return entries.filter((entry) => {
+      if (!selectedEntryId) return true
+      if (entry.id === selectedEntryId) return true
+      return relations.some(
+        (r) =>
+          (r.sourceEntryId === entry.id && r.targetEntryId === selectedEntryId) ||
+          (r.targetEntryId === entry.id && r.sourceEntryId === selectedEntryId),
       )
-
-      const angleStep = (2 * Math.PI) / Math.max(relatedRelations.length, 1)
-      relatedRelations.forEach((relation, index) => {
-        const targetId = relation.sourceEntryId === selectedEntryId ? relation.targetEntryId : relation.sourceEntryId
-        const angle = index * angleStep - Math.PI / 2
-        const radius = 200
-        positions[targetId] = {
-          x: centerX + Math.cos(angle) * radius,
-          y: centerY + Math.sin(angle) * radius,
-        }
-      })
-
-      const secondLevelIds = new Set<string>()
-      relatedRelations.forEach((relation) => {
-        const targetId = relation.sourceEntryId === selectedEntryId ? relation.targetEntryId : relation.sourceEntryId
-        relations.forEach((r) => {
-          if (r.sourceEntryId === targetId && r.targetEntryId !== selectedEntryId) {
-            secondLevelIds.add(r.targetEntryId)
-          }
-          if (r.targetEntryId === targetId && r.sourceEntryId !== selectedEntryId) {
-            secondLevelIds.add(r.sourceEntryId)
-          }
-        })
-      })
-
-      let secondIndex = 0
-      secondLevelIds.forEach((id) => {
-        if (!positions[id]) {
-          const angle = secondIndex * angleStep * 0.5 + Math.PI / 4
-          const radius = 350
-          positions[id] = {
-            x: centerX + Math.cos(angle) * radius,
-            y: centerY + Math.sin(angle) * radius,
-          }
-          secondIndex++
-        }
-      })
-    } else {
-      entries.forEach((entry, index) => {
-        const angle = (index / entries.length) * 2 * Math.PI - Math.PI / 2
-        const radius = Math.min(width, height) / 3
-        positions[entry.id] = {
-          x: centerX + Math.cos(angle) * radius,
-          y: centerY + Math.sin(angle) * radius,
-        }
-      })
-    }
-
-    setNodePositions(positions)
+    })
   }, [entries, relations, selectedEntryId])
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.target === containerRef.current) {
-      setIsDragging(true)
-      setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y })
+  const runLayout = useCallback(() => {
+    if (visibleEntries.length === 0) {
+      setNodePositions({})
+      return
     }
-  }, [offset])
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isDragging) {
-      setOffset({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y })
-    }
-  }, [isDragging, dragStart])
+    const initPos = initializePositions(visibleEntries, selectedEntryId, relations, SIM_WIDTH, SIM_HEIGHT)
+
+    const forceNodes: ForceNode[] = visibleEntries.map((e) => {
+      const pos = initPos[e.id] || { x: SIM_WIDTH / 2, y: SIM_HEIGHT / 2 }
+      return {
+        id: e.id,
+        x: pos.x,
+        y: pos.y,
+        vx: 0,
+        vy: 0,
+        radius: getNodeRadius(e.type),
+        pinned: pinnedNodes.has(e.id),
+        fixed: e.id === selectedEntryId || pinnedNodes.has(e.id),
+      }
+    })
+
+    const forceEdges: ForceEdge[] = visibleRelations.map((r) => ({
+      source: r.sourceEntryId,
+      target: r.targetEntryId,
+    }))
+
+    const result = runForceSimulation(forceNodes, forceEdges, {
+      width: SIM_WIDTH,
+      height: SIM_HEIGHT,
+    })
+
+    const positions: Record<string, { x: number; y: number }> = {}
+    result.forEach((n) => {
+      positions[n.id] = { x: n.x, y: n.y }
+    })
+    setNodePositions(positions)
+  }, [visibleEntries, visibleRelations, selectedEntryId, relations, pinnedNodes])
+
+  useEffect(() => {
+    runLayout()
+  }, [simKey, visibleEntries.length, selectedEntryId])
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (draggingNode) return
+      if (e.target === containerRef.current || e.target === svgRef.current) {
+        setIsDragging(true)
+        setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y })
+      }
+    },
+    [offset, draggingNode],
+  )
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (draggingNode && svgRef.current) {
+        const rect = svgRef.current.getBoundingClientRect()
+        const svgX = (e.clientX - rect.left - offset.x) / scale
+        const svgY = (e.clientY - rect.top - offset.y) / scale
+        setNodePositions((prev) => ({
+          ...prev,
+          [draggingNode]: {
+            x: svgX - dragNodeOffset.x,
+            y: svgY - dragNodeOffset.y,
+          },
+        }))
+        return
+      }
+      if (isDragging) {
+        setOffset({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y })
+      }
+    },
+    [isDragging, dragStart, draggingNode, dragNodeOffset, offset, scale],
+  )
 
   const handleMouseUp = useCallback(() => {
+    if (draggingNode) {
+      if (!pinnedNodes.has(draggingNode) && preDragPos) {
+        setNodePositions((prev) => ({
+          ...prev,
+          [draggingNode]: preDragPos,
+        }))
+      }
+      setDraggingNode(null)
+      setPreDragPos(null)
+      return
+    }
     setIsDragging(false)
-  }, [])
+  }, [draggingNode, pinnedNodes, preDragPos])
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault()
@@ -120,59 +165,71 @@ export function GraphView() {
     setScale((prev) => Math.max(0.3, Math.min(3, prev + delta)))
   }, [])
 
-  const handleNodeClick = useCallback((entryId: string) => {
-    selectEntry(entryId)
-    setSelectedNodes((prev) => (prev.includes(entryId) ? prev.filter((id) => id !== entryId) : [...prev, entryId]))
-  }, [selectEntry])
+  const handleNodeMouseDown = useCallback(
+    (e: React.MouseEvent, entryId: string) => {
+      e.stopPropagation()
+      const pos = nodePositions[entryId]
+      if (!pos || !svgRef.current) return
 
-  const visibleRelations = relations.filter((r) => {
-    if (!selectedEntryId) return true
-    return r.sourceEntryId === selectedEntryId || r.targetEntryId === selectedEntryId
-  })
+      const rect = svgRef.current.getBoundingClientRect()
+      const svgX = (e.clientX - rect.left - offset.x) / scale
+      const svgY = (e.clientY - rect.top - offset.y) / scale
 
-  const visibleEntries = entries.filter((entry) => {
-    if (!selectedEntryId) return true
-    if (entry.id === selectedEntryId) return true
-    return relations.some(
-      (r) =>
-        (r.sourceEntryId === entry.id && r.targetEntryId === selectedEntryId) ||
-        (r.targetEntryId === entry.id && r.sourceEntryId === selectedEntryId)
-    )
-  })
+      setDraggingNode(entryId)
+      setDragNodeOffset({ x: svgX - pos.x, y: svgY - pos.y })
+      setPreDragPos({ x: pos.x, y: pos.y })
+    },
+    [nodePositions, offset, scale],
+  )
+
+  const handleNodeClick = useCallback(
+    (e: React.MouseEvent, entryId: string) => {
+      e.stopPropagation()
+      if (draggingNode) return
+      selectEntry(entryId)
+      setSelectedNodes((prev) =>
+        prev.includes(entryId) ? prev.filter((id) => id !== entryId) : [...prev, entryId],
+      )
+    },
+    [selectEntry, draggingNode],
+  )
+
+  const handleNodeDoubleClick = useCallback(
+    (e: React.MouseEvent, entryId: string) => {
+      e.stopPropagation()
+      selectEntry(entryId)
+    },
+    [selectEntry],
+  )
+
+  const togglePinNode = useCallback((e: React.MouseEvent, entryId: string) => {
+    e.stopPropagation()
+    setPinnedNodes((prev) => {
+      const next = new Set(prev)
+      if (next.has(entryId)) {
+        next.delete(entryId)
+      } else {
+        next.add(entryId)
+      }
+      return next
+    })
+  }, [])
+
+  const handleRelayout = useCallback(() => {
+    setSimKey((k) => k + 1)
+  }, [])
 
   const getRelationTypeColor = (type: string): string => {
-    const colors: Record<string, string> = {
-      隶属: '#a855f7',
-      对抗: '#ef4444',
-      合作: '#22c55e',
-      亲属: '#f97316',
-      师徒: '#06b6d4',
-      朋友: '#3b82f6',
-      敌人: '#dc2626',
-      同事: '#8b5cf6',
-      创造者: '#10b981',
-      使用者: '#f59e0b',
-      位于: '#14b8a6',
-      拥有: '#6366f1',
-      参与: '#ec4899',
-      导致: '#84cc16',
-      相关: '#6b7280',
-      member_of: '#a855f7',
-      leader_of: '#f59e0b',
-      located_in: '#22c55e',
-      part_of: '#3b82f6',
-      allied_with: '#10b981',
-      enemy_of: '#ef4444',
-      parent_of: '#f97316',
-      child_of: '#f97316',
-      owns: '#6366f1',
-      created: '#06b6d4',
-      discovered: '#14b8a6',
-      participated_in: '#ec4899',
-      caused: '#84cc16',
-      mentions: '#6b7280',
-    }
-    return colors[type] || '#6b7280'
+    return RELATION_TYPE_META[type]?.color || '#6b7280'
+  }
+
+  const getNodeBaseRadius = (entry: Entry): number => {
+    const base = getNodeRadius(entry.type)
+    const isCenter = entry.id === selectedEntryId
+    const isSelected = selectedNodes.includes(entry.id)
+    if (isCenter) return base + 8
+    if (isSelected) return base + 4
+    return base
   }
 
   return (
@@ -186,6 +243,13 @@ export function GraphView() {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleRelayout}
+            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 transition-colors"
+            title="重新布局"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
           <button
             onClick={() => setScale((prev) => Math.min(3, prev + 0.2))}
             className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 transition-colors"
@@ -227,26 +291,50 @@ export function GraphView() {
             </div>
           </div>
 
+          <div className="mb-4 pt-4 border-t border-white/10">
+            <h3 className="text-sm font-medium text-slate-300 mb-2">操作</h3>
+            <div className="space-y-1 text-xs text-slate-400">
+              <div className="flex items-center gap-2">
+                <RefreshCw className="w-3 h-3" />
+                <span>重新布局按钮重置模拟</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Pin className="w-3 h-3" />
+                <span>右键节点切换固定</span>
+              </div>
+            </div>
+          </div>
+
           {selectedEntryId && (
             <div>
               <h3 className="text-sm font-medium text-slate-300 mb-2">相关关系</h3>
               <div className="space-y-2">
                 {visibleRelations.map((relation) => {
                   const targetEntry = entries.find(
-                    (e) => e.id === (relation.sourceEntryId === selectedEntryId ? relation.targetEntryId : relation.sourceEntryId)
+                    (e) =>
+                      e.id ===
+                      (relation.sourceEntryId === selectedEntryId
+                        ? relation.targetEntryId
+                        : relation.sourceEntryId),
                   )
                   return (
                     <div
                       key={relation.id}
-                      onClick={() => targetEntry && handleNodeClick(targetEntry.id)}
+                      onClick={() =>
+                        targetEntry &&
+                        handleNodeClick({ stopPropagation: () => {} } as React.MouseEvent, targetEntry.id)
+                      }
                       className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer"
                     >
                       <span className="text-sm text-white">{targetEntry?.title}</span>
                       <span
                         className="text-xs px-2 py-0.5 rounded-full"
-                        style={{ backgroundColor: `${getRelationTypeColor(relation.type)}20`, color: getRelationTypeColor(relation.type) }}
+                        style={{
+                          backgroundColor: `${getRelationTypeColor(relation.type)}20`,
+                          color: getRelationTypeColor(relation.type),
+                        }}
                       >
-                        {relation.type}
+                        {RELATION_TYPE_LABELS[relation.type] || relation.type}
                       </span>
                     </div>
                   )
@@ -266,6 +354,7 @@ export function GraphView() {
           onWheel={handleWheel}
         >
           <svg
+            ref={svgRef}
             className="w-full h-full"
             style={{
               transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
@@ -273,14 +362,56 @@ export function GraphView() {
             }}
           >
             <defs>
+              <marker id="arrowhead-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" />
+              </marker>
               <marker
-                id="arrowhead"
+                id="arrowhead-green"
                 markerWidth="10"
                 markerHeight="7"
                 refX="9"
                 refY="3.5"
                 orient="auto"
               >
+                <polygon points="0 0, 10 3.5, 0 7" fill="#22c55e" />
+              </marker>
+              <marker
+                id="arrowhead-purple"
+                markerWidth="10"
+                markerHeight="7"
+                refX="9"
+                refY="3.5"
+                orient="auto"
+              >
+                <polygon points="0 0, 10 3.5, 0 7" fill="#a855f7" />
+              </marker>
+              <marker
+                id="arrowhead-yellow"
+                markerWidth="10"
+                markerHeight="7"
+                refX="9"
+                refY="3.5"
+                orient="auto"
+              >
+                <polygon points="0 0, 10 3.5, 0 7" fill="#eab308" />
+              </marker>
+              <marker id="arrowhead-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                <polygon points="0 0, 10 3.5, 0 7" fill="#ef4444" />
+              </marker>
+              <marker id="arrowhead-cyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                <polygon points="0 0, 10 3.5, 0 7" fill="#06b6d4" />
+              </marker>
+              <marker
+                id="arrowhead-orange"
+                markerWidth="10"
+                markerHeight="7"
+                refX="9"
+                refY="3.5"
+                orient="auto"
+              >
+                <polygon points="0 0, 10 3.5, 0 7" fill="#f97316" />
+              </marker>
+              <marker id="arrowhead-gray" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
                 <polygon points="0 0, 10 3.5, 0 7" fill="#6b7280" />
               </marker>
             </defs>
@@ -290,35 +421,81 @@ export function GraphView() {
               const targetPos = nodePositions[relation.targetEntryId]
               if (!sourcePos || !targetPos) return null
 
-              const isSelected = selectedNodes.includes(relation.sourceEntryId) || selectedNodes.includes(relation.targetEntryId)
-              const isHighlighted = relation.sourceEntryId === selectedEntryId || relation.targetEntryId === selectedEntryId
+              const isSelected =
+                selectedNodes.includes(relation.sourceEntryId) ||
+                selectedNodes.includes(relation.targetEntryId)
+              const isHighlighted =
+                relation.sourceEntryId === selectedEntryId || relation.targetEntryId === selectedEntryId
+              const meta = RELATION_TYPE_META[relation.type]
+              const isSymmetric = meta?.symmetric || relation.direction === 'bidirectional'
+              const color = getRelationTypeColor(relation.type)
+
+              const dx = targetPos.x - sourcePos.x
+              const dy = targetPos.y - sourcePos.y
+              const dist = Math.sqrt(dx * dx + dy * dy) || 1
+              const sourceRadius = getNodeBaseRadius(entries.find((e) => e.id === relation.sourceEntryId)!)
+              const targetRadius = getNodeBaseRadius(entries.find((e) => e.id === relation.targetEntryId)!)
+
+              const sx = sourcePos.x + (dx / dist) * sourceRadius
+              const sy = sourcePos.y + (dy / dist) * sourceRadius
+              const tx = targetPos.x - (dx / dist) * (targetRadius + (isSymmetric ? 0 : 10))
+              const ty = targetPos.y - (dy / dist) * (targetRadius + (isSymmetric ? 0 : 10))
+
+              const midX = (sx + tx) / 2
+              const midY = (sy + ty) / 2
+
+              const colorMap: Record<string, string> = {
+                '#3b82f6': 'arrowhead-blue',
+                '#22c55e': 'arrowhead-green',
+                '#a855f7': 'arrowhead-purple',
+                '#eab308': 'arrowhead-yellow',
+                '#ef4444': 'arrowhead-red',
+                '#06b6d4': 'arrowhead-cyan',
+                '#f97316': 'arrowhead-orange',
+                '#6b7280': 'arrowhead-gray',
+              }
+              const markerId = colorMap[color] || 'arrowhead-gray'
+
+              const showLabel =
+                isHighlighted ||
+                hoveredNode === relation.sourceEntryId ||
+                hoveredNode === relation.targetEntryId
 
               return (
                 <g key={relation.id}>
                   <line
-                    x1={sourcePos.x}
-                    y1={sourcePos.y}
-                    x2={targetPos.x}
-                    y2={targetPos.y}
-                    stroke={isHighlighted ? getRelationTypeColor(relation.type) : '#374151'}
-                    strokeWidth={isHighlighted || isSelected ? 2 : 1}
-                    markerEnd="url(#arrowhead)"
+                    x1={sx}
+                    y1={sy}
+                    x2={tx}
+                    y2={ty}
+                    stroke={isHighlighted ? color : '#374151'}
+                    strokeWidth={isHighlighted || isSelected ? 2.5 : 1.5}
+                    strokeDasharray={isSymmetric ? 'none' : 'none'}
+                    markerEnd={isSymmetric ? undefined : `url(#${markerId})`}
                     opacity={isHighlighted || isSelected ? 1 : 0.5}
                   />
-                  {(isHighlighted || hoveredNode === relation.sourceEntryId || hoveredNode === relation.targetEntryId) && (
-                    <text
-                      x={(sourcePos.x + targetPos.x) / 2}
-                      y={(sourcePos.y + targetPos.y) / 2 - 10}
-                      className="text-xs fill-slate-400"
-                      textAnchor="middle"
-                      style={{
-                        backgroundColor: '#1f2937',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                      }}
-                    >
-                      {relation.type}
-                    </text>
+                  {showLabel && (
+                    <g>
+                      <rect
+                        x={midX - 40}
+                        y={midY - 12}
+                        width={80}
+                        height={18}
+                        rx={4}
+                        fill="#1f2937"
+                        stroke={color}
+                        strokeWidth={0.5}
+                        opacity={0.95}
+                      />
+                      <text
+                        x={midX}
+                        y={midY + 1}
+                        className="text-[10px] fill-slate-200 font-medium"
+                        textAnchor="middle"
+                      >
+                        {RELATION_TYPE_LABELS[relation.type] || relation.type}
+                      </text>
+                    </g>
                   )}
                 </g>
               )
@@ -330,67 +507,120 @@ export function GraphView() {
 
               const isSelected = selectedNodes.includes(entry.id)
               const isCenter = entry.id === selectedEntryId
+              const isPinned = pinnedNodes.has(entry.id)
+              const isHovered = hoveredNode === entry.id
               const color = ENTRY_TYPE_COLORS[entry.type]
+              const baseR = getNodeBaseRadius(entry)
+              const displayR = isHovered ? baseR * 1.1 : baseR
 
               return (
                 <g
                   key={entry.id}
-                  onClick={() => handleNodeClick(entry.id)}
+                  onClick={(e) => handleNodeClick(e, entry.id)}
+                  onDoubleClick={(e) => handleNodeDoubleClick(e, entry.id)}
+                  onContextMenu={(e) => togglePinNode(e, entry.id)}
+                  onMouseDown={(e) => handleNodeMouseDown(e, entry.id)}
                   onMouseEnter={() => setHoveredNode(entry.id)}
                   onMouseLeave={() => setHoveredNode(null)}
                   className="cursor-pointer"
+                  style={{ transition: 'transform 0.15s ease-out' }}
                 >
                   <circle
                     cx={pos.x}
                     cy={pos.y}
-                    r={isCenter ? 28 : isSelected ? 24 : 20}
+                    r={displayR + 4}
                     fill={color}
-                    opacity={isSelected || isCenter ? 0.8 : 0.6}
-                    stroke="white"
-                    strokeWidth={isCenter ? 3 : isSelected ? 2 : 1}
+                    opacity={isHovered ? 0.15 : 0}
                   />
                   <circle
                     cx={pos.x}
                     cy={pos.y}
-                    r={isCenter ? 28 : isSelected ? 24 : 20}
+                    r={displayR}
+                    fill={color}
+                    opacity={isSelected || isCenter ? 0.9 : 0.7}
+                    stroke="white"
+                    strokeWidth={isCenter ? 3 : isPinned ? 2.5 : isSelected ? 2 : 1}
+                  />
+                  {isPinned && (
+                    <circle
+                      cx={pos.x}
+                      cy={pos.y}
+                      r={displayR - 3}
+                      fill="none"
+                      stroke="#fbbf24"
+                      strokeWidth={2}
+                      strokeDasharray="3 2"
+                    />
+                  )}
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r={displayR}
                     fill="none"
                     stroke={color}
                     strokeWidth={2}
-                    opacity={hoveredNode === entry.id ? 0.5 : 0}
+                    opacity={isHovered ? 0.4 : 0}
                   >
-                    <animate attributeName="r" values={`${isCenter ? 28 : isSelected ? 24 : 20};${isCenter ? 35 : isSelected ? 31 : 27}`} dur="1s" repeatCount="indefinite" />
-                    <animate attributeName="opacity" values="0.5;0" dur="1s" repeatCount="indefinite" />
+                    <animate
+                      attributeName="r"
+                      values={`${displayR};${displayR + 8}`}
+                      dur="1s"
+                      repeatCount="indefinite"
+                    />
+                    <animate attributeName="opacity" values="0.4;0" dur="1s" repeatCount="indefinite" />
                   </circle>
                   <text
                     x={pos.x}
-                    y={pos.y + 5}
-                    className="text-xs fill-white font-medium"
+                    y={pos.y + 4}
+                    className="fill-white font-medium pointer-events-none select-none"
                     textAnchor="middle"
                     style={{
                       fontSize: isCenter ? '12px' : isSelected ? '11px' : '10px',
                     }}
                   >
-                    {entry.title.length > 6 ? entry.title.slice(0, 6) + '...' : entry.title}
+                    {entry.title.length > 5 ? entry.title.slice(0, 5) + '..' : entry.title}
                   </text>
-                  {hoveredNode === entry.id && (
-                    <g>
+                  {isHovered && (
+                    <g pointerEvents="none">
                       <rect
-                        x={pos.x - 80}
-                        y={pos.y - 45}
-                        width={160}
-                        height={35}
+                        x={pos.x - 100}
+                        y={pos.y - displayR - 85}
+                        width={200}
+                        height={70}
                         rx={8}
                         fill="#1f2937"
-                        stroke="white"
-                        strokeWidth={1}
-                        opacity={0.9}
+                        stroke={color}
+                        strokeWidth={1.5}
+                        opacity={0.98}
                       />
-                      <text x={pos.x} y={pos.y - 30} className="text-sm fill-white font-medium" textAnchor="middle">
+                      <text
+                        x={pos.x}
+                        y={pos.y - displayR - 65}
+                        className="text-sm fill-white font-semibold"
+                        textAnchor="middle"
+                      >
                         {entry.title}
                       </text>
-                      <text x={pos.x} y={pos.y - 18} className="text-xs fill-slate-400" textAnchor="middle">
-                        {ENTRY_TYPE_LABELS[entry.type]}
+                      <text
+                        x={pos.x}
+                        y={pos.y - displayR - 50}
+                        className="text-[11px] fill-slate-400"
+                        textAnchor="middle"
+                      >
+                        {ENTRY_TYPE_LABELS[entry.type]} · {isPinned ? '已固定' : '未固定'}
                       </text>
+                      {entry.summary && (
+                        <text
+                          x={pos.x}
+                          y={pos.y - displayR - 32}
+                          className="text-[10px] fill-slate-300"
+                          textAnchor="middle"
+                        >
+                          {entry.summary.length > 24
+                            ? entry.summary.slice(0, 24) + '...'
+                            : entry.summary || '暂无简介'}
+                        </text>
+                      )}
                     </g>
                   )}
                 </g>
@@ -406,27 +636,27 @@ export function GraphView() {
             </div>
           )}
 
-          <div className="absolute bottom-4 left-4 flex items-center gap-2 text-xs text-slate-500">
-            <MousePointer className="w-4 h-4" />
-            <span>点击节点查看详情</span>
-            <span className="mx-2">|</span>
-            <span>拖拽画布平移</span>
-            <span className="mx-2">|</span>
+          <div className="absolute bottom-4 left-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 bg-slate-900/70 px-3 py-2 rounded-lg backdrop-blur-sm">
+            <div className="flex items-center gap-1">
+              <MousePointer className="w-3 h-3" />
+              <span>点击选中 · 双击跳转</span>
+            </div>
+            <span className="text-slate-700">|</span>
+            <span>拖拽节点移动</span>
+            <span className="text-slate-700">|</span>
+            <span>右键固定/解除</span>
+            <span className="text-slate-700">|</span>
             <span>滚轮缩放</span>
           </div>
+
+          {pinnedNodes.size > 0 && (
+            <div className="absolute bottom-4 right-4 flex items-center gap-2 text-xs text-amber-400 bg-amber-950/50 px-3 py-1.5 rounded-lg border border-amber-900/50">
+              <Pin className="w-3 h-3" />
+              <span>{pinnedNodes.size} 个节点已固定</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
   )
-}
-
-const ENTRY_TYPE_LABELS: Record<EntryType, string> = {
-  character: '人物',
-  location: '地点',
-  faction: '组织',
-  item: '物品',
-  event: '事件',
-  lore: '设定',
-  region: '区域',
-  note: '笔记',
 }

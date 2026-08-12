@@ -1,9 +1,24 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useStore } from '@/store'
 import { Entry, EntryType, Relation } from '@/types'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
-import { Download, FileText, Users, Map, Building, Sword, Scroll, Folder, Check, Loader2 } from 'lucide-react'
+import { contentToSafeHtml, escapeHtml } from '@/lib/markdown'
+import {
+  Download,
+  FileText,
+  Users,
+  Map,
+  Building,
+  Sword,
+  Scroll,
+  Folder,
+  Check,
+  Loader2,
+  Upload,
+  Database,
+  AlertCircle,
+} from 'lucide-react'
 
 const ENTRY_TYPE_LABELS: Record<EntryType, string> = {
   character: '人物',
@@ -27,41 +42,24 @@ const ENTRY_TYPE_ICONS: Record<EntryType, typeof FileText> = {
   note: FileText,
 }
 
-function markdownToHtml(markdown: string): string {
-  let html = markdown
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/gim, '<em>$1</em>')
-    .replace(/`(.*?)`/gim, '<code>$1</code>')
-    .replace(/^- (.*$)/gim, '<li>$1</li>')
-    .replace(/^\d+\. (.*$)/gim, '<li>$1</li>')
-    .replace(/\n\n/gim, '</p><p>')
-    .replace(/\n/gim, '<br>')
-  
-  html = html.replace(/<li>(.*?)<\/li>\s*<li>(.*?)<\/li>/gim, '<ul><li>$1</li><li>$2</li></ul>')
-  html = html.replace(/<\/ul>\s*<ul>/gim, '')
-  
-  return `<p>${html}</p>`
-}
-
 function generateEntryHtml(entry: Entry, entries: Entry[], relations: Relation[]): string {
   const relatedRelations = relations.filter(
-    r => r.sourceEntryId === entry.id || r.targetEntryId === entry.id
+    (r) => r.sourceEntryId === entry.id || r.targetEntryId === entry.id,
   )
-  
-  const relatedEntries = relatedRelations.map(r => {
-    const targetId = r.sourceEntryId === entry.id ? r.targetEntryId : r.sourceEntryId
-    return entries.find(e => e.id === targetId)
-  }).filter(Boolean)
+
+  const relatedEntries = relatedRelations
+    .map((r) => {
+      const targetId = r.sourceEntryId === entry.id ? r.targetEntryId : r.sourceEntryId
+      return entries.find((e) => e.id === targetId)
+    })
+    .filter(Boolean)
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${entry.title} - WDWorld</title>
+  <title>${escapeHtml(entry.title)} - WDWorld</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -80,27 +78,35 @@ function generateEntryHtml(entry: Entry, entries: Entry[], relations: Relation[]
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
           <div>
-            <h1 class="entry-title">${entry.title}</h1>
+            <h1 class="entry-title">${escapeHtml(entry.title)}</h1>
             <span class="entry-type">${ENTRY_TYPE_LABELS[entry.type]}</span>
           </div>
         </div>
         
-        ${entry.summary ? `<p class="entry-summary">${entry.summary}</p>` : ''}
+        ${entry.summary ? `<p class="entry-summary">${escapeHtml(entry.summary)}</p>` : ''}
         
         <div class="entry-content">
-          ${markdownToHtml(entry.content)}
+          ${contentToSafeHtml(entry.content)}
         </div>
         
-        ${relatedEntries.length > 0 ? `
+        ${
+          relatedEntries.length > 0
+            ? `
         <div class="related-section">
           <h3>相关条目</h3>
           <ul class="related-list">
-            ${relatedEntries.map(rel => `
-              <li><a href="${rel!.slug}.html">${rel!.title}</a></li>
-            `).join('')}
+            ${relatedEntries
+              .map(
+                (rel) => `
+              <li><a href="${encodeURIComponent(rel!.slug)}.html">${escapeHtml(rel!.title)}</a></li>
+            `,
+              )
+              .join('')}
           </ul>
         </div>
-        ` : ''}
+        `
+            : ''
+        }
         
         <footer class="entry-footer">
           <span>创建于 ${entry.createdAt}</span>
@@ -118,11 +124,14 @@ function generateEntryHtml(entry: Entry, entries: Entry[], relations: Relation[]
 }
 
 function generateIndexHtml(entries: Entry[]): string {
-  const groupedEntries = entries.reduce((acc, entry) => {
-    if (!acc[entry.type]) acc[entry.type] = []
-    acc[entry.type].push(entry)
-    return acc
-  }, {} as Record<string, Entry[]>)
+  const groupedEntries = entries.reduce(
+    (acc, entry) => {
+      if (!acc[entry.type]) acc[entry.type] = []
+      acc[entry.type].push(entry)
+      return acc
+    },
+    {} as Record<string, Entry[]>,
+  )
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -143,8 +152,9 @@ function generateIndexHtml(entries: Entry[]): string {
       <p class="subtitle">共 ${entries.length} 条条目</p>
       
       <div class="category-list">
-        ${Object.entries(groupedEntries).map(([type, items]) => {
-          return `
+        ${Object.entries(groupedEntries)
+          .map(([type, items]) => {
+            return `
             <div class="category">
               <h2 class="category-title">
                 <span class="category-icon ${type}">
@@ -153,16 +163,21 @@ function generateIndexHtml(entries: Entry[]): string {
                 ${ENTRY_TYPE_LABELS[type as EntryType]} (${items.length})
               </h2>
               <ul class="entry-list">
-                ${items.map(entry => `
+                ${items
+                  .map(
+                    (entry) => `
                   <li>
-                    <a href="${entry.slug}.html">${entry.title}</a>
-                    ${entry.summary ? `<span class="summary">${entry.summary}</span>` : ''}
+                    <a href="${encodeURIComponent(entry.slug)}.html">${escapeHtml(entry.title)}</a>
+                    ${entry.summary ? `<span class="summary">${escapeHtml(entry.summary)}</span>` : ''}
                   </li>
-                `).join('')}
+                `,
+                  )
+                  .join('')}
               </ul>
             </div>
           `
-        }).join('')}
+          })
+          .join('')}
       </div>
     </main>
     
@@ -418,9 +433,12 @@ body {
 }`
 
 export function ExportView() {
-  const { entries, relations, currentProject } = useStore()
+  const { entries, relations, currentProject, exportProjectJSON, importProjectJSON } = useStore()
   const [isExporting, setIsExporting] = useState(false)
   const [exportProgress, setExportProgress] = useState(0)
+  const [isBackupExporting, setIsBackupExporting] = useState(false)
+  const [isBackupImporting, setIsBackupImporting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleExport = async () => {
     setIsExporting(true)
@@ -430,25 +448,25 @@ export function ExportView() {
       const zip = new JSZip()
 
       zip.file('style.css', CSS_STYLE)
-      
+
       setExportProgress(10)
-      
+
       zip.file('index.html', generateIndexHtml(entries))
-      
+
       setExportProgress(20)
-      
+
       const entryProgress = 70 / entries.length
       entries.forEach((entry, index) => {
-        zip.file(`${entry.slug}.html`, generateEntryHtml(entry, entries, relations))
+        zip.file(`${encodeURIComponent(entry.slug)}.html`, generateEntryHtml(entry, entries, relations))
         setExportProgress(20 + (index + 1) * entryProgress)
       })
 
       setExportProgress(90)
-      
+
       const content = await zip.generateAsync({ type: 'blob' })
-      
+
       setExportProgress(100)
-      
+
       const fileName = currentProject ? `${currentProject.slug}-wiki.zip` : 'wdworld-wiki.zip'
       saveAs(content, fileName)
 
@@ -464,107 +482,228 @@ export function ExportView() {
     }
   }
 
+  const handleBackupExport = async () => {
+    setIsBackupExporting(true)
+    try {
+      await exportProjectJSON()
+    } finally {
+      setTimeout(() => setIsBackupExporting(false), 500)
+    }
+  }
+
+  const handleBackupImportClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsBackupImporting(true)
+    try {
+      await importProjectJSON(file)
+    } finally {
+      setIsBackupImporting(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
   return (
     <div className="h-full flex flex-col bg-slate-900">
-      <div className="flex items-center justify-between p-6 border-b border-white/10">
-        <div>
-          <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-            <Download className="w-7 h-7 text-green-400" />
-            静态 Wiki 导出
-          </h2>
-          <p className="text-slate-400 mt-1">将项目导出为静态 HTML 文件，可在任何浏览器中查看</p>
-        </div>
-        <button
-          onClick={handleExport}
-          disabled={isExporting || entries.length === 0}
-          className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-        >
-          {isExporting ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              导出中 {Math.round(exportProgress)}%
-            </>
-          ) : (
-            <>
-              <Download className="w-5 h-5" />
-              导出 Wiki
-            </>
-          )}
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-6">
-        {entries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-slate-500">
-            <FileText className="w-16 h-16 mb-4" />
-            <h3 className="text-xl font-medium mb-2">暂无条目</h3>
-            <p className="text-center max-w-md">创建条目后可以导出为静态 Wiki。</p>
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                <Database className="w-7 h-7 text-indigo-400" />
+                JSON 完整备份
+              </h2>
+              <p className="text-slate-400 mt-1">导出/导入项目的完整 JSON 备份，包含所有数据</p>
+            </div>
           </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">导出预览</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {entries.slice(0, 9).map((entry) => {
-                  const IconComponent = ENTRY_TYPE_ICONS[entry.type]
-                  return (
-                    <div key={entry.id} className="bg-black/20 rounded-lg p-4">
-                      <div className="flex items-center gap-3 mb-2">
-                        <IconComponent className="w-5 h-5 text-purple-400" />
-                        <span className="text-white font-medium truncate">{entry.title}</span>
-                      </div>
-                      <span className="text-xs text-slate-400">{entry.slug}.html</span>
-                    </div>
-                  )
-                })}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-black/20 rounded-lg p-6 border border-indigo-500/20">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                  <Download className="w-6 h-6 text-indigo-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">导出完整备份 JSON</h3>
+                  <p className="text-sm text-slate-400">将当前项目所有数据导出为 JSON 文件</p>
+                </div>
               </div>
-              {entries.length > 9 && (
-                <p className="text-slate-500 text-sm mt-4">还有 {entries.length - 9} 条条目...</p>
-              )}
+              <button
+                onClick={handleBackupExport}
+                disabled={isBackupExporting || !currentProject}
+                className="w-full px-4 py-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isBackupExporting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    导出中...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-5 h-5" />
+                    导出完整备份 JSON
+                  </>
+                )}
+              </button>
             </div>
 
-            <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">导出说明</h3>
-              <ul className="space-y-2 text-slate-400">
-                <li className="flex items-start gap-2">
-                  <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  <span>导出为 ZIP 压缩包，包含所有条目页面和样式文件</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  <span>每个条目生成独立的 HTML 文件，通过目录页索引</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  <span>支持相关条目链接，点击可跳转到对应页面</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  <span>Markdown 内容自动转换为 HTML，保留基本格式</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                  <span>无需服务器，直接在浏览器中打开 index.html 即可浏览</span>
-                </li>
+            <div className="bg-black/20 rounded-lg p-6 border border-purple-500/20">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                  <Upload className="w-6 h-6 text-purple-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">导入 JSON 备份</h3>
+                  <p className="text-sm text-slate-400">从备份文件恢复项目（生成新副本，不覆盖现有）</p>
+                </div>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <button
+                onClick={handleBackupImportClick}
+                disabled={isBackupImporting}
+                className="w-full px-4 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isBackupImporting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    导入中...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-5 h-5" />
+                    选择 JSON 备份文件
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-6 bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-amber-200">
+              <p className="font-medium mb-1">导入说明</p>
+              <ul className="space-y-1 text-amber-200/80">
+                <li>• 导入不会覆盖现有项目，会生成一个带有「(副本)」后缀的新项目</li>
+                <li>• 导入完成后会自动打开新项目</li>
+                <li>• 支持的备份版本：当前软件支持的版本及以下</li>
               </ul>
             </div>
-
-            {isExporting && (
-              <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-slate-400">导出进度</span>
-                  <span className="text-white">{Math.round(exportProgress)}%</span>
-                </div>
-                <div className="w-full bg-slate-700 rounded-full h-2">
-                  <div
-                    className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${exportProgress}%` }}
-                  />
-                </div>
-              </div>
-            )}
           </div>
-        )}
+        </div>
+
+        <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                <Download className="w-7 h-7 text-green-400" />
+                静态 Wiki 导出
+              </h2>
+              <p className="text-slate-400 mt-1">将项目导出为静态 HTML 文件，可在任何浏览器中查看</p>
+            </div>
+            <button
+              onClick={handleExport}
+              disabled={isExporting || entries.length === 0}
+              className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isExporting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  导出中 {Math.round(exportProgress)}%
+                </>
+              ) : (
+                <>
+                  <Download className="w-5 h-5" />
+                  导出 Wiki
+                </>
+              )}
+            </button>
+          </div>
+
+          {entries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+              <FileText className="w-16 h-16 mb-4" />
+              <h3 className="text-xl font-medium mb-2">暂无条目</h3>
+              <p className="text-center max-w-md">创建条目后可以导出为静态 Wiki。</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-4">导出预览</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {entries.slice(0, 9).map((entry) => {
+                    const IconComponent = ENTRY_TYPE_ICONS[entry.type]
+                    return (
+                      <div key={entry.id} className="bg-black/20 rounded-lg p-4">
+                        <div className="flex items-center gap-3 mb-2">
+                          <IconComponent className="w-5 h-5 text-purple-400" />
+                          <span className="text-white font-medium truncate">{entry.title}</span>
+                        </div>
+                        <span className="text-xs text-slate-400">{entry.slug}.html</span>
+                      </div>
+                    )
+                  })}
+                </div>
+                {entries.length > 9 && (
+                  <p className="text-slate-500 text-sm mt-4">还有 {entries.length - 9} 条条目...</p>
+                )}
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-4">导出说明</h3>
+                <ul className="space-y-2 text-slate-400">
+                  <li className="flex items-start gap-2">
+                    <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                    <span>导出为 ZIP 压缩包，包含所有条目页面和样式文件</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                    <span>每个条目生成独立的 HTML 文件，通过目录页索引</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                    <span>支持相关条目链接，点击可跳转到对应页面</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                    <span>Markdown 内容自动转换为 HTML，保留基本格式</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                    <span>无需服务器，直接在浏览器中打开 index.html 即可浏览</span>
+                  </li>
+                </ul>
+              </div>
+
+              {isExporting && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-slate-400">导出进度</span>
+                    <span className="text-white">{Math.round(exportProgress)}%</span>
+                  </div>
+                  <div className="w-full bg-slate-700 rounded-full h-2">
+                    <div
+                      className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${exportProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

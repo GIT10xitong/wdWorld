@@ -1,141 +1,112 @@
 # WD World
 
-A local-first worldbuilding workbench. Built for OC creators, novelists, and TRPG game masters to maintain characters, locations, organizations, events, and other lore entries locally and securely.
+English | [简体中文](README.md)
 
-All data is stored locally. Works offline. The project directory can be copied, compressed, and migrated as a whole.
+[![CI](https://github.com/actrox/wdWorld/actions/workflows/ci.yml/badge.svg)](https://github.com/actrox/wdWorld/actions/workflows/ci.yml)
+[![Deploy GitHub Pages](https://github.com/actrox/wdWorld/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/actrox/wdWorld/actions/workflows/deploy-pages.yml)
+
+A local-first worldbuilding workbench for OC creators, novelists, and TRPG game masters. Characters, locations, factions, events, items, and world rules stay on your device, so writing can continue offline.
+
+## Online Demo
+
+- Planned URL: [WD World Online Demo](https://actrox.github.io/wdWorld/)
+- The repository must enable **Settings → Pages → Build and deployment → GitHub Actions** before the first deployment.
+- Browser data remains in the current browser and is not uploaded to a server.
+- Once Pages is enabled, pushes to `main` are deployed automatically.
+
+## Screenshots
+
+### Welcome page and example world
+
+![WD World welcome page](docs/screenshots/welcome.png)
+
+### Interactive map
+
+![WD World map view](docs/screenshots/map-view.png)
 
 ## Features
 
-- **Project Management**: Create, open, recent projects list
-- **Entry System**: 8 entry types — character, location, faction, item, event, lore, region, note
-- **Markdown Editor**: Powered by TipTap, supports internal links `[[Entry Title]]`
-- **Tags & Aliases**: Classification and quick retrieval
-- **Relations**: Explicit relation management, backlinks, relationship graph visualization
-- **Search**: Title search, tag filter, type filter, full-text search
-- **Map View**: Custom base map, region annotation, anchor system, entry placement
-- **Timeline**: Entry-level and world-level timelines
-- **Wiki View**: Reading mode, directory navigation, context linkage
-- **Export & Backup**: JSON import/export, static Wiki export, auto-save
+- Project management: create a blank world, open a local backup, resume recent projects, or open the standalone example world.
+- Eight entry types: character, location, faction, item, event, lore, region, and note.
+- Editor workspace: encyclopedia-style collapsible directory, quick create/delete actions, TipTap rich text, aliases, tags, custom fields, and internal links.
+- Card view: cover-based navigation, vertical and horizontal layouts, Markdown and plain-text copy. Portrait and landscape covers are shown without cropping.
+- Wiki view: type-based reading directory, tag filters, relation context, and built-in cover artwork.
+- Relationship graph: explicit relations, backlinks, and automatic layout.
+- Map view: bundled base map, custom base maps, zooming, panning, and interactive entry placement.
+- Timeline: world eras, global events, and entry events.
+- Import and export: JSON backups, static Wiki export, and automatic local saving.
+- Example world: “Mystery Revival Example: Fog Harbor Files,” including rules, characters, locations, relations, a timeline, and original artwork.
+
+## Built-in Original Artwork
+
+The example world includes original covers generated with OpenAI's built-in ImageGen. They do not use characters from existing films, games, or novels.
+
+| Character: Lin Mo                       | Item: Black Umbrella                                    | Location: Fog Harbor No. 7 School                                |
+| --------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------- |
+| ![Lin Mo](src/assets/sample/lin-mo.png) | ![Black Umbrella](src/assets/sample/black-umbrella.png) | ![Fog Harbor No. 7 School](src/assets/sample/seventh-school.png) |
+
+The map artwork is stored at [`src/assets/linjiang-investigation-map.png`](src/assets/linjiang-investigation-map.png), and the example covers are under [`src/assets/sample/`](src/assets/sample/).
+
+## Placeholder Artwork
+
+Entries without a custom cover use bundled artwork based on their type in the editor, Wiki, and card views. A real uploaded cover always takes priority. Covers use contain-style sizing so important content is not cropped.
+
+| Character                                                       | Location                                                      | Faction                                                     | Item                                                  |
+| --------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------- | ----------------------------------------------------- |
+| ![Character placeholder](src/assets/placeholders/character.png) | ![Location placeholder](src/assets/placeholders/location.png) | ![Faction placeholder](src/assets/placeholders/faction.png) | ![Item placeholder](src/assets/placeholders/item.png) |
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Desktop Shell | Electron |
-| Frontend | React 18 + TypeScript |
-| Build Tool | Vite |
-| Styling | TailwindCSS 3 |
-| State Management | Zustand |
-| Rich Text Editor | TipTap |
-| Local Storage | sql.js (SQLite WASM) + localStorage |
-| Icons | Lucide React |
+| Layer            | Technology            |
+| ---------------- | --------------------- |
+| Desktop shell    | Electron              |
+| Frontend         | React 18 + TypeScript |
+| Build            | Vite                  |
+| Styling          | Tailwind CSS          |
+| State management | Zustand               |
+| Rich text        | TipTap                |
+| Local database   | sql.js / SQLite WASM  |
+| Testing          | Vitest + V8 Coverage  |
+| Code quality     | ESLint + Prettier     |
 
-## Getting Started
+## Local Development
 
-### Prerequisites
-
-- Node.js 18+
-- npm
-
-### Install & Run
+Node.js 22.12 or newer is recommended.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open `http://localhost:5173` in your browser.
+Open `http://localhost:5173` in a browser.
 
-### Build & Package
-
-```bash
-npm run build           # Build production bundle to dist/
-npm run package         # Package to release/ directory
-npm run electron:build  # Build Electron installer
-```
-
-### MVP Prototype
-
-The project includes a vanilla JS MVP prototype (in the `mvp/` directory) that runs without Node.js:
+## Quality Checks
 
 ```bash
-# On Windows, double-click
-run-mvp.bat
+npm run format:check  # Prettier
+npm run lint          # ESLint
+npm test              # Unit and integration tests
+npm run test:coverage # Tests with coverage thresholds
+npm run build         # TypeScript and production build
 ```
 
-Open `http://127.0.0.1:4173` in your browser.
+The suite currently covers shared utilities, built-in asset mappings, and example-world initialization. Coverage thresholds are configured in [`vitest.config.ts`](vitest.config.ts).
 
-## Project Structure
+## CI/CD
 
-```text
-vvdWorld/
-├── electron/           # Electron desktop shell
-│   └── main.js
-├── mvp/                # MVP prototype (vanilla JS)
-│   ├── js/
-│   ├── index.html
-│   └── styles.css
-├── scripts/            # Packaging and utility scripts
-│   ├── package.js
-│   └── check-encoding.ps1
-├── src/                # React app source
-│   ├── components/     # UI components
-│   ├── lib/            # Storage and utilities
-│   ├── store/          # Zustand state management
-│   ├── types/          # TypeScript type definitions
-│   ├── App.tsx
-│   ├── main.tsx
-│   └── index.css
-├── index.html
-├── package.json
-├── tailwind.config.js
-├── tsconfig.json
-└── vite.config.ts
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs formatting, linting, coverage, and production builds for pushes and pull requests.
+- [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml) deploys the `main` branch build to GitHub Pages.
+
+## Desktop Builds
+
+```bash
+npm run build
+npm run package
+npm run electron:build
 ```
 
-## Data Storage
+## Local Data
 
-Project data is stored locally in the browser's localStorage. The desktop version uses SQLite (sql.js). No cloud dependency — no user data is ever uploaded.
+The browser build uses SQLite WASM, IndexedDB, and localStorage. The Electron build stores project data in the application data directory. WD World has no required cloud backend and does not proactively upload worldbuilding data.
 
-The project directory can be copied, compressed, and migrated to another device as a whole.
-
-## Entry Types
-
-| Type | Description | Example |
-|------|-------------|---------|
-| Character | Roles, NPCs, creatures | Protagonist, villain |
-| Location | Specific scenes, buildings | Castle, town |
-| Faction | Forces, groups, institutions | Guild, kingdom |
-| Item | Props, weapons, artifacts | Holy sword, relic |
-| Event | Plot events, historical milestones | War, ritual |
-| Lore | Rules, worldbuilding background | Magic system |
-| Region | Geographic areas, map regions | Continent, forest |
-| Note | Temporary ideas, to-dos | Inspiration notes |
-
-## Internal Links
-
-Use double-bracket syntax in entry content to create internal links:
-
-```markdown
-[[Entry Title]]
-[[Entry Title|Display Text]]
-```
-
-Click a link to navigate to the corresponding entry.
-
-## Encoding Convention
-
-- All text files use UTF-8 encoding.
-- If you encounter garbled text or BOM issues, run the encoding check script:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-encoding.ps1
-```
-
-## Documentation
-
-- [QUICKSTART.md](./QUICKSTART.md) - Quick start guide (in Chinese)
-
-## Notes
-
-This project references the public product pages and demo structure of `vvd.world` for local product planning and prototyping. It does not involve any proprietary source code or unpublished assets.
+Use JSON backups to move projects between devices.

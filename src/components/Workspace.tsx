@@ -1,6 +1,16 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useStore } from '@/store'
-import { Entry, EntryType, EntryStatus, Tag } from '@/types'
+import { getEntryPlaceholderSource, resolveAssetSource } from '@/lib/assetSources'
+import {
+  Entry,
+  EntryType,
+  EntryStatus,
+  Tag,
+  ENTRY_TYPE_LABELS,
+  RELATION_TYPE_LABELS,
+  RELATION_TYPE_KEYS,
+  CustomFieldSchema,
+} from '@/types'
 import { debounce } from '@/lib/utils'
 import { MarkdownEditor } from './MarkdownEditor'
 import { MapView } from './MapView'
@@ -10,6 +20,7 @@ import { GraphView } from './GraphView'
 import { TemplateManager } from './TemplateManager'
 import { ExportView } from './ExportView'
 import { CollabView } from './CollabView'
+import { EntryCardView } from './EntryCardView'
 import {
   Plus,
   Search,
@@ -42,18 +53,10 @@ import {
   ExternalLink,
   Edit3,
   Clock as ClockIcon,
+  CreditCard,
+  Loader2,
+  AlertTriangle,
 } from 'lucide-react'
-
-const ENTRY_TYPE_LABELS: Record<EntryType, string> = {
-  character: '人物',
-  location: '地点',
-  faction: '组织',
-  item: '物品',
-  event: '事件',
-  lore: '设定',
-  region: '区域',
-  note: '笔记',
-}
 
 const ENTRY_TYPE_ICONS: Record<EntryType, typeof FileText> = {
   character: Users,
@@ -73,28 +76,34 @@ const STATUS_COLORS: Record<EntryStatus, string> = {
   archived: 'bg-purple-500',
 }
 
-const COLOR_PALETTE = [
-  '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e',
-  '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6',
-  '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899',
-]
+const VIEW_LABELS = {
+  editor: '编辑器',
+  wiki: '百科',
+  map: '地图',
+  graph: '图谱',
+  timeline: '时间轴',
+  template: '模板',
+  export: '导出',
+  collab: '协作',
+  card: '卡片',
+} as const
 
-const RELATION_TYPES = [
-  '隶属',
-  '对抗',
-  '合作',
-  '亲属',
-  '师徒',
-  '朋友',
-  '敌人',
-  '同事',
-  '创造者',
-  '使用者',
-  '位于',
-  '拥有',
-  '参与',
-  '导致',
-  '相关',
+const COLOR_PALETTE = [
+  '#ef4444',
+  '#f97316',
+  '#f59e0b',
+  '#84cc16',
+  '#22c55e',
+  '#10b981',
+  '#14b8a6',
+  '#06b6d4',
+  '#0ea5e9',
+  '#3b82f6',
+  '#6366f1',
+  '#8b5cf6',
+  '#a855f7',
+  '#d946ef',
+  '#ec4899',
 ]
 
 export function Workspace() {
@@ -108,6 +117,8 @@ export function Workspace() {
     projectAssets,
     entryRelations,
     backlinks,
+    fieldSchemas,
+    entryFieldValues,
     selectEntry,
     createEntry,
     updateEntry,
@@ -117,6 +128,8 @@ export function Workspace() {
     closeProject,
     saveProject,
     lastSaveTime,
+    saveStatus,
+    saveError,
     createTag,
     addTagToEntry,
     removeTagFromEntry,
@@ -127,11 +140,15 @@ export function Workspace() {
     fetchProjectAssets,
     createRelation,
     deleteRelation,
+    saveFieldValue,
   } = useStore()
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedType, setSelectedType] = useState<EntryType | 'all'>('all')
+  const [expandedEditorTypes, setExpandedEditorTypes] = useState<Set<EntryType>>(
+    new Set(['character', 'location']),
+  )
   const [entryTitle, setEntryTitle] = useState('')
   const [entrySummary, setEntrySummary] = useState('')
   const [entryContent, setEntryContent] = useState('')
@@ -145,10 +162,16 @@ export function Workspace() {
   const [newRelationTargetId, setNewRelationTargetId] = useState<string>('')
   const [newRelationType, setNewRelationType] = useState<string>('')
   const [newRelationNote, setNewRelationNote] = useState('')
-  const [activeView, setActiveView] = useState<'editor' | 'wiki' | 'map' | 'graph' | 'timeline' | 'template' | 'export' | 'collab'>('editor')
+  const [activeView, setActiveView] = useState<
+    'editor' | 'wiki' | 'map' | 'graph' | 'timeline' | 'template' | 'export' | 'collab' | 'card'
+  >('editor')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const selectedEntry = entries.find((entry) => entry.id === selectedEntryId)
+  const selectedCoverAsset = projectAssets.find((asset) => asset.id === selectedCoverAssetId)
+  const selectedCoverSource = selectedEntry
+    ? resolveAssetSource(selectedCoverAsset, getEntryPlaceholderSource(selectedEntry.type))
+    : ''
 
   useEffect(() => {
     if (selectedEntry) {
@@ -164,35 +187,97 @@ export function Workspace() {
     }
   }, [selectedEntryId, selectedEntry])
 
-  const debouncedSave = debounce(async () => {
-    if (selectedEntryId && selectedEntry) {
-      const updates: Partial<Pick<Entry, 'title' | 'summary' | 'content'>> = {}
-      if (entryTitle !== selectedEntry.title) updates.title = entryTitle
-      if (entrySummary !== selectedEntry.summary) updates.summary = entrySummary
-      if (entryContent !== selectedEntry.content) updates.content = entryContent
-      if (Object.keys(updates).length > 0) {
-        await updateEntry(selectedEntryId, updates)
-      }
-    }
-  }, 1000)
+  const debouncedSave = useMemo(
+    () =>
+      debounce(
+        async (entryId: string, updates: Partial<Pick<Entry, 'title' | 'summary' | 'content'>>) =>
+          updateEntry(entryId, updates),
+        1000,
+      ),
+    [updateEntry],
+  )
 
   useEffect(() => {
-    debouncedSave()
-    return () => debouncedSave.cancel()
-  }, [entryTitle, entrySummary, entryContent])
+    if (!selectedEntryId || !selectedEntry) return
+    const updates: Partial<Pick<Entry, 'title' | 'summary' | 'content'>> = {}
+    if (entryTitle !== selectedEntry.title) updates.title = entryTitle
+    if (entrySummary !== selectedEntry.summary) updates.summary = entrySummary
+    if (entryContent !== selectedEntry.content) updates.content = entryContent
+    if (Object.keys(updates).length > 0) debouncedSave(selectedEntryId, updates)
+  }, [debouncedSave, entryContent, entrySummary, entryTitle, selectedEntry, selectedEntryId])
+
+  useEffect(
+    () => () => {
+      void debouncedSave.flush()
+    },
+    [debouncedSave],
+  )
+
+  useEffect(() => {
+    const flushBeforeUnload = () => {
+      void debouncedSave.flush()
+    }
+    window.addEventListener('beforeunload', flushBeforeUnload)
+    return () => window.removeEventListener('beforeunload', flushBeforeUnload)
+  }, [debouncedSave])
+
+  const flushDraft = async () => {
+    await debouncedSave.flush()
+  }
+
+  const handleSelectEntry = async (id: string | null) => {
+    await flushDraft()
+    selectEntry(id)
+  }
+
+  const handleViewChange = async (view: typeof activeView) => {
+    await flushDraft()
+    setActiveView(view)
+  }
+
+  const handleSave = async () => {
+    await flushDraft()
+    await saveProject()
+  }
+
+  const handleCloseProject = async () => {
+    await flushDraft()
+    await saveProject()
+    if (useStore.getState().saveStatus !== 'error') closeProject()
+  }
 
   useEffect(() => {
     fetchProjectAssets()
   }, [])
 
-  const filteredEntries = entries.filter((entry) => {
-    const matchesType = selectedType === 'all' || entry.type === selectedType
+  const searchFilteredEntries = entries.filter((entry) => {
     const matchesSearch =
       !searchQuery ||
       entry.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       entry.summary.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesType && matchesSearch
+    return matchesSearch
   })
+
+  const filteredEntries = searchFilteredEntries.filter(
+    (entry) => selectedType === 'all' || entry.type === selectedType,
+  )
+
+  const editorGroupedEntries = searchFilteredEntries.reduce(
+    (groups, entry) => {
+      ;(groups[entry.type] ??= []).push(entry)
+      return groups
+    },
+    {} as Partial<Record<EntryType, Entry[]>>,
+  )
+
+  const toggleEditorType = (type: EntryType) => {
+    setExpandedEditorTypes((current) => {
+      const next = new Set(current)
+      if (next.has(type)) next.delete(type)
+      else next.add(type)
+      return next
+    })
+  }
 
   const [newEntryType, setNewEntryType] = useState<EntryType>('character')
   const [newEntryTitle, setNewEntryTitle] = useState('')
@@ -290,179 +375,524 @@ export function Workspace() {
   }
 
   const getAssetUrl = (relativePath: string) => {
-    return localStorage.getItem(`wdworld_asset_${relativePath}`) || ''
+    return resolveAssetSource(projectAssets.find((asset) => asset.relativePath === relativePath))
   }
+
+  const getEntryCoverSource = (entry: Entry) =>
+    resolveAssetSource(
+      projectAssets.find((asset) => asset.id === entry.coverAssetId),
+      getEntryPlaceholderSource(entry.type),
+    )
 
   const availableTags = tags.filter((tag) => !entryTags.find((et) => et.id === tag.id))
 
-  return (
-    <div className="workspace-shell h-screen flex bg-slate-900">
-      <aside
-        className={`workspace-sidebar ${sidebarCollapsed ? 'w-16 is-collapsed' : 'w-72'} flex flex-col bg-slate-800 border-r border-white/10 transition-all duration-300`}
-      >
-        <div className="p-4 border-b border-white/10">
-          <div className="flex items-center justify-between">
-            {!sidebarCollapsed && (
-              <div className="flex-1 min-w-0">
-                <span className="workspace-kicker">WORLD ARCHIVE</span>
-                <h1 className="text-white font-bold truncate">{currentProject?.name}</h1>
-                <p className="text-slate-500 text-xs truncate">{currentProject?.description}</p>
-              </div>
-            )}
-            <button
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-            >
-              {sidebarCollapsed ? (
-                <ChevronRight className="w-5 h-5 text-slate-400" />
-              ) : (
-                <ChevronLeft className="w-5 h-5 text-slate-400" />
-              )}
-            </button>
-          </div>
-        </div>
+  const applicableSchemas = useMemo(() => {
+    if (!selectedEntry) return []
+    return fieldSchemas
+      .filter((schema) => !schema.entryType || schema.entryType === selectedEntry.type)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+  }, [fieldSchemas, selectedEntry])
 
-        {!sidebarCollapsed && (
-          <>
-            <div className="p-3">
-              <button
-                onClick={toggleCreateEntryModal}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium hover:opacity-90 transition-opacity"
-              >
-                <Plus className="w-5 h-5" />
-                <span>新建条目</span>
-              </button>
-            </div>
+  const groupedSchemas = useMemo(() => {
+    const groups: Record<string, CustomFieldSchema[]> = {}
+    for (const schema of applicableSchemas) {
+      const groupName = schema.group || '其他'
+      if (!groups[groupName]) groups[groupName] = []
+      groups[groupName].push(schema)
+    }
+    return groups
+  }, [applicableSchemas])
 
-            <div className="px-3 pb-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="搜索条目..."
-                  className="w-full pl-10 pr-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-purple-500/50 transition-colors"
-                />
-              </div>
-            </div>
+  const getFieldValue = (fieldId: string): unknown => {
+    const found = entryFieldValues.find((v) => v.fieldId === fieldId)
+    return found ? found.value : null
+  }
 
-            <div className="px-3 pb-3">
-              <div className="flex gap-2 overflow-x-auto pb-1">
+  const debouncedSaveFieldValue = useMemo(
+    () =>
+      debounce((...args: unknown[]) => {
+        const [entryId, fieldId, value] = args as [string, string, unknown]
+        saveFieldValue(entryId, fieldId, value)
+      }, 500),
+    [saveFieldValue],
+  )
+
+  const handleFieldChange = (fieldId: string, value: unknown) => {
+    if (!selectedEntryId) return
+    debouncedSaveFieldValue(selectedEntryId, fieldId, value)
+  }
+
+  const renderFieldControl = (schema: CustomFieldSchema) => {
+    const value = getFieldValue(schema.id)
+    const commonInputClass =
+      'w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500/50 transition-colors'
+
+    switch (schema.type) {
+      case 'text':
+        return (
+          <input
+            type="text"
+            value={(value as string) || ''}
+            onChange={(e) => handleFieldChange(schema.id, e.target.value)}
+            placeholder={schema.placeholder}
+            className={commonInputClass}
+          />
+        )
+      case 'text_long':
+        return (
+          <textarea
+            value={(value as string) || ''}
+            onChange={(e) => handleFieldChange(schema.id, e.target.value)}
+            placeholder={schema.placeholder}
+            rows={3}
+            className={`${commonInputClass} resize-none`}
+          />
+        )
+      case 'number':
+        return (
+          <input
+            type="number"
+            value={value !== null && value !== undefined ? String(value) : ''}
+            onChange={(e) =>
+              handleFieldChange(schema.id, e.target.value === '' ? null : Number(e.target.value))
+            }
+            placeholder={schema.placeholder}
+            className={commonInputClass}
+          />
+        )
+      case 'date':
+        return (
+          <input
+            type="date"
+            value={(value as string) || ''}
+            onChange={(e) => handleFieldChange(schema.id, e.target.value)}
+            className={commonInputClass}
+          />
+        )
+      case 'select':
+        return (
+          <select
+            value={(value as string) || ''}
+            onChange={(e) => handleFieldChange(schema.id, e.target.value)}
+            className={commonInputClass}
+          >
+            <option value="" className="bg-slate-800">
+              请选择...
+            </option>
+            {schema.options?.map((opt) => (
+              <option key={opt} value={opt} className="bg-slate-800">
+                {opt}
+              </option>
+            ))}
+          </select>
+        )
+      case 'multiselect': {
+        const selectedValues = Array.isArray(value) ? value : []
+        return (
+          <div className="flex flex-wrap gap-2">
+            {schema.options?.map((opt) => {
+              const checked = selectedValues.includes(opt)
+              return (
                 <button
-                  onClick={() => setSelectedType('all')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                    selectedType === 'all'
-                      ? 'bg-purple-500 text-white'
-                      : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                  key={opt}
+                  type="button"
+                  onClick={() => {
+                    const newValues = checked
+                      ? selectedValues.filter((v) => v !== opt)
+                      : [...selectedValues, opt]
+                    handleFieldChange(schema.id, newValues)
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-xs transition-colors border ${
+                    checked
+                      ? 'bg-purple-500/20 border-purple-500/50 text-purple-300'
+                      : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
                   }`}
                 >
-                  全部
+                  {opt}
                 </button>
-                {(Object.entries(ENTRY_TYPE_LABELS) as [EntryType, string][]).map(([type, label]) => (
-                  <button
-                    key={type}
-                    onClick={() => setSelectedType(type)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                      selectedType === type
-                        ? 'bg-purple-500 text-white'
-                        : 'bg-white/5 text-slate-400 hover:bg-white/10'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {tags.length > 0 && (
-              <div className="px-3 pb-3">
-                <p className="text-xs text-slate-500 mb-2">标签</p>
-                <div className="flex flex-wrap gap-1">
-                  {tags.slice(0, 8).map((tag) => (
-                    <button
-                      key={tag.id}
-                      onClick={() => setSearchQuery(tag.name)}
-                      className="px-2 py-1 rounded text-xs text-slate-400 bg-white/5 hover:bg-white/10 transition-colors"
-                      style={{ backgroundColor: tag.color ? `${tag.color}20` : undefined, color: tag.color || undefined }}
-                    >
-                      {tag.name}
-                    </button>
-                  ))}
-                </div>
+              )
+            })}
+          </div>
+        )
+      }
+      case 'boolean':
+        return (
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={Boolean(value)}
+              onChange={(e) => handleFieldChange(schema.id, e.target.checked)}
+              className="w-4 h-4 rounded border-white/20 bg-white/5 text-purple-500 focus:ring-purple-500/50"
+            />
+            <span className="text-sm text-slate-300">{Boolean(value) ? '是' : '否'}</span>
+          </label>
+        )
+      case 'color':
+        return (
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={(value as string) || '#6366f1'}
+              onChange={(e) => handleFieldChange(schema.id, e.target.value)}
+              className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 cursor-pointer p-1"
+            />
+            <input
+              type="text"
+              value={(value as string) || ''}
+              onChange={(e) => handleFieldChange(schema.id, e.target.value)}
+              placeholder="#RRGGBB"
+              className={commonInputClass}
+            />
+          </div>
+        )
+      case 'image':
+        return (
+          <div className="space-y-2">
+            {typeof value === 'string' && value && (
+              <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-white/10">
+                <img src={value} alt="" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => handleFieldChange(schema.id, '')}
+                  className="absolute top-1 right-1 p-1 rounded bg-black/50 hover:bg-black/70 text-white"
+                >
+                  <XCircle className="w-3 h-3" />
+                </button>
               </div>
             )}
-          </>
-        )}
+            <input
+              type="text"
+              value={(value as string) || ''}
+              onChange={(e) => handleFieldChange(schema.id, e.target.value)}
+              placeholder="输入图片 URL..."
+              className={commonInputClass}
+            />
+          </div>
+        )
+      default:
+        return (
+          <input
+            type="text"
+            value={(value as string) || ''}
+            onChange={(e) => handleFieldChange(schema.id, e.target.value)}
+            className={commonInputClass}
+          />
+        )
+    }
+  }
 
-        <div className="flex-1 overflow-y-auto px-2">
-          {filteredEntries.map((entry) => {
-            const Icon = ENTRY_TYPE_ICONS[entry.type]
-            const isSelected = entry.id === selectedEntryId
-            return (
-              <div
-                key={entry.id}
-                onClick={() => selectEntry(entry.id)}
-                className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                  isSelected
-                    ? 'bg-purple-500/20 border border-purple-500/50'
-                    : 'hover:bg-white/5 border border-transparent'
-                }`}
-              >
-                <div className="relative">
-                  <div className={`w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center ${isSelected ? 'ring-2 ring-purple-500' : ''}`}>
-                    <Icon className="w-4 h-4 text-slate-400" />
-                  </div>
-                  <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ${STATUS_COLORS[entry.status]} border-2 border-slate-800`} />
+  const customFieldsSection =
+    applicableSchemas.length > 0
+      ? Object.entries(groupedSchemas).map(([groupName, groupSchemas]) => (
+          <div key={groupName} className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
+            <h3 className="text-white font-medium mb-4 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-400" />
+              {groupName}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {groupSchemas.map((schema) => (
+                <div key={schema.id} className="space-y-1.5">
+                  <label className="block text-sm font-medium text-slate-400">
+                    {schema.label}
+                    {schema.required && <span className="text-red-400 ml-1">*</span>}
+                  </label>
+                  {renderFieldControl(schema)}
                 </div>
-                {!sidebarCollapsed && (
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate">{entry.title}</p>
-                    <p className="text-slate-500 text-xs">{ENTRY_TYPE_LABELS[entry.type]}</p>
+              ))}
+            </div>
+          </div>
+        ))
+      : null
+
+  return (
+    <div className="workspace-shell grid h-screen grid-cols-[auto_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] bg-slate-900">
+      {(activeView === 'editor' || activeView === 'card') && (
+        <aside
+          className={`workspace-sidebar col-start-1 row-start-2 min-h-0 ${
+            sidebarCollapsed ? 'w-[72px] is-collapsed' : activeView === 'editor' ? 'w-72' : 'w-80'
+          } flex flex-col bg-gradient-to-b from-slate-800 to-slate-900 border-r border-white/10 transition-all duration-300`}
+        >
+          <div className="p-4 border-b border-white/10">
+            <div className="flex items-center justify-between">
+              {!sidebarCollapsed && (
+                <div className="flex-1 min-w-0">
+                  <span className="workspace-kicker">
+                    {activeView === 'editor' ? 'EDITOR INDEX' : 'CARD ARCHIVE'}
+                  </span>
+                  <h1 className="truncate font-bold text-white">
+                    {activeView === 'editor' ? '编辑目录' : '条目卡片库'}
+                  </h1>
+                  <p className="truncate text-xs text-slate-500">
+                    {activeView === 'editor' ? '按类型展开并选择条目' : '通过封面、摘要和状态浏览条目'}
+                  </p>
+                </div>
+              )}
+              <button
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+              >
+                {sidebarCollapsed ? (
+                  <ChevronRight className="w-5 h-5 text-slate-400" />
+                ) : (
+                  <ChevronLeft className="w-5 h-5 text-slate-400" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {!sidebarCollapsed && (
+            <>
+              <div className="p-3">
+                <div className="flex gap-2">
+                  <button
+                    onClick={toggleCreateEntryModal}
+                    className="flex flex-1 items-center gap-3 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-3 font-medium text-white transition-opacity hover:opacity-90"
+                  >
+                    <Plus className="h-5 w-5" />
+                    <span>新建条目</span>
+                  </button>
+                  {activeView === 'editor' && (
+                    <button
+                      onClick={handleDeleteEntry}
+                      disabled={!selectedEntry}
+                      title={selectedEntry ? `删除“${selectedEntry.title}”` : '请先选择要删除的条目'}
+                      className="flex w-12 shrink-0 items-center justify-center rounded-lg border border-red-400/20 bg-red-500/10 text-red-400 transition-colors hover:border-red-400/40 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-white/[0.03] disabled:text-slate-700"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="px-3 pb-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="搜索条目..."
+                    className="w-full pl-10 pr-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-purple-500/50 transition-colors"
+                  />
+                </div>
+              </div>
+
+              {activeView === 'card' && (
+                <div className="px-3 pb-3">
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    <button
+                      onClick={() => setSelectedType('all')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                        selectedType === 'all'
+                          ? 'bg-purple-500 text-white'
+                          : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                      }`}
+                    >
+                      全部
+                    </button>
+                    {(Object.entries(ENTRY_TYPE_LABELS) as [EntryType, string][]).map(([type, label]) => (
+                      <button
+                        key={type}
+                        onClick={() => setSelectedType(type)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                          selectedType === type
+                            ? 'bg-purple-500 text-white'
+                            : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {tags.length > 0 && (
+                <div className="px-3 pb-3">
+                  <p className="text-xs text-slate-500 mb-2">标签</p>
+                  <div className="flex flex-wrap gap-1">
+                    {tags.slice(0, 8).map((tag) => (
+                      <button
+                        key={tag.id}
+                        onClick={() => setSearchQuery(tag.name)}
+                        className="px-2 py-1 rounded text-xs text-slate-400 bg-white/5 hover:bg-white/10 transition-colors"
+                        style={{
+                          backgroundColor: tag.color ? `${tag.color}20` : undefined,
+                          color: tag.color || undefined,
+                        }}
+                      >
+                        {tag.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          <div className="flex-1 overflow-y-auto px-3 pb-3">
+            {!sidebarCollapsed && (
+              <div className="flex items-center justify-between px-1 pb-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  条目导航
+                </span>
+                <span className="rounded-full bg-white/5 px-2 py-0.5 text-[11px] text-slate-500">
+                  {activeView === 'editor' ? searchFilteredEntries.length : filteredEntries.length}/
+                  {entries.length}
+                </span>
+              </div>
+            )}
+            {activeView === 'editor' ? (
+              <div className="space-y-1">
+                {(Object.entries(editorGroupedEntries) as [EntryType, Entry[]][]).map(
+                  ([type, typeEntries]) => {
+                    const TypeIcon = ENTRY_TYPE_ICONS[type]
+                    const expanded = expandedEditorTypes.has(type)
+                    return (
+                      <div key={type}>
+                        <button
+                          onClick={() => toggleEditorType(type)}
+                          className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-white/5"
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <TypeIcon className="h-4 w-4 shrink-0 text-slate-400" />
+                            {!sidebarCollapsed && (
+                              <>
+                                <span className="text-sm text-slate-300">{ENTRY_TYPE_LABELS[type]}</span>
+                                <span className="text-xs text-slate-600">({typeEntries.length})</span>
+                              </>
+                            )}
+                          </div>
+                          {!sidebarCollapsed && (
+                            <ChevronRight
+                              className={`h-4 w-4 text-slate-600 transition-transform ${expanded ? 'rotate-90' : ''}`}
+                            />
+                          )}
+                        </button>
+                        {expanded && !sidebarCollapsed && (
+                          <div className="ml-4 border-l border-white/5 pl-2">
+                            {typeEntries.map((entry) => {
+                              const isSelected = entry.id === selectedEntryId
+                              return (
+                                <button
+                                  key={entry.id}
+                                  onClick={() => void handleSelectEntry(entry.id)}
+                                  className={`mb-0.5 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
+                                    isSelected
+                                      ? 'bg-amber-400/10 text-amber-100'
+                                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                                  }`}
+                                >
+                                  <span
+                                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_COLORS[entry.status]}`}
+                                  />
+                                  <span className="truncate">{entry.title}</span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  },
+                )}
+                {searchFilteredEntries.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+                    <FileText className="mb-2 h-8 w-8" />
+                    {!sidebarCollapsed && <p className="text-sm">暂无条目</p>}
                   </div>
                 )}
               </div>
-            )
-          })}
+            ) : (
+              <>
+                {filteredEntries.map((entry) => {
+                  const Icon = ENTRY_TYPE_ICONS[entry.type]
+                  const isSelected = entry.id === selectedEntryId
+                  return (
+                    <button
+                      key={entry.id}
+                      onClick={() => void handleSelectEntry(entry.id)}
+                      className={`group mb-1.5 flex w-full items-center gap-3 rounded-xl border p-2 text-left transition-all ${
+                        isSelected
+                          ? 'border-amber-400/50 bg-amber-400/10 shadow-[0_8px_24px_rgba(245,158,11,0.08)]'
+                          : 'border-transparent hover:border-white/10 hover:bg-white/5'
+                      }`}
+                    >
+                      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-slate-700">
+                        <img
+                          src={getEntryCoverSource(entry)}
+                          alt=""
+                          className="h-full w-full object-cover opacity-75 transition duration-300 group-hover:scale-105 group-hover:opacity-100"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 to-transparent" />
+                        <Icon className="absolute bottom-1.5 left-1.5 h-3.5 w-3.5 text-white/90" />
+                        <div
+                          className={`absolute right-1.5 top-1.5 h-2 w-2 rounded-full ${STATUS_COLORS[entry.status]} ring-2 ring-slate-900/80`}
+                        />
+                      </div>
+                      {!sidebarCollapsed && (
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`truncate text-sm font-semibold ${isSelected ? 'text-amber-50' : 'text-slate-100'}`}
+                          >
+                            {entry.title}
+                          </p>
+                          <div className="mt-1 flex items-center gap-1.5">
+                            <span className="text-[11px] text-slate-500">
+                              {ENTRY_TYPE_LABELS[entry.type]}
+                            </span>
+                            {entry.summary && <span className="text-slate-700">·</span>}
+                            {entry.summary && (
+                              <span className="min-w-0 truncate text-[11px] text-slate-500">
+                                {entry.summary}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {!sidebarCollapsed && (
+                        <ChevronRight className="h-4 w-4 text-slate-600 group-hover:text-slate-400" />
+                      )}
+                    </button>
+                  )
+                })}
 
-          {filteredEntries.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-              <FileText className="w-8 h-8 mb-2" />
-              {!sidebarCollapsed && <p className="text-sm">暂无条目</p>}
-            </div>
-          )}
-        </div>
-
-        {!sidebarCollapsed && (
-          <div className="p-3 border-t border-white/10">
-            <button
-              onClick={closeProject}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white/5 text-slate-400 hover:bg-red-500/20 hover:text-red-400 transition-colors"
-            >
-              <X className="w-4 h-4" />
-              <span>关闭项目</span>
-            </button>
-          </div>
-        )}
-      </aside>
-
-      <main className="workspace-main flex-1 flex flex-col min-w-0">
-        <header className="workspace-topbar flex items-center justify-between px-6 bg-slate-800/50 border-b border-white/10">
-          <div className="flex items-center gap-4">
-            <h2 className="text-white font-semibold">
-              {selectedEntry ? selectedEntry.title : '选择一个条目'}
-            </h2>
-            {selectedEntry && (
-              <span className="px-2 py-1 rounded-full bg-white/5 text-slate-400 text-xs">
-                {ENTRY_TYPE_LABELS[selectedEntry.type]}
-              </span>
+                {filteredEntries.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+                    <FileText className="w-8 h-8 mb-2" />
+                    {!sidebarCollapsed && <p className="text-sm">暂无条目</p>}
+                  </div>
+                )}
+              </>
             )}
+          </div>
+        </aside>
+      )}
+
+      <main className="contents">
+        <header className="workspace-topbar col-span-2 row-start-1 flex items-center justify-between px-6 bg-slate-800/50 border-b border-white/10">
+          <div className="flex w-56 shrink-0 items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-400/20 bg-amber-400/10">
+              <BookOpen className="h-4 w-4 text-amber-400" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                <span className="max-w-32 truncate">{currentProject?.name}</span>
+                <ChevronRight className="h-3 w-3" />
+                <span className="shrink-0 whitespace-nowrap text-amber-400/80">
+                  {VIEW_LABELS[activeView]}
+                </span>
+              </div>
+              <h2 className="truncate text-sm font-semibold text-white">
+                {selectedEntry ? selectedEntry.title : '世界总览'}
+              </h2>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
             <div className="view-switcher flex items-center bg-white/10 rounded-lg p-1">
               <button
-                onClick={() => setActiveView('editor')}
+                onClick={() => void handleViewChange('editor')}
                 className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
                   activeView === 'editor' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
                 }`}
@@ -471,7 +901,7 @@ export function Workspace() {
                 编辑器
               </button>
               <button
-                onClick={() => setActiveView('wiki')}
+                onClick={() => void handleViewChange('wiki')}
                 className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
                   activeView === 'wiki' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
                 }`}
@@ -480,7 +910,7 @@ export function Workspace() {
                 百科
               </button>
               <button
-                onClick={() => setActiveView('map')}
+                onClick={() => void handleViewChange('map')}
                 className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
                   activeView === 'map' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
                 }`}
@@ -489,7 +919,7 @@ export function Workspace() {
                 地图
               </button>
               <button
-                onClick={() => setActiveView('graph')}
+                onClick={() => void handleViewChange('graph')}
                 className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
                   activeView === 'graph' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
                 }`}
@@ -498,7 +928,7 @@ export function Workspace() {
                 图谱
               </button>
               <button
-                onClick={() => setActiveView('timeline')}
+                onClick={() => void handleViewChange('timeline')}
                 className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
                   activeView === 'timeline' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
                 }`}
@@ -507,7 +937,7 @@ export function Workspace() {
                 时间轴
               </button>
               <button
-                onClick={() => setActiveView('template')}
+                onClick={() => void handleViewChange('template')}
                 className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
                   activeView === 'template' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
                 }`}
@@ -516,7 +946,7 @@ export function Workspace() {
                 模板
               </button>
               <button
-                onClick={() => setActiveView('export')}
+                onClick={() => void handleViewChange('export')}
                 className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
                   activeView === 'export' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
                 }`}
@@ -525,7 +955,7 @@ export function Workspace() {
                 导出
               </button>
               <button
-                onClick={() => setActiveView('collab')}
+                onClick={() => void handleViewChange('collab')}
                 className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
                   activeView === 'collab' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
                 }`}
@@ -533,285 +963,339 @@ export function Workspace() {
                 <Users className="w-4 h-4" />
                 协作
               </button>
+              <button
+                onClick={() => void handleViewChange('card')}
+                className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
+                  activeView === 'card' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                <CreditCard className="w-4 h-4" />
+                卡片
+              </button>
             </div>
 
-            {lastSaveTime && (
-              <div className="flex items-center gap-2 text-slate-500 text-sm">
+            <div
+              className={`flex items-center gap-2 text-sm ${saveStatus === 'error' ? 'text-red-400' : 'text-slate-500'}`}
+              title={saveStatus === 'error' ? saveError || '保存失败' : undefined}
+              role="status"
+            >
+              {saveStatus === 'saving' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : saveStatus === 'error' ? (
+                <AlertTriangle className="w-4 h-4" />
+              ) : (
                 <Clock className="w-4 h-4" />
-                <span>自动保存于 {formatDate(lastSaveTime)}</span>
-              </div>
-            )}
+              )}
+              <span>
+                {saveStatus === 'saving'
+                  ? '正在保存'
+                  : saveStatus === 'error'
+                    ? '保存失败，请重试'
+                    : lastSaveTime
+                      ? `已保存于 ${formatDate(lastSaveTime)}`
+                      : '尚未保存'}
+              </span>
+            </div>
             <button
-              onClick={saveProject}
+              onClick={() => void handleSave()}
+              disabled={saveStatus === 'saving'}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors"
             >
               <Save className="w-4 h-4" />
               <span>保存</span>
             </button>
-            {selectedEntry && (
-              <button
-                onClick={handleDeleteEntry}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>删除</span>
-              </button>
-            )}
+            <button
+              onClick={() => void handleCloseProject()}
+              title="关闭项目"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-slate-500 transition-colors hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-400"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
         </header>
 
-        <div className="flex-1 overflow-hidden">
+        <div className="workspace-main col-start-2 row-start-2 min-h-0 overflow-hidden">
           {activeView === 'editor' ? (
             <div className="editor-scroll h-full overflow-y-auto p-6">
               {selectedEntry ? (
                 <div className="editor-canvas max-w-4xl mx-auto space-y-6">
-              {selectedCoverAssetId && (
-                <div className="relative rounded-xl overflow-hidden border border-white/10">
-                  <img
-                    src={getAssetUrl(projectAssets.find(a => a.id === selectedCoverAssetId)?.relativePath || '')}
-                    alt="封面图"
-                    className="w-full h-48 object-cover"
-                  />
-                  <button
-                    onClick={() => setEntryCoverAsset(selectedEntryId!, null)}
-                    className="absolute top-2 right-2 p-2 rounded-lg bg-black/50 hover:bg-black/70 text-white transition-colors"
-                  >
-                    <XCircle className="w-5 h-5" />
-                  </button>
-                </div>
-              )}
-
-              <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
-                <label className="block text-sm font-medium text-slate-400 mb-2">标题</label>
-                <input
-                  type="text"
-                  value={entryTitle}
-                  onChange={(e) => setEntryTitle(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white text-lg font-semibold focus:outline-none focus:border-purple-500/50 transition-colors"
-                />
-              </div>
-
-              <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
-                <label className="block text-sm font-medium text-slate-400 mb-2">摘要</label>
-                <textarea
-                  value={entrySummary}
-                  onChange={(e) => setEntrySummary(e.target.value)}
-                  placeholder="输入条目摘要..."
-                  rows={2}
-                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors resize-none"
-                />
-              </div>
-
-              <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
-                <label className="block text-sm font-medium text-slate-400 mb-2">内容</label>
-                <MarkdownEditor content={entryContent} onChange={setEntryContent} placeholder="输入条目详细内容..." />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
-                  <p className="text-slate-500 text-sm mb-1">状态</p>
-                  <select
-                    value={selectedEntry.status}
-                    onChange={(e) => updateEntry(selectedEntry.id, { status: e.target.value as EntryStatus })}
-                    className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:border-purple-500/50 text-sm"
-                  >
-                    <option value="draft" className="bg-slate-800">草稿</option>
-                    <option value="active" className="bg-slate-800">活跃</option>
-                    <option value="complete" className="bg-slate-800">完成</option>
-                    <option value="archived" className="bg-slate-800">已归档</option>
-                  </select>
-                </div>
-
-                <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
-                  <p className="text-slate-500 text-sm mb-1">可见性</p>
-                  <button
-                    onClick={() =>
-                      updateEntry(selectedEntry.id, {
-                        visibility: selectedEntry.visibility === 'private' ? 'internal' : 'private',
-                      })
-                    }
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-colors"
-                  >
-                    {selectedEntry.visibility === 'private' ? (
-                      <><EyeOff className="w-4 h-4" /><span>私密</span></>
-                    ) : (
-                      <><Eye className="w-4 h-4" /><span>内部</span></>
-                    )}
-                  </button>
-                </div>
-
-                <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
-                  <p className="text-slate-500 text-sm mb-1">封面图</p>
-                  <button
-                    onClick={() => setShowImageUploadModal(true)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
-                  >
-                    <Image className="w-4 h-4" />
-                    <span>{selectedCoverAssetId ? '更换' : '设置'}</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <TagIcon className="w-5 h-5 text-purple-400" />
-                    <h3 className="text-white font-medium">标签</h3>
-                  </div>
-                  <button
-                    onClick={() => setShowTagModal(true)}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 text-sm transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>添加标签</span>
-                  </button>
-                </div>
-
-                {entryTags.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {entryTags.map((tag) => (
-                      <span
-                        key={tag.id}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-colors cursor-pointer"
-                        style={{ backgroundColor: tag.color ? `${tag.color}20` : 'bg-white/10', color: tag.color || 'text-slate-300' }}
-                        onClick={() => handleRemoveTagFromEntry(tag.id)}
-                      >
-                        {tag.name}
-                        <XCircle className="w-3.5 h-3.5" />
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-slate-500 text-sm">暂无标签，点击上方按钮添加</p>
-                )}
-              </div>
-
-              <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Star className="w-5 h-5 text-yellow-400" />
-                  <h3 className="text-white font-medium">别名</h3>
-                </div>
-
-                <div className="space-y-2">
-                  {entryAliases.map((alias) => (
-                    <div key={alias.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5">
-                      <span className="text-white text-sm">{alias.value}</span>
-                      <button
-                        onClick={() => handleDeleteAlias(alias.id)}
-                        className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-red-400 transition-colors"
-                      >
-                        <XCircle className="w-4 h-4" />
-                      </button>
+                  {selectedCoverSource && (
+                    <div className="relative overflow-hidden rounded-xl border border-white/10 bg-slate-950/60">
+                      <img
+                        src={selectedCoverSource}
+                        alt="封面图"
+                        className="h-[clamp(320px,38vw,520px)] w-full object-contain"
+                      />
+                      {selectedCoverAssetId && (
+                        <button
+                          onClick={() => setEntryCoverAsset(selectedEntryId!, null)}
+                          className="absolute top-2 right-2 p-2 rounded-lg bg-black/50 hover:bg-black/70 text-white transition-colors"
+                        >
+                          <XCircle className="w-5 h-5" />
+                        </button>
+                      )}
                     </div>
-                  ))}
+                  )}
 
-                  <div className="flex gap-2">
+                  <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
+                    <label className="block text-sm font-medium text-slate-400 mb-2">标题</label>
                     <input
                       type="text"
-                      value={newAliasInput}
-                      onChange={(e) => setNewAliasInput(e.target.value)}
-                      placeholder="输入别名..."
-                      className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors"
-                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleCreateAlias())}
+                      value={entryTitle}
+                      onChange={(e) => setEntryTitle(e.target.value)}
+                      className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white text-lg font-semibold focus:outline-none focus:border-purple-500/50 transition-colors"
                     />
-                    <button
-                      onClick={handleCreateAlias}
-                      disabled={!newAliasInput.trim()}
-                      className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
                   </div>
-                </div>
-              </div>
 
-              <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2">
-                    <GitBranch className="w-4 h-4" />
-                    关系
-                  </h4>
-                  <button
-                    onClick={() => setShowRelationModal(true)}
-                    className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {entryRelations.map((relation) => {
-                    const targetEntry = entries.find((e) => e.id === relation.targetEntryId)
-                    return (
-                      <div
-                        key={relation.id}
-                        className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors group cursor-pointer"
-                        onClick={() => targetEntry && selectEntry(targetEntry.id)}
+                  <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
+                    <label className="block text-sm font-medium text-slate-400 mb-2">摘要</label>
+                    <textarea
+                      value={entrySummary}
+                      onChange={(e) => setEntrySummary(e.target.value)}
+                      placeholder="输入条目摘要..."
+                      rows={2}
+                      className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors resize-none"
+                    />
+                  </div>
+
+                  <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
+                    <label className="block text-sm font-medium text-slate-400 mb-2">内容</label>
+                    <MarkdownEditor
+                      content={entryContent}
+                      onChange={setEntryContent}
+                      placeholder="输入条目详细内容..."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
+                      <p className="text-slate-500 text-sm mb-1">状态</p>
+                      <select
+                        value={selectedEntry.status}
+                        onChange={(e) =>
+                          updateEntry(selectedEntry.id, { status: e.target.value as EntryStatus })
+                        }
+                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:border-purple-500/50 text-sm"
                       >
-                        <div className="flex items-center gap-2">
-                          <ArrowRightLeft className="w-3 h-3 text-purple-400" />
-                          <span className="text-sm text-white">{targetEntry?.title || '未知'}</span>
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">
-                            {relation.type}
+                        <option value="draft" className="bg-slate-800">
+                          草稿
+                        </option>
+                        <option value="active" className="bg-slate-800">
+                          活跃
+                        </option>
+                        <option value="complete" className="bg-slate-800">
+                          完成
+                        </option>
+                        <option value="archived" className="bg-slate-800">
+                          已归档
+                        </option>
+                      </select>
+                    </div>
+
+                    <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
+                      <p className="text-slate-500 text-sm mb-1">可见性</p>
+                      <button
+                        onClick={() =>
+                          updateEntry(selectedEntry.id, {
+                            visibility: selectedEntry.visibility === 'private' ? 'internal' : 'private',
+                          })
+                        }
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-colors"
+                      >
+                        {selectedEntry.visibility === 'private' ? (
+                          <>
+                            <EyeOff className="w-4 h-4" />
+                            <span>私密</span>
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="w-4 h-4" />
+                            <span>内部</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
+                      <p className="text-slate-500 text-sm mb-1">封面图</p>
+                      <button
+                        onClick={() => setShowImageUploadModal(true)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
+                      >
+                        <Image className="w-4 h-4" />
+                        <span>{selectedCoverAssetId ? '更换' : '设置'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <TagIcon className="w-5 h-5 text-purple-400" />
+                        <h3 className="text-white font-medium">标签</h3>
+                      </div>
+                      <button
+                        onClick={() => setShowTagModal(true)}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 text-sm transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>添加标签</span>
+                      </button>
+                    </div>
+
+                    {entryTags.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {entryTags.map((tag) => (
+                          <span
+                            key={tag.id}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-colors cursor-pointer"
+                            style={{
+                              backgroundColor: tag.color ? `${tag.color}20` : 'bg-white/10',
+                              color: tag.color || 'text-slate-300',
+                            }}
+                            onClick={() => handleRemoveTagFromEntry(tag.id)}
+                          >
+                            {tag.name}
+                            <XCircle className="w-3.5 h-3.5" />
                           </span>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            deleteRelation(relation.id)
-                          }}
-                          className="p-1 rounded hover:bg-red-500/20 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-slate-500 text-sm">暂无标签，点击上方按钮添加</p>
+                    )}
+                  </div>
+
+                  <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Star className="w-5 h-5 text-yellow-400" />
+                      <h3 className="text-white font-medium">别名</h3>
+                    </div>
+
+                    <div className="space-y-2">
+                      {entryAliases.map((alias) => (
+                        <div
+                          key={alias.id}
+                          className="flex items-center justify-between p-2 rounded-lg bg-white/5"
                         >
-                          <XCircle className="w-3 h-3" />
+                          <span className="text-white text-sm">{alias.value}</span>
+                          <button
+                            onClick={() => handleDeleteAlias(alias.id)}
+                            className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-red-400 transition-colors"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newAliasInput}
+                          onChange={(e) => setNewAliasInput(e.target.value)}
+                          placeholder="输入别名..."
+                          className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors"
+                          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleCreateAlias())}
+                        />
+                        <button
+                          onClick={handleCreateAlias}
+                          disabled={!newAliasInput.trim()}
+                          className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
                         </button>
                       </div>
-                    )
-                  })}
-                  {entryRelations.length === 0 && (
-                    <p className="text-xs text-slate-500 py-2">暂无关系，点击 + 添加</p>
-                  )}
-                </div>
-              </div>
+                    </div>
+                  </div>
 
-              <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
-                <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2 mb-3">
-                  <Link className="w-4 h-4" />
-                  反向引用
-                </h4>
-                <div className="space-y-2">
-                  {backlinks.map((backlink, index) => {
-                    return (
-                      <div
-                        key={`${backlink.entry.id}-${index}`}
-                        className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
-                        onClick={() => selectEntry(backlink.entry.id)}
+                  {customFieldsSection}
+
+                  <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                        <GitBranch className="w-4 h-4" />
+                        关系
+                      </h4>
+                      <button
+                        onClick={() => setShowRelationModal(true)}
+                        className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
                       >
-                        <ExternalLink className="w-3 h-3 text-blue-400" />
-                        <span className="text-sm text-white">{backlink.entry.title}</span>
-                        {backlink.linkText && (
-                          <span className="text-xs text-slate-400 truncate">引用: {backlink.linkText}</span>
-                        )}
-                      </div>
-                    )
-                  })}
-                  {backlinks.length === 0 && (
-                    <p className="text-xs text-slate-500 py-2">暂无反向引用</p>
-                  )}
-                </div>
-              </div>
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {entryRelations.map((relation) => {
+                        const targetEntry = entries.find((e) => e.id === relation.targetEntryId)
+                        return (
+                          <div
+                            key={relation.id}
+                            className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors group cursor-pointer"
+                            onClick={() => targetEntry && void handleSelectEntry(targetEntry.id)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <ArrowRightLeft className="w-3 h-3 text-purple-400" />
+                              <span className="text-sm text-white">{targetEntry?.title || '未知'}</span>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">
+                                {RELATION_TYPE_LABELS[relation.type] || relation.type}
+                              </span>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                deleteRelation(relation.id)
+                              }}
+                              className="p-1 rounded hover:bg-red-500/20 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                            >
+                              <XCircle className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )
+                      })}
+                      {entryRelations.length === 0 && (
+                        <p className="text-xs text-slate-500 py-2">暂无关系，点击 + 添加</p>
+                      )}
+                    </div>
+                  </div>
 
-              <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
-                <p className="text-slate-500 text-sm">创建时间：{formatDate(selectedEntry.createdAt)}</p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-slate-500">
-              <FileText className="w-16 h-16 mb-4" />
-              <h3 className="text-xl font-medium mb-2">选择或创建一个条目</h3>
-              <p className="text-center max-w-md">
-                在左侧面板中选择一个条目开始编辑，或者点击"新建条目"创建一个新的设定。
-              </p>
-            </div>
-          )}
+                  <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
+                    <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2 mb-3">
+                      <Link className="w-4 h-4" />
+                      反向引用
+                    </h4>
+                    <div className="space-y-2">
+                      {backlinks.map((backlink, index) => {
+                        return (
+                          <div
+                            key={`${backlink.entry.id}-${index}`}
+                            className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                            onClick={() => void handleSelectEntry(backlink.entry.id)}
+                          >
+                            <ExternalLink className="w-3 h-3 text-blue-400" />
+                            <span className="text-sm text-white">{backlink.entry.title}</span>
+                            {backlink.linkText && (
+                              <span className="text-xs text-slate-400 truncate">
+                                引用: {backlink.linkText}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })}
+                      {backlinks.length === 0 && <p className="text-xs text-slate-500 py-2">暂无反向引用</p>}
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
+                    <p className="text-slate-500 text-sm">创建时间：{formatDate(selectedEntry.createdAt)}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-slate-500">
+                  <FileText className="w-16 h-16 mb-4" />
+                  <h3 className="text-xl font-medium mb-2">选择或创建一个条目</h3>
+                  <p className="text-center max-w-md">
+                    在左侧面板中选择一个条目开始编辑，或者点击"新建条目"创建一个新的设定。
+                  </p>
+                </div>
+              )}
             </div>
           ) : activeView === 'wiki' ? (
             <WikiView />
@@ -825,6 +1309,8 @@ export function Workspace() {
             <TemplateManager />
           ) : activeView === 'export' ? (
             <ExportView />
+          ) : activeView === 'card' ? (
+            <EntryCardView />
           ) : (
             <CollabView />
           )}
@@ -959,7 +1445,10 @@ export function Workspace() {
                           setShowTagModal(false)
                         }}
                         className="px-3 py-1.5 rounded-full text-sm transition-colors"
-                        style={{ backgroundColor: tag.color ? `${tag.color}20` : 'bg-white/10', color: tag.color || 'text-slate-300' }}
+                        style={{
+                          backgroundColor: tag.color ? `${tag.color}20` : 'bg-white/10',
+                          color: tag.color || 'text-slate-300',
+                        }}
                       >
                         {tag.name}
                       </button>
@@ -1001,33 +1490,37 @@ export function Workspace() {
                 <span className="text-slate-500 text-sm">支持 JPG, PNG, GIF</span>
               </button>
 
-              {projectAssets.filter(a => a.kind === 'image').length > 0 && (
+              {projectAssets.filter((a) => a.kind === 'image' || a.kind === 'cover').length > 0 && (
                 <div>
                   <p className="text-sm font-medium text-slate-300 mb-2">已上传的图片</p>
                   <div className="grid grid-cols-3 gap-2">
-                    {projectAssets.filter(a => a.kind === 'image').map((asset) => (
-                      <div
-                        key={asset.id}
-                        className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-colors ${
-                          selectedCoverAssetId === asset.id ? 'border-purple-500' : 'border-transparent hover:border-white/20'
-                        }`}
-                        onClick={() => handleSetCoverImage(asset.id)}
-                      >
-                        <img
-                          src={getAssetUrl(asset.relativePath)}
-                          alt={asset.filename}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <span className="text-white text-xs">{formatFileSize(asset.size)}</span>
-                        </div>
-                        {selectedCoverAssetId === asset.id && (
-                          <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center">
-                            <X className="w-3 h-3 text-white" />
+                    {projectAssets
+                      .filter((a) => a.kind === 'image' || a.kind === 'cover')
+                      .map((asset) => (
+                        <div
+                          key={asset.id}
+                          className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-colors ${
+                            selectedCoverAssetId === asset.id
+                              ? 'border-purple-500'
+                              : 'border-transparent hover:border-white/20'
+                          }`}
+                          onClick={() => handleSetCoverImage(asset.id)}
+                        >
+                          <img
+                            src={getAssetUrl(asset.relativePath)}
+                            alt={asset.filename}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="text-white text-xs">{formatFileSize(asset.size)}</span>
                           </div>
-                        )}
-                      </div>
-                    ))}
+                          {selectedCoverAssetId === asset.id && (
+                            <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center">
+                              <X className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
                   </div>
                 </div>
               )}
@@ -1070,7 +1563,7 @@ export function Workspace() {
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">关系类型</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {RELATION_TYPES.map((type) => (
+                  {RELATION_TYPE_KEYS.map((type) => (
                     <button
                       key={type}
                       onClick={() => setNewRelationType(type)}
@@ -1080,7 +1573,7 @@ export function Workspace() {
                           : 'bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10'
                       }`}
                     >
-                      {type}
+                      {RELATION_TYPE_LABELS[type]}
                     </button>
                   ))}
                 </div>

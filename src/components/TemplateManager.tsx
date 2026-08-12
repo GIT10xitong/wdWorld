@@ -1,7 +1,22 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '@/store'
 import { Template, EntryType } from '@/types'
-import { Plus, Edit3, Trash2, FileText, Users, Map, Building, Sword, Scroll, Folder, Tag, X, Check, Sparkles } from 'lucide-react'
+import {
+  Plus,
+  Edit3,
+  Trash2,
+  FileText,
+  Users,
+  Map,
+  Building,
+  Sword,
+  Scroll,
+  Folder,
+  Tag,
+  X,
+  Check,
+  Sparkles,
+} from 'lucide-react'
 
 const ENTRY_TYPE_LABELS: Record<EntryType, string> = {
   character: '人物',
@@ -25,7 +40,14 @@ const ENTRY_TYPE_ICONS: Record<EntryType, typeof FileText> = {
   note: FileText,
 }
 
-const DEFAULT_TEMPLATES: { name: string; type: EntryType; description: string; content: string; tags: string[]; aliases: string[] }[] = [
+const DEFAULT_TEMPLATES: {
+  name: string
+  type: EntryType
+  description: string
+  content: string
+  tags: string[]
+  aliases: string[]
+}[] = [
   {
     name: '人物模板',
     type: 'character',
@@ -120,7 +142,8 @@ const DEFAULT_TEMPLATES: { name: string; type: EntryType; description: string; c
 ]
 
 export function TemplateManager() {
-  const { templates, fetchTemplates, createTemplate, updateTemplate, deleteTemplate, createEntry } = useStore()
+  const { templates, fetchTemplates, createTemplate, updateTemplate, deleteTemplate, createEntry } =
+    useStore()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null)
   const [formData, setFormData] = useState({
@@ -162,13 +185,34 @@ export function TemplateManager() {
   }
 
   const handleSubmit = async () => {
-    const tags = formData.tags.split(',').map(t => t.trim()).filter(Boolean)
-    const aliases = formData.aliases.split(',').map(t => t.trim()).filter(Boolean)
+    const tags = formData.tags
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean)
+    const aliases = formData.aliases
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean)
 
     if (editingTemplate) {
-      await updateTemplate(editingTemplate.id, formData.name, formData.type, formData.description, formData.content, tags, aliases)
+      await updateTemplate(
+        editingTemplate.id,
+        formData.name,
+        formData.type,
+        formData.description,
+        formData.content,
+        tags,
+        aliases,
+      )
     } else {
-      await createTemplate(formData.name, formData.type, formData.description, formData.content, tags, aliases)
+      await createTemplate(
+        formData.name,
+        formData.type,
+        formData.description,
+        formData.content,
+        tags,
+        aliases,
+      )
     }
     setShowCreateModal(false)
   }
@@ -186,7 +230,7 @@ export function TemplateManager() {
 
   const handleCreateDefaultTemplates = async () => {
     for (const tpl of DEFAULT_TEMPLATES) {
-      const exists = templates.find(t => t.name === tpl.name)
+      const exists = templates.find((t) => t.name === tpl.name)
       if (!exists) {
         await createTemplate(tpl.name, tpl.type, tpl.description, tpl.content, tpl.tags, tpl.aliases)
       }
@@ -229,7 +273,9 @@ export function TemplateManager() {
           <div className="flex flex-col items-center justify-center h-full text-slate-500">
             <FileText className="w-16 h-16 mb-4" />
             <h3 className="text-xl font-medium mb-2">暂无模板</h3>
-            <p className="text-center max-w-md mb-6">点击"新建模板"创建自定义模板，或点击"加载默认模板"导入预设模板。</p>
+            <p className="text-center max-w-md mb-6">
+              点击"新建模板"创建自定义模板，或点击"加载默认模板"导入预设模板。
+            </p>
             <button
               onClick={handleCreateDefaultTemplates}
               className="px-6 py-3 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-2"
@@ -249,8 +295,12 @@ export function TemplateManager() {
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg bg-${template.type === 'character' ? 'blue' : template.type === 'location' ? 'green' : template.type === 'faction' ? 'purple' : 'amber'}-500/20`}>
-                        <IconComponent className={`w-5 h-5 text-${template.type === 'character' ? 'blue' : template.type === 'location' ? 'green' : template.type === 'faction' ? 'purple' : 'amber'}-400`} />
+                      <div
+                        className={`p-2 rounded-lg bg-${template.type === 'character' ? 'blue' : template.type === 'location' ? 'green' : template.type === 'faction' ? 'purple' : 'amber'}-500/20`}
+                      >
+                        <IconComponent
+                          className={`w-5 h-5 text-${template.type === 'character' ? 'blue' : template.type === 'location' ? 'green' : template.type === 'faction' ? 'purple' : 'amber'}-400`}
+                        />
                       </div>
                       <div>
                         <h3 className="font-semibold text-white">{template.name}</h3>
@@ -281,7 +331,10 @@ export function TemplateManager() {
 
                   <div className="flex flex-wrap gap-2 mb-4">
                     {template.tags.map((tag) => (
-                      <span key={tag} className="px-2 py-1 bg-white/5 text-slate-400 text-xs rounded-full flex items-center gap-1">
+                      <span
+                        key={tag}
+                        className="px-2 py-1 bg-white/5 text-slate-400 text-xs rounded-full flex items-center gap-1"
+                      >
                         <Tag className="w-3 h-3" />
                         {tag}
                       </span>
@@ -289,7 +342,8 @@ export function TemplateManager() {
                   </div>
 
                   <div className="text-xs text-slate-500 mb-4 line-clamp-3 bg-black/20 p-3 rounded-lg">
-                    {template.content.slice(0, 100)}{template.content.length > 100 ? '...' : ''}
+                    {template.content.slice(0, 100)}
+                    {template.content.length > 100 ? '...' : ''}
                   </div>
 
                   <button
@@ -311,7 +365,10 @@ export function TemplateManager() {
           <div className="w-full max-w-2xl bg-slate-800 rounded-xl border border-white/10 shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-6 border-b border-white/10">
               <h2 className="text-xl font-bold text-white">{editingTemplate ? '编辑模板' : '新建模板'}</h2>
-              <button onClick={() => setShowCreateModal(false)} className="p-2 text-slate-400 hover:text-white">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="p-2 text-slate-400 hover:text-white"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -335,8 +392,21 @@ export function TemplateManager() {
                   onChange={(e) => setFormData({ ...formData, type: e.target.value as EntryType })}
                   className="w-full px-4 py-2 bg-slate-700 border border-white/10 rounded-lg text-white focus:border-purple-500 focus:outline-none"
                 >
-                  {(['character', 'location', 'faction', 'item', 'event', 'lore', 'region', 'note'] as EntryType[]).map((type) => (
-                    <option key={type} value={type}>{ENTRY_TYPE_LABELS[type]}</option>
+                  {(
+                    [
+                      'character',
+                      'location',
+                      'faction',
+                      'item',
+                      'event',
+                      'lore',
+                      'region',
+                      'note',
+                    ] as EntryType[]
+                  ).map((type) => (
+                    <option key={type} value={type}>
+                      {ENTRY_TYPE_LABELS[type]}
+                    </option>
                   ))}
                 </select>
               </div>

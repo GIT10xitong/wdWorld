@@ -1,4 +1,5 @@
 import initSqlJs, { Database as SqlJsDatabase, SqlJsStatic, SqlValue } from 'sql.js'
+import sqlWasmUrl from 'sql.js/dist/sql-wasm.wasm?url'
 import {
   Project,
   Entry,
@@ -12,10 +13,47 @@ import {
   EntryType,
   EntryStatus,
   EntryVisibility,
+  CustomFieldSchema,
+  CustomFieldValue,
+  BUILTIN_FIELD_SCHEMAS,
+  Era,
 } from '@/types'
 import { generateId, generateSlug, getNow } from '@/lib/utils'
 
-const SCHEMA_VERSION = 1
+const SCHEMA_VERSION = 2
+
+const migrations: Array<{ fromVersion: number; toVersion: number; sql: string[] }> = [
+  {
+    fromVersion: 1,
+    toVersion: 2,
+    sql: [
+      `CREATE TABLE IF NOT EXISTS custom_field_schemas (
+      id TEXT PRIMARY KEY, project_id TEXT, key TEXT NOT NULL, label TEXT NOT NULL,
+      type TEXT NOT NULL, entry_type TEXT, required INTEGER DEFAULT 0,
+      options TEXT DEFAULT '[]', placeholder TEXT DEFAULT '', default_value TEXT,
+      sort_order INTEGER DEFAULT 0, group_label TEXT DEFAULT '',
+      is_builtin INTEGER DEFAULT 0, created_at TEXT NOT NULL
+    )`,
+      `CREATE TABLE IF NOT EXISTS custom_field_values (
+      entry_id TEXT NOT NULL, field_id TEXT NOT NULL, value_text TEXT DEFAULT '',
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (entry_id, field_id),
+      FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
+    )`,
+      `CREATE TABLE IF NOT EXISTS eras (
+      id TEXT PRIMARY KEY, project_id TEXT NOT NULL, parent_id TEXT,
+      name TEXT NOT NULL, short_name TEXT DEFAULT '', start_sort_value REAL NOT NULL,
+      end_sort_value REAL NOT NULL, description TEXT DEFAULT '',
+      color TEXT DEFAULT '#6366f1', created_at TEXT NOT NULL,
+      FOREIGN KEY (project_id) REFERENCES projects(id),
+      FOREIGN KEY (parent_id) REFERENCES eras(id)
+    )`,
+      `CREATE INDEX IF NOT EXISTS idx_eras_project ON eras(project_id);`,
+      `UPDATE backlinks SET project_id = COALESCE((SELECT project_id FROM entries e WHERE e.id = backlinks.source_entry_id), '')
+      WHERE project_id IS NULL OR project_id = ''`,
+    ],
+  },
+]
 
 const INITIAL_SQL = `
 CREATE TABLE IF NOT EXISTS projects (
@@ -152,6 +190,32 @@ CREATE TABLE IF NOT EXISTS templates (
   FOREIGN KEY (project_id) REFERENCES projects(id)
 );
 
+CREATE TABLE IF NOT EXISTS custom_field_schemas (
+  id TEXT PRIMARY KEY,
+  project_id TEXT,
+  key TEXT NOT NULL,
+  label TEXT NOT NULL,
+  type TEXT NOT NULL,
+  entry_type TEXT,
+  required INTEGER DEFAULT 0,
+  options TEXT DEFAULT '[]',
+  placeholder TEXT DEFAULT '',
+  default_value TEXT,
+  sort_order INTEGER DEFAULT 0,
+  group_label TEXT DEFAULT '',
+  is_builtin INTEGER DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS custom_field_values (
+  entry_id TEXT NOT NULL,
+  field_id TEXT NOT NULL,
+  value_text TEXT DEFAULT '',
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (entry_id, field_id),
+  FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
+);
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_entries_project_slug ON entries(project_id, slug);
 CREATE INDEX IF NOT EXISTS idx_entries_project_type ON entries(project_id, type);
 CREATE INDEX IF NOT EXISTS idx_entries_project_updated ON entries(project_id, updated_at DESC);
@@ -159,6 +223,8 @@ CREATE INDEX IF NOT EXISTS idx_entries_region ON entries(region);
 CREATE INDEX IF NOT EXISTS idx_relations_source ON relations(source_entry_id);
 CREATE INDEX IF NOT EXISTS idx_relations_target ON relations(target_entry_id);
 CREATE INDEX IF NOT EXISTS idx_timeline_entry_sort ON timeline_events(entry_id, sort_value);
+CREATE INDEX IF NOT EXISTS idx_cf_schemas_project ON custom_field_schemas(project_id);
+CREATE INDEX IF NOT EXISTS idx_cf_values_entry ON custom_field_values(entry_id);
 `
 
 let sqlJsInstance: SqlJsStatic | null = null
@@ -166,7 +232,7 @@ let sqlJsInstance: SqlJsStatic | null = null
 async function getSqlJs(): Promise<SqlJsStatic> {
   if (!sqlJsInstance) {
     sqlJsInstance = await initSqlJs({
-      locateFile: (file) => `https://sql.js.org/dist/${file}`,
+      locateFile: () => sqlWasmUrl,
     })
   }
   return sqlJsInstance
@@ -190,7 +256,25 @@ export class Database {
 
   async init(): Promise<void> {
     if (!this.db) throw new Error('Database not opened')
+    this.db.run('PRAGMA foreign_keys = ON')
     this.db.run(INITIAL_SQL)
+
+    const versionResult = this.db.exec('PRAGMA user_version')
+    let currentVersion = 0
+    if (versionResult.length > 0 && versionResult[0].values.length > 0) {
+      currentVersion = versionResult[0].values[0][0] as number
+    }
+
+    if (currentVersion < SCHEMA_VERSION) {
+      for (const migration of migrations) {
+        if (migration.fromVersion >= currentVersion && migration.toVersion <= SCHEMA_VERSION) {
+          for (const sql of migration.sql) {
+            this.db.run(sql)
+          }
+        }
+      }
+      this.db.run(`PRAGMA user_version = ${SCHEMA_VERSION}`)
+    }
   }
 
   async createProject(name: string, description: string = ''): Promise<Project> {
@@ -212,7 +296,7 @@ export class Database {
 
     this.db.run(
       'INSERT INTO projects (id, name, slug, description, schema_version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, name, slug, description, SCHEMA_VERSION, now, now] as SqlValue[]
+      [id, name, slug, description, SCHEMA_VERSION, now, now] as SqlValue[],
     )
 
     return project
@@ -253,7 +337,7 @@ export class Database {
     type: EntryType,
     title: string,
     summary: string = '',
-    content: string = ''
+    content: string = '',
   ): Promise<Entry> {
     if (!this.db) throw new Error('Database not opened')
 
@@ -306,7 +390,7 @@ export class Database {
         null,
         now,
         now,
-      ] as SqlValue[]
+      ] as SqlValue[],
     )
 
     return entry
@@ -346,7 +430,12 @@ export class Database {
 
   async updateEntry(
     id: string,
-    updates: Partial<Pick<Entry, 'title' | 'summary' | 'content' | 'status' | 'visibility' | 'region' | 'condition' | 'occupants'>>
+    updates: Partial<
+      Pick<
+        Entry,
+        'title' | 'summary' | 'content' | 'status' | 'visibility' | 'region' | 'condition' | 'occupants'
+      >
+    >,
   ): Promise<void> {
     if (!this.db) throw new Error('Database not opened')
 
@@ -398,7 +487,25 @@ export class Database {
 
   async deleteEntry(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not opened')
-    this.db.run('DELETE FROM entries WHERE id = ?', [id])
+    this.db.run('BEGIN TRANSACTION')
+    try {
+      this.db.run('DELETE FROM custom_field_values WHERE entry_id = ?', [id])
+      this.db.run('DELETE FROM entry_tags WHERE entry_id = ?', [id])
+      this.db.run('DELETE FROM entry_aliases WHERE entry_id = ?', [id])
+      this.db.run(
+        'UPDATE entries SET anchor_id = NULL WHERE anchor_id IN (SELECT id FROM anchors WHERE entry_id = ?)',
+        [id],
+      )
+      this.db.run('DELETE FROM anchors WHERE entry_id = ?', [id])
+      this.db.run('DELETE FROM timeline_events WHERE entry_id = ?', [id])
+      this.db.run('DELETE FROM relations WHERE source_entry_id = ? OR target_entry_id = ?', [id, id])
+      this.db.run('DELETE FROM backlinks WHERE source_entry_id = ? OR target_entry_id = ?', [id, id])
+      this.db.run('DELETE FROM entries WHERE id = ?', [id])
+      this.db.run('COMMIT')
+    } catch (error) {
+      this.db.run('ROLLBACK')
+      throw error
+    }
   }
 
   async listEntries(projectId: string, type?: EntryType): Promise<Entry[]> {
@@ -441,7 +548,7 @@ export class Database {
       `SELECT * FROM entries WHERE project_id = ? AND 
         (title LIKE ? OR summary LIKE ? OR content LIKE ?) 
         ORDER BY updated_at DESC`,
-      [projectId, `%${query}%`, `%${query}%`, `%${query}%`] as SqlValue[]
+      [projectId, `%${query}%`, `%${query}%`, `%${query}%`] as SqlValue[],
     )
 
     if (result.length === 0) return []
@@ -483,10 +590,13 @@ export class Database {
       createdAt: now,
     }
 
-    this.db.run(
-      'INSERT INTO tags (id, project_id, name, color, created_at) VALUES (?, ?, ?, ?, ?)',
-      [id, projectId, name, color || null, now] as SqlValue[]
-    )
+    this.db.run('INSERT INTO tags (id, project_id, name, color, created_at) VALUES (?, ?, ?, ?, ?)', [
+      id,
+      projectId,
+      name,
+      color || null,
+      now,
+    ] as SqlValue[])
 
     return tag
   }
@@ -508,16 +618,20 @@ export class Database {
 
   async updateTag(id: string, name: string, color?: string): Promise<void> {
     if (!this.db) throw new Error('Database not opened')
-    this.db.run(
-      'UPDATE tags SET name = ?, color = ? WHERE id = ?',
-      [name, color || null, id] as SqlValue[]
-    )
+    this.db.run('UPDATE tags SET name = ?, color = ? WHERE id = ?', [name, color || null, id] as SqlValue[])
   }
 
   async deleteTag(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not opened')
-    this.db.run('DELETE FROM tags WHERE id = ?', [id])
-    this.db.run('DELETE FROM entry_tags WHERE tag_id = ?', [id])
+    this.db.run('BEGIN TRANSACTION')
+    try {
+      this.db.run('DELETE FROM entry_tags WHERE tag_id = ?', [id])
+      this.db.run('DELETE FROM tags WHERE id = ?', [id])
+      this.db.run('COMMIT')
+    } catch (error) {
+      this.db.run('ROLLBACK')
+      throw error
+    }
   }
 
   async getEntryTags(entryId: string): Promise<Tag[]> {
@@ -525,7 +639,7 @@ export class Database {
 
     const result = this.db.exec(
       `SELECT t.* FROM tags t JOIN entry_tags et ON t.id = et.tag_id WHERE et.entry_id = ? ORDER BY t.name`,
-      [entryId]
+      [entryId],
     )
     if (result.length === 0) return []
 
@@ -540,10 +654,10 @@ export class Database {
 
   async addTagToEntry(entryId: string, tagId: string): Promise<void> {
     if (!this.db) throw new Error('Database not opened')
-    this.db.run(
-      'INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?, ?)',
-      [entryId, tagId] as SqlValue[]
-    )
+    this.db.run('INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?, ?)', [
+      entryId,
+      tagId,
+    ] as SqlValue[])
   }
 
   async removeTagFromEntry(entryId: string, tagId: string): Promise<void> {
@@ -564,10 +678,12 @@ export class Database {
       normalizedValue,
     }
 
-    this.db.run(
-      'INSERT INTO entry_aliases (id, entry_id, value, normalized_value) VALUES (?, ?, ?, ?)',
-      [id, entryId, value, normalizedValue] as SqlValue[]
-    )
+    this.db.run('INSERT INTO entry_aliases (id, entry_id, value, normalized_value) VALUES (?, ?, ?, ?)', [
+      id,
+      entryId,
+      value,
+      normalizedValue,
+    ] as SqlValue[])
 
     return alias
   }
@@ -575,7 +691,9 @@ export class Database {
   async getEntryAliases(entryId: string): Promise<Alias[]> {
     if (!this.db) throw new Error('Database not opened')
 
-    const result = this.db.exec('SELECT * FROM entry_aliases WHERE entry_id = ? ORDER BY normalized_value', [entryId])
+    const result = this.db.exec('SELECT * FROM entry_aliases WHERE entry_id = ? ORDER BY normalized_value', [
+      entryId,
+    ])
     if (result.length === 0) return []
 
     return result[0].values.map((row) => ({
@@ -598,7 +716,7 @@ export class Database {
     relativePath: string,
     mimeType: string,
     size: number,
-    checksum?: string
+    checksum?: string,
   ): Promise<Asset> {
     if (!this.db) throw new Error('Database not opened')
 
@@ -619,7 +737,7 @@ export class Database {
 
     this.db.run(
       'INSERT INTO assets (id, project_id, kind, filename, relative_path, mime_type, size, checksum, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, projectId, kind, filename, relativePath, mimeType, size, checksum || null, now] as SqlValue[]
+      [id, projectId, kind, filename, relativePath, mimeType, size, checksum || null, now] as SqlValue[],
     )
 
     return asset
@@ -650,7 +768,15 @@ export class Database {
 
   async deleteAsset(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not opened')
-    this.db.run('DELETE FROM assets WHERE id = ?', [id])
+    this.db.run('BEGIN TRANSACTION')
+    try {
+      this.db.run('UPDATE entries SET cover_asset_id = NULL WHERE cover_asset_id = ?', [id])
+      this.db.run('DELETE FROM assets WHERE id = ?', [id])
+      this.db.run('COMMIT')
+    } catch (error) {
+      this.db.run('ROLLBACK')
+      throw error
+    }
   }
 
   async updateEntryCoverAsset(entryId: string, assetId: string | null): Promise<void> {
@@ -663,7 +789,7 @@ export class Database {
 
     const result = this.db.exec(
       `SELECT e.* FROM entries e JOIN entry_tags et ON e.id = et.entry_id WHERE e.project_id = ? AND et.tag_id = ? ORDER BY e.updated_at DESC`,
-      [projectId, tagId] as SqlValue[]
+      [projectId, tagId] as SqlValue[],
     )
     if (result.length === 0) return []
 
@@ -693,10 +819,10 @@ export class Database {
   async searchTags(projectId: string, query: string): Promise<Tag[]> {
     if (!this.db) throw new Error('Database not opened')
 
-    const result = this.db.exec(
-      'SELECT * FROM tags WHERE project_id = ? AND name LIKE ? ORDER BY name',
-      [projectId, `%${query}%`] as SqlValue[]
-    )
+    const result = this.db.exec('SELECT * FROM tags WHERE project_id = ? AND name LIKE ? ORDER BY name', [
+      projectId,
+      `%${query}%`,
+    ] as SqlValue[])
     if (result.length === 0) return []
 
     return result[0].values.map((row) => ({
@@ -713,7 +839,7 @@ export class Database {
     sourceEntryId: string,
     targetEntryId: string,
     type: string,
-    note: string = ''
+    note: string = '',
   ): Promise<Relation> {
     if (!this.db) throw new Error('Database not opened')
 
@@ -734,7 +860,7 @@ export class Database {
 
     this.db.run(
       'INSERT INTO relations (id, project_id, source_entry_id, target_entry_id, type, direction, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, projectId, sourceEntryId, targetEntryId, type, 'directed', note, now, now] as SqlValue[]
+      [id, projectId, sourceEntryId, targetEntryId, type, 'directed', note, now, now] as SqlValue[],
     )
 
     return relation
@@ -743,7 +869,9 @@ export class Database {
   async getRelations(projectId: string): Promise<Relation[]> {
     if (!this.db) throw new Error('Database not opened')
 
-    const result = this.db.exec('SELECT * FROM relations WHERE project_id = ? ORDER BY created_at DESC', [projectId])
+    const result = this.db.exec('SELECT * FROM relations WHERE project_id = ? ORDER BY created_at DESC', [
+      projectId,
+    ])
     if (result.length === 0) return []
 
     return result[0].values.map((row) => ({
@@ -764,7 +892,7 @@ export class Database {
 
     const result = this.db.exec(
       'SELECT * FROM relations WHERE source_entry_id = ? OR target_entry_id = ? ORDER BY created_at DESC',
-      [entryId, entryId]
+      [entryId, entryId],
     )
     if (result.length === 0) return []
 
@@ -781,7 +909,10 @@ export class Database {
     }))
   }
 
-  async updateRelation(id: string, updates: Partial<Pick<Relation, 'type' | 'direction' | 'note'>>): Promise<void> {
+  async updateRelation(
+    id: string,
+    updates: Partial<Pick<Relation, 'type' | 'direction' | 'note'>>,
+  ): Promise<void> {
     if (!this.db) throw new Error('Database not opened')
 
     const now = getNow()
@@ -818,7 +949,7 @@ export class Database {
 
     const result = this.db.exec(
       `SELECT e.*, b.link_text FROM entries e JOIN backlinks b ON e.id = b.source_entry_id WHERE b.target_entry_id = ? ORDER BY b.created_at DESC`,
-      [entryId]
+      [entryId],
     )
     if (result.length === 0) return []
 
@@ -848,7 +979,12 @@ export class Database {
     }))
   }
 
-  async addBacklink(sourceEntryId: string, targetEntryId: string, linkText: string = ''): Promise<void> {
+  async addBacklink(
+    projectId: string,
+    sourceEntryId: string,
+    targetEntryId: string,
+    linkText: string = '',
+  ): Promise<void> {
     if (!this.db) throw new Error('Database not opened')
 
     const id = generateId('bl')
@@ -856,7 +992,7 @@ export class Database {
 
     this.db.run(
       'INSERT OR IGNORE INTO backlinks (id, project_id, source_entry_id, target_entry_id, link_text, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, '', sourceEntryId, targetEntryId, linkText, now] as SqlValue[]
+      [id, projectId, sourceEntryId, targetEntryId, linkText, now] as SqlValue[],
     )
   }
 
@@ -870,7 +1006,7 @@ export class Database {
           ORDER BY 
             CASE WHEN e.title LIKE ? THEN 1 ELSE 2 END,
             e.updated_at DESC`,
-        [projectId, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`] as SqlValue[]
+        [projectId, `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`] as SqlValue[],
       )
 
       if (result.length === 0) return []
@@ -912,7 +1048,13 @@ export class Database {
     return { entryCount: result[0].values[0][0] as number }
   }
 
-  async createAnchor(entryId: string, label: string, x: number, y: number, notes: string = ''): Promise<Anchor> {
+  async createAnchor(
+    entryId: string,
+    label: string,
+    x: number,
+    y: number,
+    notes: string = '',
+  ): Promise<Anchor> {
     if (!this.db) throw new Error('Database not opened')
 
     const id = generateId('anc')
@@ -930,7 +1072,7 @@ export class Database {
 
     this.db.run(
       'INSERT INTO anchors (id, entry_id, label, x, y, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, entryId, label, x, y, notes, now] as SqlValue[]
+      [id, entryId, label, x, y, notes, now] as SqlValue[],
     )
 
     return anchor
@@ -955,7 +1097,15 @@ export class Database {
 
   async deleteAnchor(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not opened')
-    this.db.run('DELETE FROM anchors WHERE id = ?', [id])
+    this.db.run('BEGIN TRANSACTION')
+    try {
+      this.db.run('UPDATE entries SET anchor_id = NULL WHERE anchor_id = ?', [id])
+      this.db.run('DELETE FROM anchors WHERE id = ?', [id])
+      this.db.run('COMMIT')
+    } catch (error) {
+      this.db.run('ROLLBACK')
+      throw error
+    }
   }
 
   async updateEntryMapPosition(entryId: string, x: number | null, y: number | null): Promise<void> {
@@ -973,7 +1123,7 @@ export class Database {
 
     const result = this.db.exec(
       'SELECT * FROM entries WHERE project_id = ? AND map_position_x IS NOT NULL AND map_position_y IS NOT NULL ORDER BY updated_at DESC',
-      [projectId]
+      [projectId],
     )
     if (result.length === 0) return []
 
@@ -1000,7 +1150,13 @@ export class Database {
     }))
   }
 
-  async createTimelineEvent(entryId: string, pointLabel: string, title: string, sortValue: number, description: string = ''): Promise<TimelineEvent> {
+  async createTimelineEvent(
+    entryId: string,
+    pointLabel: string,
+    title: string,
+    sortValue: number,
+    description: string = '',
+  ): Promise<TimelineEvent> {
     if (!this.db) throw new Error('Database not opened')
 
     const id = generateId('t')
@@ -1018,7 +1174,7 @@ export class Database {
 
     this.db.run(
       'INSERT INTO timeline_events (id, entry_id, point_label, title, sort_value, description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, entryId, pointLabel, title, sortValue, description, now] as SqlValue[]
+      [id, entryId, pointLabel, title, sortValue, description, now] as SqlValue[],
     )
 
     return event
@@ -1027,7 +1183,9 @@ export class Database {
   async getTimelineEvents(entryId: string): Promise<TimelineEvent[]> {
     if (!this.db) throw new Error('Database not opened')
 
-    const result = this.db.exec('SELECT * FROM timeline_events WHERE entry_id = ? ORDER BY sort_value', [entryId])
+    const result = this.db.exec('SELECT * FROM timeline_events WHERE entry_id = ? ORDER BY sort_value', [
+      entryId,
+    ])
     if (result.length === 0) return []
 
     return result[0].values.map((row) => ({
@@ -1046,7 +1204,7 @@ export class Database {
 
     const result = this.db.exec(
       `SELECT te.* FROM timeline_events te JOIN entries e ON te.entry_id = e.id WHERE e.project_id = ? ORDER BY te.sort_value`,
-      [projectId]
+      [projectId],
     )
     if (result.length === 0) return []
 
@@ -1066,7 +1224,15 @@ export class Database {
     this.db.run('DELETE FROM timeline_events WHERE id = ?', [id])
   }
 
-  async createTemplate(projectId: string, name: string, type: EntryType, description: string, content: string, tags: string[], aliases: string[]): Promise<Template> {
+  async createTemplate(
+    projectId: string,
+    name: string,
+    type: EntryType,
+    description: string,
+    content: string,
+    tags: string[],
+    aliases: string[],
+  ): Promise<Template> {
     if (!this.db) throw new Error('Database not opened')
     const id = generateId('tpl')
     const now = getNow()
@@ -1084,7 +1250,18 @@ export class Database {
     }
     this.db.run(
       'INSERT INTO templates (id, project_id, name, type, description, content, tags, aliases, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, projectId, name, type, description, content, JSON.stringify(tags), JSON.stringify(aliases), now, now] as SqlValue[]
+      [
+        id,
+        projectId,
+        name,
+        type,
+        description,
+        content,
+        JSON.stringify(tags),
+        JSON.stringify(aliases),
+        now,
+        now,
+      ] as SqlValue[],
     )
     return template
   }
@@ -1093,7 +1270,7 @@ export class Database {
     if (!this.db) throw new Error('Database not opened')
     const result = this.db.exec('SELECT * FROM templates WHERE project_id = ? ORDER BY name', [projectId])
     if (result.length === 0 || result[0].values.length === 0) return []
-    return result[0].values.map(row => ({
+    return result[0].values.map((row) => ({
       id: row[0] as string,
       projectId: row[1] as string,
       name: row[2] as string,
@@ -1126,12 +1303,29 @@ export class Database {
     }
   }
 
-  async updateTemplate(id: string, name: string, type: EntryType, description: string, content: string, tags: string[], aliases: string[]): Promise<Template | null> {
+  async updateTemplate(
+    id: string,
+    name: string,
+    type: EntryType,
+    description: string,
+    content: string,
+    tags: string[],
+    aliases: string[],
+  ): Promise<Template | null> {
     if (!this.db) throw new Error('Database not opened')
     const now = getNow()
     const result = this.db.exec(
       'UPDATE templates SET name = ?, type = ?, description = ?, content = ?, tags = ?, aliases = ?, updated_at = ? WHERE id = ?',
-      [name, type, description, content, JSON.stringify(tags), JSON.stringify(aliases), now, id] as SqlValue[]
+      [
+        name,
+        type,
+        description,
+        content,
+        JSON.stringify(tags),
+        JSON.stringify(aliases),
+        now,
+        id,
+      ] as SqlValue[],
     )
     if (result.length === 0) return null
     return this.getTemplate(id)
@@ -1142,6 +1336,294 @@ export class Database {
     this.db.run('DELETE FROM templates WHERE id = ?', [id])
   }
 
+  async ensureBuiltinFieldSchemas(projectId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not opened')
+    const now = getNow()
+
+    for (const schema of BUILTIN_FIELD_SCHEMAS) {
+      const existing = this.db.exec('SELECT id FROM custom_field_schemas WHERE id = ?', [schema.id])
+      if (existing.length === 0 || existing[0].values.length === 0) {
+        this.db.run(
+          `INSERT INTO custom_field_schemas (id, project_id, key, label, type, entry_type, required, options, placeholder, default_value, sort_order, group_label, is_builtin, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+          [
+            schema.id,
+            projectId,
+            schema.key,
+            schema.label,
+            schema.type,
+            schema.entryType || null,
+            schema.required ? 1 : 0,
+            JSON.stringify(schema.options || []),
+            schema.placeholder || '',
+            schema.defaultValue !== undefined ? JSON.stringify(schema.defaultValue) : null,
+            schema.sortOrder,
+            schema.group || '',
+            now,
+          ] as SqlValue[],
+        )
+      }
+    }
+  }
+
+  async listFieldSchemas(projectId: string, entryType?: EntryType): Promise<CustomFieldSchema[]> {
+    if (!this.db) throw new Error('Database not opened')
+
+    let query = 'SELECT * FROM custom_field_schemas WHERE project_id = ?'
+    const params: SqlValue[] = [projectId]
+
+    if (entryType) {
+      query += ' AND (entry_type IS NULL OR entry_type = ?)'
+      params.push(entryType)
+    }
+
+    query += ' ORDER BY sort_order ASC'
+
+    const result = this.db.exec(query, params)
+    if (result.length === 0) return []
+
+    return result[0].values.map((row) => ({
+      id: row[0] as string,
+      key: row[2] as string,
+      label: row[3] as string,
+      type: row[4] as CustomFieldSchema['type'],
+      entryType: row[5] as EntryType | undefined,
+      required: row[6] === 1,
+      options: JSON.parse(row[7] as string) as string[],
+      placeholder: row[8] as string,
+      defaultValue: row[9] ? JSON.parse(row[9] as string) : undefined,
+      sortOrder: row[10] as number,
+      group: row[11] as string,
+    }))
+  }
+
+  async upsertFieldValue(
+    entryId: string,
+    fieldId: string,
+    value: unknown,
+    updatedAt?: string,
+  ): Promise<void> {
+    if (!this.db) throw new Error('Database not opened')
+    const now = updatedAt || getNow()
+    this.db.run(
+      'INSERT OR REPLACE INTO custom_field_values (entry_id, field_id, value_text, updated_at) VALUES (?, ?, ?, ?)',
+      [entryId, fieldId, JSON.stringify(value), now] as SqlValue[],
+    )
+  }
+
+  async getEntryFieldValues(entryId: string): Promise<CustomFieldValue[]> {
+    if (!this.db) throw new Error('Database not opened')
+
+    const result = this.db.exec('SELECT * FROM custom_field_values WHERE entry_id = ?', [entryId])
+    if (result.length === 0) return []
+
+    return result[0].values.map((row) => ({
+      entryId: row[0] as string,
+      fieldId: row[1] as string,
+      value: row[2] ? JSON.parse(row[2] as string) : null,
+      updatedAt: row[3] as string,
+    }))
+  }
+
+  async deleteFieldValuesForEntry(entryId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not opened')
+    this.db.run('DELETE FROM custom_field_values WHERE entry_id = ?', [entryId])
+  }
+
+  async createCustomFieldSchema(
+    projectId: string,
+    schema: Omit<CustomFieldSchema, 'id'> & { id?: string },
+  ): Promise<CustomFieldSchema> {
+    if (!this.db) throw new Error('Database not opened')
+    const now = getNow()
+    const id = schema.id || generateId('cf')
+
+    const fullSchema: CustomFieldSchema = {
+      ...schema,
+      id,
+    }
+
+    this.db.run(
+      `INSERT INTO custom_field_schemas (id, project_id, key, label, type, entry_type, required, options, placeholder, default_value, sort_order, group_label, is_builtin, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+      [
+        id,
+        projectId,
+        schema.key,
+        schema.label,
+        schema.type,
+        schema.entryType || null,
+        schema.required ? 1 : 0,
+        JSON.stringify(schema.options || []),
+        schema.placeholder || '',
+        schema.defaultValue !== undefined ? JSON.stringify(schema.defaultValue) : null,
+        schema.sortOrder,
+        schema.group || '',
+        now,
+      ] as SqlValue[],
+    )
+
+    return fullSchema
+  }
+
+  async deleteCustomFieldSchema(schemaId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not opened')
+    this.db.run('DELETE FROM custom_field_values WHERE field_id = ?', [schemaId])
+    this.db.run('DELETE FROM custom_field_schemas WHERE id = ?', [schemaId])
+  }
+
+  async createEra(
+    projectId: string,
+    parentId: string | null,
+    name: string,
+    shortName: string,
+    startSortValue: number,
+    endSortValue: number,
+    description = '',
+    color = '#6366f1',
+  ): Promise<Era> {
+    if (!this.db) throw new Error('Database not opened')
+    const id = generateId('era')
+    const now = getNow()
+    const era: Era = {
+      id,
+      projectId,
+      parentId,
+      name,
+      shortName,
+      startSortValue,
+      endSortValue,
+      description,
+      color,
+      createdAt: now,
+    }
+    this.db.run(
+      `INSERT INTO eras (id, project_id, parent_id, name, short_name, start_sort_value, end_sort_value, description, color, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        projectId,
+        parentId,
+        name,
+        shortName,
+        startSortValue,
+        endSortValue,
+        description,
+        color,
+        now,
+      ] as SqlValue[],
+    )
+    return era
+  }
+
+  async getEra(id: string): Promise<Era | null> {
+    if (!this.db) throw new Error('Database not opened')
+    const result = this.db.exec('SELECT * FROM eras WHERE id = ?', [id])
+    if (result.length === 0 || result[0].values.length === 0) return null
+    const row = result[0].values[0]
+    return {
+      id: row[0] as string,
+      projectId: row[1] as string,
+      parentId: row[2] as string | null,
+      name: row[3] as string,
+      shortName: row[4] as string,
+      startSortValue: row[5] as number,
+      endSortValue: row[6] as number,
+      description: row[7] as string,
+      color: row[8] as string,
+      createdAt: row[9] as string,
+    }
+  }
+
+  async updateEra(
+    id: string,
+    updates: Partial<
+      Pick<
+        Era,
+        'name' | 'shortName' | 'startSortValue' | 'endSortValue' | 'description' | 'color' | 'parentId'
+      >
+    >,
+  ): Promise<void> {
+    if (!this.db) throw new Error('Database not opened')
+    const fields: string[] = []
+    const values: SqlValue[] = []
+    if (updates.name !== undefined) {
+      fields.push('name = ?')
+      values.push(updates.name)
+    }
+    if (updates.shortName !== undefined) {
+      fields.push('short_name = ?')
+      values.push(updates.shortName)
+    }
+    if (updates.startSortValue !== undefined) {
+      fields.push('start_sort_value = ?')
+      values.push(updates.startSortValue)
+    }
+    if (updates.endSortValue !== undefined) {
+      fields.push('end_sort_value = ?')
+      values.push(updates.endSortValue)
+    }
+    if (updates.description !== undefined) {
+      fields.push('description = ?')
+      values.push(updates.description)
+    }
+    if (updates.color !== undefined) {
+      fields.push('color = ?')
+      values.push(updates.color)
+    }
+    if (updates.parentId !== undefined) {
+      fields.push('parent_id = ?')
+      values.push(updates.parentId)
+    }
+    if (fields.length === 0) return
+    values.push(id)
+    this.db.run(`UPDATE eras SET ${fields.join(', ')} WHERE id = ?`, values)
+  }
+
+  async deleteEra(id: string): Promise<void> {
+    if (!this.db) throw new Error('Database not opened')
+    this.db.run('UPDATE eras SET parent_id = NULL WHERE parent_id = ?', [id])
+    this.db.run('DELETE FROM eras WHERE id = ?', [id])
+  }
+
+  async listEras(projectId: string): Promise<Era[]> {
+    if (!this.db) throw new Error('Database not opened')
+    const result = this.db.exec('SELECT * FROM eras WHERE project_id = ? ORDER BY start_sort_value', [
+      projectId,
+    ])
+    if (result.length === 0) return []
+    return result[0].values.map((row) => ({
+      id: row[0] as string,
+      projectId: row[1] as string,
+      parentId: row[2] as string | null,
+      name: row[3] as string,
+      shortName: row[4] as string,
+      startSortValue: row[5] as number,
+      endSortValue: row[6] as number,
+      description: row[7] as string,
+      color: row[8] as string,
+      createdAt: row[9] as string,
+    }))
+  }
+
+  async buildEraTree(projectId: string): Promise<Array<Era & { children: Era[] }>> {
+    const eras = await this.listEras(projectId)
+    const eraMap = new Map<string, Era & { children: Era[] }>()
+    const roots: Array<Era & { children: Era[] }> = []
+    for (const era of eras) {
+      eraMap.set(era.id, { ...era, children: [] })
+    }
+    for (const era of eras) {
+      const node = eraMap.get(era.id)!
+      if (era.parentId && eraMap.has(era.parentId)) {
+        eraMap.get(era.parentId)!.children.push(node)
+      } else {
+        roots.push(node)
+      }
+    }
+    return roots
+  }
+
   async exportDatabase(): Promise<Uint8Array> {
     if (!this.db) throw new Error('Database not opened')
     return this.db.export()
@@ -1149,23 +1631,793 @@ export class Database {
 
   async importDatabase(data: Uint8Array): Promise<void> {
     const SQL = await getSqlJs()
+    if (this.db) this.db.close()
     this.db = new SQL.Database(data)
+    await this.init()
+  }
+
+  async exportProjectJSON(projectId: string): Promise<string> {
+    if (!this.db) throw new Error('Database not opened')
+
+    const projectResult = this.db.exec('SELECT * FROM projects WHERE id = ?', [projectId])
+    if (projectResult.length === 0 || projectResult[0].values.length === 0) {
+      throw new Error('Project not found')
+    }
+
+    const projectRow = projectResult[0].values[0]
+    const project = {
+      id: projectRow[0] as string,
+      name: projectRow[1] as string,
+      slug: projectRow[2] as string,
+      description: projectRow[3] as string,
+      schemaVersion: projectRow[4] as number,
+      createdAt: projectRow[5] as string,
+      updatedAt: projectRow[6] as string,
+    }
+
+    const selectAll = (sql: string, params: SqlValue[] = []): any[] => {
+      const result = this.db!.exec(sql, params)
+      if (result.length === 0) return []
+      const columns = result[0].columns
+      return result[0].values.map((row) => {
+        const obj: any = {}
+        columns.forEach((col, i) => {
+          obj[col] = row[i]
+        })
+        return obj
+      })
+    }
+
+    const entries = selectAll('SELECT * FROM entries WHERE project_id = ?', [projectId])
+    const entryIds = entries.map((e: any) => e.id)
+
+    const entryAliasesMap: Record<string, any[]> = {}
+    if (entryIds.length > 0) {
+      const placeholders = entryIds.map(() => '?').join(',')
+      const allAliases = selectAll(
+        `SELECT * FROM entry_aliases WHERE entry_id IN (${placeholders})`,
+        entryIds,
+      )
+      for (const alias of allAliases) {
+        if (!entryAliasesMap[alias.entry_id]) entryAliasesMap[alias.entry_id] = []
+        entryAliasesMap[alias.entry_id].push(alias)
+      }
+    }
+
+    const entryTagsMap: Record<string, any[]> = {}
+    if (entryIds.length > 0) {
+      const placeholders = entryIds.map(() => '?').join(',')
+      const allEntryTags = selectAll(`SELECT * FROM entry_tags WHERE entry_id IN (${placeholders})`, entryIds)
+      for (const et of allEntryTags) {
+        if (!entryTagsMap[et.entry_id]) entryTagsMap[et.entry_id] = []
+        entryTagsMap[et.entry_id].push(et)
+      }
+    }
+
+    const entryTimelineMap: Record<string, any[]> = {}
+    if (entryIds.length > 0) {
+      const placeholders = entryIds.map(() => '?').join(',')
+      const allTimeline = selectAll(
+        `SELECT * FROM timeline_events WHERE entry_id IN (${placeholders})`,
+        entryIds,
+      )
+      for (const t of allTimeline) {
+        if (!entryTimelineMap[t.entry_id]) entryTimelineMap[t.entry_id] = []
+        entryTimelineMap[t.entry_id].push(t)
+      }
+    }
+
+    const entryAnchorsMap: Record<string, any[]> = {}
+    if (entryIds.length > 0) {
+      const placeholders = entryIds.map(() => '?').join(',')
+      const allAnchors = selectAll(`SELECT * FROM anchors WHERE entry_id IN (${placeholders})`, entryIds)
+      for (const a of allAnchors) {
+        if (!entryAnchorsMap[a.entry_id]) entryAnchorsMap[a.entry_id] = []
+        entryAnchorsMap[a.entry_id].push(a)
+      }
+    }
+
+    const entryFieldValuesMap: Record<string, any[]> = {}
+    let customFieldValues: any[] = []
+    try {
+      if (entryIds.length > 0) {
+        const placeholders = entryIds.map(() => '?').join(',')
+        customFieldValues = selectAll(
+          `SELECT * FROM custom_field_values WHERE entry_id IN (${placeholders})`,
+          entryIds,
+        )
+        for (const fv of customFieldValues) {
+          if (!entryFieldValuesMap[fv.entry_id]) entryFieldValuesMap[fv.entry_id] = []
+          entryFieldValuesMap[fv.entry_id].push(fv)
+        }
+      }
+    } catch {
+      customFieldValues = []
+    }
+
+    const entriesWithRelated = entries.map((e: any) => ({
+      ...e,
+      aliases: entryAliasesMap[e.id] || [],
+      tags: entryTagsMap[e.id] || [],
+      timeline_events: entryTimelineMap[e.id] || [],
+      anchors: entryAnchorsMap[e.id] || [],
+      fieldValues: entryFieldValuesMap[e.id] || [],
+    }))
+
+    const tags = selectAll('SELECT * FROM tags WHERE project_id = ?', [projectId])
+    const entryTags = selectAll(
+      'SELECT et.* FROM entry_tags et JOIN entries e ON et.entry_id = e.id WHERE e.project_id = ?',
+      [projectId],
+    )
+    const relations = selectAll('SELECT * FROM relations WHERE project_id = ?', [projectId])
+    const backlinks = selectAll('SELECT * FROM backlinks WHERE project_id = ?', [projectId])
+    const anchors = selectAll(
+      'SELECT a.* FROM anchors a JOIN entries e ON a.entry_id = e.id WHERE e.project_id = ?',
+      [projectId],
+    )
+    const timelineEvents = selectAll(
+      'SELECT te.* FROM timeline_events te JOIN entries e ON te.entry_id = e.id WHERE e.project_id = ?',
+      [projectId],
+    )
+    const assets = selectAll('SELECT * FROM assets WHERE project_id = ?', [projectId])
+
+    let customFieldSchemas: any[] = []
+    try {
+      customFieldSchemas = selectAll(
+        'SELECT * FROM custom_field_schemas WHERE project_id = ? AND is_builtin = 0',
+        [projectId],
+      )
+    } catch {
+      customFieldSchemas = []
+    }
+
+    let eras: any[] = []
+    try {
+      eras = selectAll('SELECT * FROM eras WHERE project_id = ?', [projectId])
+    } catch {
+      eras = []
+    }
+
+    const exportData = {
+      _schemaVersion: SCHEMA_VERSION,
+      _exportedAt: new Date().toISOString(),
+      project,
+      entries: entriesWithRelated,
+      tags,
+      entry_tags: entryTags,
+      relations,
+      backlinks,
+      anchors,
+      timeline_events: timelineEvents,
+      assets,
+      custom_field_schemas: customFieldSchemas,
+      custom_field_values: customFieldValues,
+      eras,
+    }
+
+    return JSON.stringify(exportData, null, 2)
+  }
+
+  async importProjectJSON(jsonString: string, options?: { nameSuffix?: string }): Promise<Project> {
+    if (!this.db) throw new Error('Database not opened')
+
+    const data = JSON.parse(jsonString)
+
+    if (!data._schemaVersion || data._schemaVersion > SCHEMA_VERSION) {
+      throw new Error(`不支持的备份版本：${data._schemaVersion}，当前支持最高版本：${SCHEMA_VERSION}`)
+    }
+
+    const newProjectId = generateId('proj')
+    const now = getNow()
+    const nameSuffix = options?.nameSuffix || ' (副本)'
+    const originalProject = data.project
+    const newProjectName = originalProject.name + nameSuffix
+    const newProjectSlug = generateSlug(newProjectName)
+
+    const idMapping: Record<string, string> = {}
+
+    const genNewId = (oldId: string, prefix: string) => {
+      if (!idMapping[oldId]) {
+        idMapping[oldId] = generateId(prefix)
+      }
+      return idMapping[oldId]
+    }
+
+    const newProject: Project = {
+      id: newProjectId,
+      name: newProjectName,
+      slug: newProjectSlug,
+      description: originalProject.description || '',
+      schemaVersion: SCHEMA_VERSION,
+      createdAt: now,
+      updatedAt: now,
+    }
+
+    this.db.run(
+      'INSERT INTO projects (id, name, slug, description, schema_version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        newProjectId,
+        newProjectName,
+        newProjectSlug,
+        originalProject.description || '',
+        SCHEMA_VERSION,
+        now,
+        now,
+      ] as SqlValue[],
+    )
+
+    for (const tag of data.tags || []) {
+      const newTagId = genNewId(tag.id, 'tag')
+      this.db.run('INSERT INTO tags (id, project_id, name, color, created_at) VALUES (?, ?, ?, ?, ?)', [
+        newTagId,
+        newProjectId,
+        tag.name,
+        tag.color || null,
+        tag.created_at || now,
+      ] as SqlValue[])
+    }
+
+    for (const entry of data.entries || []) {
+      const newEntryId = genNewId(entry.id, (entry.type || 'ent').slice(0, 3))
+      this.db.run(
+        `INSERT INTO entries (id, project_id, type, title, slug, summary, content, status, visibility, region,
+          condition, occupants, cover_asset_id, map_position_x, map_position_y, anchor_id, created_at, updated_at, archived_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          newEntryId,
+          newProjectId,
+          entry.type,
+          entry.title,
+          entry.slug || generateSlug(entry.title),
+          entry.summary || '',
+          entry.content || '',
+          entry.status || 'draft',
+          entry.visibility || 'private',
+          entry.region || '',
+          entry.condition || '',
+          entry.occupants || '',
+          entry.cover_asset_id ? idMapping[entry.cover_asset_id] || null : null,
+          entry.map_position_x,
+          entry.map_position_y,
+          entry.anchor_id ? idMapping[entry.anchor_id] || null : null,
+          entry.created_at || now,
+          entry.updated_at || now,
+          entry.archived_at || null,
+        ] as SqlValue[],
+      )
+
+      for (const alias of entry.aliases || []) {
+        const newAliasId = generateId('als')
+        this.db.run('INSERT INTO entry_aliases (id, entry_id, value, normalized_value) VALUES (?, ?, ?, ?)', [
+          newAliasId,
+          newEntryId,
+          alias.value,
+          alias.normalized_value || (alias.value as string).toLowerCase().trim(),
+        ] as SqlValue[])
+      }
+    }
+
+    for (const entry of data.entries || []) {
+      const newEntryId = idMapping[entry.id]
+      for (const et of entry.tags || []) {
+        const newTagId = idMapping[et.tag_id]
+        if (newTagId) {
+          this.db.run('INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?, ?)', [
+            newEntryId,
+            newTagId,
+          ] as SqlValue[])
+        }
+      }
+    }
+
+    for (const et of data.entry_tags || []) {
+      const newEntryId = idMapping[et.entry_id]
+      const newTagId = idMapping[et.tag_id]
+      if (newEntryId && newTagId) {
+        this.db.run('INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?, ?)', [
+          newEntryId,
+          newTagId,
+        ] as SqlValue[])
+      }
+    }
+
+    for (const entry of data.entries || []) {
+      const newEntryId = idMapping[entry.id]
+      for (const anchor of entry.anchors || []) {
+        const newAnchorId = genNewId(anchor.id, 'anc')
+        this.db.run(
+          'INSERT INTO anchors (id, entry_id, label, x, y, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [
+            newAnchorId,
+            newEntryId,
+            anchor.label,
+            anchor.x,
+            anchor.y,
+            anchor.notes || '',
+            anchor.created_at || now,
+          ] as SqlValue[],
+        )
+      }
+    }
+
+    for (const anchor of data.anchors || []) {
+      if (!idMapping[anchor.id]) {
+        const newEntryId = idMapping[anchor.entry_id]
+        if (newEntryId) {
+          const newAnchorId = genNewId(anchor.id, 'anc')
+          this.db.run(
+            'INSERT INTO anchors (id, entry_id, label, x, y, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [
+              newAnchorId,
+              newEntryId,
+              anchor.label,
+              anchor.x,
+              anchor.y,
+              anchor.notes || '',
+              anchor.created_at || now,
+            ] as SqlValue[],
+          )
+        }
+      }
+    }
+
+    for (const entry of data.entries || []) {
+      const newEntryId = idMapping[entry.id]
+      for (const te of entry.timeline_events || []) {
+        const newTeId = genNewId(te.id, 't')
+        this.db.run(
+          'INSERT INTO timeline_events (id, entry_id, point_label, title, sort_value, description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [
+            newTeId,
+            newEntryId,
+            te.point_label || '',
+            te.title,
+            te.sort_value,
+            te.description || '',
+            te.created_at || now,
+          ] as SqlValue[],
+        )
+      }
+    }
+
+    for (const te of data.timeline_events || []) {
+      if (!idMapping[te.id]) {
+        const newEntryId = idMapping[te.entry_id]
+        if (newEntryId) {
+          const newTeId = genNewId(te.id, 't')
+          this.db.run(
+            'INSERT INTO timeline_events (id, entry_id, point_label, title, sort_value, description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [
+              newTeId,
+              newEntryId,
+              te.point_label || '',
+              te.title,
+              te.sort_value,
+              te.description || '',
+              te.created_at || now,
+            ] as SqlValue[],
+          )
+        }
+      }
+    }
+
+    for (const entry of data.entries || []) {
+      const newEntryId = idMapping[entry.id]
+      for (const fv of entry.fieldValues || []) {
+        const newFieldId = idMapping[fv.field_id] || fv.field_id
+        this.db.run(
+          'INSERT OR IGNORE INTO custom_field_values (entry_id, field_id, value_text, updated_at) VALUES (?, ?, ?, ?)',
+          [newEntryId, newFieldId, fv.value_text || '', fv.updated_at || now] as SqlValue[],
+        )
+      }
+    }
+
+    for (const fv of data.custom_field_values || []) {
+      const newEntryId = idMapping[fv.entry_id]
+      if (newEntryId) {
+        const newFieldId = idMapping[fv.field_id] || fv.field_id
+        this.db.run(
+          'INSERT OR IGNORE INTO custom_field_values (entry_id, field_id, value_text, updated_at) VALUES (?, ?, ?, ?)',
+          [newEntryId, newFieldId, fv.value_text || '', fv.updated_at || now] as SqlValue[],
+        )
+      }
+    }
+
+    for (const relation of data.relations || []) {
+      const newRelId = genNewId(relation.id, 'rel')
+      const newSourceId = idMapping[relation.source_entry_id]
+      const newTargetId = idMapping[relation.target_entry_id]
+      if (newSourceId && newTargetId) {
+        this.db.run(
+          'INSERT INTO relations (id, project_id, source_entry_id, target_entry_id, type, direction, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            newRelId,
+            newProjectId,
+            newSourceId,
+            newTargetId,
+            relation.type,
+            relation.direction || 'directed',
+            relation.note || '',
+            relation.created_at || now,
+            relation.updated_at || now,
+          ] as SqlValue[],
+        )
+      }
+    }
+
+    for (const bl of data.backlinks || []) {
+      const newBlId = genNewId(bl.id, 'bl')
+      const newSourceId = idMapping[bl.source_entry_id]
+      const newTargetId = idMapping[bl.target_entry_id]
+      if (newSourceId && newTargetId) {
+        this.db.run(
+          'INSERT OR IGNORE INTO backlinks (id, project_id, source_entry_id, target_entry_id, link_text, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+          [
+            newBlId,
+            newProjectId,
+            newSourceId,
+            newTargetId,
+            bl.link_text || '',
+            bl.created_at || now,
+          ] as SqlValue[],
+        )
+      }
+    }
+
+    for (const asset of data.assets || []) {
+      const newAssetId = genNewId(asset.id, 'ast')
+      this.db.run(
+        'INSERT INTO assets (id, project_id, kind, filename, relative_path, mime_type, size, checksum, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          newAssetId,
+          newProjectId,
+          asset.kind,
+          asset.filename,
+          asset.relative_path,
+          asset.mime_type,
+          asset.size,
+          asset.checksum || null,
+          asset.created_at || now,
+        ] as SqlValue[],
+      )
+    }
+
+    for (const schema of data.custom_field_schemas || []) {
+      try {
+        const newSchemaId = genNewId(schema.id, 'cfs')
+        this.db.run(
+          `INSERT INTO custom_field_schemas (id, project_id, key, label, type, entry_type, required, options, placeholder, default_value, sort_order, group_label, is_builtin, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            newSchemaId,
+            newProjectId,
+            schema.key,
+            schema.label,
+            schema.type,
+            schema.entry_type || null,
+            schema.required || 0,
+            schema.options || '[]',
+            schema.placeholder || '',
+            schema.default_value || null,
+            schema.sort_order || 0,
+            schema.group_label || '',
+            schema.is_builtin || 0,
+            schema.created_at || now,
+          ] as SqlValue[],
+        )
+      } catch {}
+    }
+
+    for (const era of data.eras || []) {
+      try {
+        const newEraId = genNewId(era.id, 'era')
+        const newParentId = era.parent_id ? idMapping[era.parent_id] || null : null
+        this.db.run(
+          `INSERT INTO eras (id, project_id, parent_id, name, short_name, start_sort_value, end_sort_value, description, color, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            newEraId,
+            newProjectId,
+            newParentId,
+            era.name,
+            era.short_name || '',
+            era.start_sort_value,
+            era.end_sort_value,
+            era.description || '',
+            era.color || '#6366f1',
+            era.created_at || now,
+          ] as SqlValue[],
+        )
+      } catch {}
+    }
+
+    return newProject
   }
 }
 
-export async function saveProjectData(projectId: string, project: Project, dbData: Uint8Array): Promise<void> {
-  localStorage.setItem(`wdworld_project_${projectId}`, JSON.stringify(project))
-  localStorage.setItem(`wdworld_db_${projectId}`, btoa(String.fromCharCode(...new Uint8Array(dbData))))
+function isElectronEnv(): boolean {
+  return typeof window !== 'undefined' && !!window.wdAPI
 }
 
-export async function loadProjectData(projectId: string): Promise<{ project: Project; dbData: Uint8Array } | null> {
+function uint8ToBase64(bytes: Uint8Array): string {
+  let binary = ''
+  const len = bytes.byteLength
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary)
+}
+
+function base64ToUint8(base64: string): Uint8Array {
+  const binary = atob(base64)
+  const len = binary.length
+  const bytes = new Uint8Array(len)
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes
+}
+
+interface IDBProjectRecord {
+  id: string
+  project: Project
+  dbBase64: string
+  updatedAt: string
+  createdAt?: string
+  name?: string
+}
+
+let idbPromise: Promise<IDBDatabase> | null = null
+
+function openIDB(): Promise<IDBDatabase> {
+  if (idbPromise) return idbPromise
+  idbPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open('wdworld', 1)
+    req.onupgradeneeded = () => {
+      const db = req.result
+      if (!db.objectStoreNames.contains('projects')) {
+        db.createObjectStore('projects', { keyPath: 'id' })
+      }
+      if (!db.objectStoreNames.contains('recent')) {
+        db.createObjectStore('recent')
+      }
+    }
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error)
+  })
+  return idbPromise
+}
+
+function idbPut<T>(store: string, value: T, key?: IDBValidKey): Promise<void> {
+  return openIDB().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const tx = db.transaction(store, 'readwrite')
+        const os = tx.objectStore(store)
+        const req = key !== undefined ? os.put(value, key) : os.put(value)
+        req.onsuccess = () => resolve()
+        req.onerror = () => reject(req.error)
+      }),
+  )
+}
+
+function idbGet<T>(store: string, key: IDBValidKey): Promise<T | undefined> {
+  return openIDB().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const tx = db.transaction(store, 'readonly')
+        const req = tx.objectStore(store).get(key)
+        req.onsuccess = () => resolve(req.result as T | undefined)
+        req.onerror = () => reject(req.error)
+      }),
+  )
+}
+
+function idbGetAll<T>(store: string): Promise<T[]> {
+  return openIDB().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const tx = db.transaction(store, 'readonly')
+        const req = tx.objectStore(store).getAll()
+        req.onsuccess = () => resolve(req.result as T[])
+        req.onerror = () => reject(req.error)
+      }),
+  )
+}
+
+function idbDelete(store: string, key: IDBValidKey): Promise<void> {
+  return openIDB().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const tx = db.transaction(store, 'readwrite')
+        const req = tx.objectStore(store).delete(key)
+        req.onsuccess = () => resolve()
+        req.onerror = () => reject(req.error)
+      }),
+  )
+}
+
+export async function saveProjectData(
+  projectId: string,
+  project: Project,
+  dbData: Uint8Array,
+): Promise<{ ok: boolean; error?: string }> {
+  const dbBase64 = uint8ToBase64(dbData)
+  const projectJson = JSON.stringify(project)
+  const now = new Date().toISOString()
+
+  if (isElectronEnv() && window.wdAPI) {
+    try {
+      return await window.wdAPI.saveProject(projectId, projectJson, dbBase64)
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  }
+
+  try {
+    const record: IDBProjectRecord = {
+      id: projectId,
+      project,
+      dbBase64,
+      updatedAt: now,
+      createdAt: project.createdAt,
+      name: project.name,
+    }
+    await idbPut('projects', record)
+  } catch (e) {
+    try {
+      localStorage.setItem(`wdworld_project_${projectId}`, projectJson)
+      localStorage.setItem(`wdworld_db_${projectId}`, dbBase64)
+    } catch (err) {
+      if ((err as DOMException).name === 'QuotaExceededError') {
+        return { ok: false, error: '存储配额不足' }
+      }
+      return { ok: false, error: (err as Error).message }
+    }
+  }
+
+  return { ok: true }
+}
+
+export async function loadProjectData(
+  projectId: string,
+): Promise<{ project: Project; dbData: Uint8Array } | null> {
+  if (isElectronEnv() && window.wdAPI) {
+    try {
+      const result = await window.wdAPI.loadProject(projectId)
+      if (!result || !result.projectJson || !result.dbBase64) return null
+      const project = JSON.parse(result.projectJson) as Project
+      const dbData = base64ToUint8(result.dbBase64)
+      return { project, dbData }
+    } catch {
+      return null
+    }
+  }
+
+  try {
+    const record = await idbGet<IDBProjectRecord>('projects', projectId)
+    if (record) {
+      return { project: record.project, dbData: base64ToUint8(record.dbBase64) }
+    }
+  } catch {}
+
   const projectStr = localStorage.getItem(`wdworld_project_${projectId}`)
   const dbStr = localStorage.getItem(`wdworld_db_${projectId}`)
-
   if (!projectStr || !dbStr) return null
+  try {
+    const project = JSON.parse(projectStr) as Project
+    const dbData = base64ToUint8(dbStr)
+    return { project, dbData }
+  } catch {
+    return null
+  }
+}
 
-  const project = JSON.parse(projectStr) as Project
-  const dbData = new Uint8Array(atob(dbStr).split('').map(c => c.charCodeAt(0)))
+export async function saveRecentProjects(list: unknown): Promise<{ ok: boolean; error?: string }> {
+  if (isElectronEnv() && window.wdAPI) {
+    try {
+      return await window.wdAPI.saveRecentProjects(list)
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  }
 
-  return { project, dbData }
+  try {
+    await idbPut('recent', list, 'list')
+  } catch {
+    try {
+      localStorage.setItem('wdworld_recent_projects', JSON.stringify(list))
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  }
+  return { ok: true }
+}
+
+export async function loadRecentProjects(): Promise<unknown | null> {
+  if (isElectronEnv() && window.wdAPI) {
+    try {
+      const result = await window.wdAPI.loadRecentProjects()
+      if (result && result.list !== undefined) return result.list
+    } catch {}
+  }
+
+  try {
+    const val = await idbGet<unknown>('recent', 'list')
+    if (val !== undefined) return val
+  } catch {}
+
+  const raw = localStorage.getItem('wdworld_recent_projects')
+  if (!raw) return null
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+interface StoredProjectInfo {
+  id: string
+  name: string
+  createdAt: string
+  updatedAt: string
+}
+
+export async function listStoredProjects(): Promise<StoredProjectInfo[]> {
+  if (isElectronEnv() && window.wdAPI) {
+    try {
+      const result = await window.wdAPI.listProjects()
+      if (result.projects) return result.projects
+    } catch {}
+  }
+
+  try {
+    const records = await idbGetAll<IDBProjectRecord>('projects')
+    if (records.length > 0) {
+      return records.map((r) => ({
+        id: r.id,
+        name: r.name ?? r.project.name,
+        createdAt: r.createdAt ?? r.project.createdAt,
+        updatedAt: r.updatedAt ?? r.project.updatedAt,
+      }))
+    }
+  } catch {}
+
+  const results: StoredProjectInfo[] = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (!key || !key.startsWith('wdworld_project_')) continue
+    const id = key.slice('wdworld_project_'.length)
+    try {
+      const raw = localStorage.getItem(key)
+      if (!raw) continue
+      const p = JSON.parse(raw) as Project
+      results.push({
+        id,
+        name: p.name,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+      })
+    } catch {}
+  }
+  return results
+}
+
+export async function deleteStoredProject(projectId: string): Promise<{ ok: boolean; error?: string }> {
+  if (isElectronEnv() && window.wdAPI) {
+    try {
+      await window.wdAPI.deleteProject(projectId)
+    } catch {}
+  }
+
+  try {
+    await idbDelete('projects', projectId)
+  } catch {}
+
+  try {
+    localStorage.removeItem(`wdworld_project_${projectId}`)
+    localStorage.removeItem(`wdworld_db_${projectId}`)
+  } catch {}
+
+  return { ok: true }
 }
