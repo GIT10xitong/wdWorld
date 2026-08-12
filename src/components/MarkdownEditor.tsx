@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -46,6 +47,11 @@ export function MarkdownEditor({ content, onChange, placeholder = '输入内容.
       onChange(editor.getHTML())
     },
   })
+
+  useEffect(() => {
+    if (!editor || editor.getHTML() === content) return
+    editor.commands.setContent(content, { emitUpdate: false })
+  }, [content, editor])
 
   if (!editor) {
     return null

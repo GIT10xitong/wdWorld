@@ -11,5 +11,4 @@ export default defineConfig({
     },
   },
   assetsInclude: ['**/*.wasm'],
-  optimizeDeps: { exclude: ['sql.js'] },
 })

@@ -28,6 +28,7 @@ import {
 import {
   EXAMPLE_PROJECT_DESCRIPTION,
   EXAMPLE_PROJECT_NAME,
+  enhanceMysteryRevivalWorld,
   seedMysteryRevivalWorld,
 } from '@/lib/defaultWorld'
 import { BUILTIN_ASSET_PATHS } from '@/lib/assetSources'
@@ -45,6 +46,8 @@ interface AppState {
   showCreateEntryModal: boolean
   autoSaveEnabled: boolean
   lastSaveTime: string | null
+  saveStatus: 'idle' | 'saving' | 'saved' | 'error'
+  saveError: string | null
   entryTags: Tag[]
   entryAliases: Alias[]
   projectAssets: Asset[]
@@ -163,6 +166,8 @@ interface AppActions {
   deleteCustomField: (schemaId: string) => Promise<void>
   exportProjectJSON: () => Promise<void>
   importProjectJSON: (file: File) => Promise<void>
+  getProjectBackupJSON: () => Promise<string>
+  importProjectBackupJSON: (text: string) => Promise<Project>
   fetchEras: () => Promise<void>
   createEra: (
     parentId: string | null,
@@ -199,6 +204,8 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
   showCreateEntryModal: false,
   autoSaveEnabled: true,
   lastSaveTime: null,
+  saveStatus: 'idle',
+  saveError: null,
   entryTags: [],
   entryAliases: [],
   projectAssets: [],
@@ -267,6 +274,9 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
     set({
       recentProjects: updatedRecent,
       currentProject: project,
+      lastSaveTime: null,
+      saveStatus: 'idle',
+      saveError: null,
       showCreateProjectModal: false,
       entries: [],
       tags: [],
@@ -302,6 +312,7 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
 
       const { database, currentProject, projectAssets, entries } = get()
       if (database && currentProject) {
+        await enhanceMysteryRevivalWorld(database, currentProject.id)
         const coverSpecs = [
           { path: BUILTIN_ASSET_PATHS.linMo, filename: '林默.png', size: 1753962, title: '林默' },
           {
@@ -336,7 +347,16 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
           }
         }
 
-        await Promise.all([get().fetchProjectAssets(), get().fetchEntries()])
+        await Promise.all([
+          get().fetchProjectAssets(),
+          get().fetchEntries(),
+          get().fetchTags(),
+          get().fetchRelations(),
+          get().fetchMapEntries(),
+          get().fetchFieldSchemas(),
+          get().fetchTemplates(),
+          get().fetchEras(),
+        ])
         await get().saveProject()
       }
       return
@@ -354,6 +374,8 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
       get().fetchRelations(),
       get().fetchProjectAssets(),
       get().fetchMapEntries(),
+      get().fetchFieldSchemas(),
+      get().fetchTemplates(),
       get().fetchEras(),
     ])
     await get().saveProject()
@@ -378,6 +400,9 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
     set({
       database: db,
       currentProject: loaded.project,
+      lastSaveTime: null,
+      saveStatus: 'idle',
+      saveError: null,
       showOpenProjectModal: false,
       entries: [],
       tags: [],
@@ -412,6 +437,9 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
     set({
       database: null,
       currentProject: null,
+      lastSaveTime: null,
+      saveStatus: 'idle',
+      saveError: null,
       entries: [],
       tags: [],
       relations: [],
@@ -452,50 +480,73 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
     if (!database) return
 
     await database.updateEntry(id, updates)
+    const updatedEntry = await database.getEntry(id)
+
+    if (updatedEntry) {
+      set((state) => ({
+        entries: state.entries.map((entry) => (entry.id === id ? updatedEntry : entry)),
+        mapEntries: state.mapEntries.map((entry) => (entry.id === id ? updatedEntry : entry)),
+        searchResults: [],
+        backlinks: state.backlinks.map((backlink) =>
+          backlink.entry.id === id ? { ...backlink, entry: updatedEntry } : backlink,
+        ),
+      }))
+    }
 
     if (get().autoSaveEnabled) {
       await get().saveProject()
     }
-
-    set((state) => ({
-      entries: state.entries.map((entry) =>
-        entry.id === id ? { ...entry, ...updates, updatedAt: new Date().toISOString() } : entry,
-      ),
-    }))
   },
 
   deleteEntry: async (id) => {
     const { database } = get()
     if (!database) return
 
-    await database.deleteFieldValuesForEntry(id)
     await database.deleteEntry(id)
+
+    set((state) => ({
+      entries: state.entries.filter((entry) => entry.id !== id),
+      mapEntries: state.mapEntries.filter((entry) => entry.id !== id),
+      worldTimelineEvents: state.worldTimelineEvents.filter((event) => event.entryId !== id),
+      entryTimelineEvents: state.entryTimelineEvents.filter((event) => event.entryId !== id),
+      relations: state.relations.filter(
+        (relation) => relation.sourceEntryId !== id && relation.targetEntryId !== id,
+      ),
+      searchResults: state.searchResults.filter((entry) => entry.id !== id),
+      selectedEntryId: state.selectedEntryId === id ? null : state.selectedEntryId,
+      entryTags: state.selectedEntryId === id ? [] : state.entryTags,
+      entryAliases: state.selectedEntryId === id ? [] : state.entryAliases,
+      entryRelations: state.entryRelations.filter(
+        (relation) => relation.sourceEntryId !== id && relation.targetEntryId !== id,
+      ),
+      backlinks: state.backlinks.filter((backlink) => backlink.entry.id !== id),
+      anchors: state.selectedEntryId === id ? [] : state.anchors,
+      entryFieldValues: state.selectedEntryId === id ? [] : state.entryFieldValues,
+    }))
 
     if (get().autoSaveEnabled) {
       await get().saveProject()
     }
+  },
 
-    set((state) => ({
-      entries: state.entries.filter((entry) => entry.id !== id),
-      selectedEntryId: state.selectedEntryId === id ? null : state.selectedEntryId,
+  selectEntry: (id) => {
+    set({
+      selectedEntryId: id,
       entryTags: [],
       entryAliases: [],
       entryRelations: [],
       backlinks: [],
       entryFieldValues: [],
-    }))
-  },
-
-  selectEntry: (id) => {
-    set({ selectedEntryId: id })
+      anchors: [],
+      entryTimelineEvents: [],
+    })
     if (id) {
-      get().fetchEntryTags(id)
-      get().fetchEntryAliases(id)
-      get().fetchEntryRelations(id)
-      get().fetchBacklinks(id)
-      get().fetchEntryFieldValues(id)
-    } else {
-      set({ entryTags: [], entryAliases: [], entryFieldValues: [] })
+      void get().fetchEntryTags(id)
+      void get().fetchEntryAliases(id)
+      void get().fetchEntryRelations(id)
+      void get().fetchBacklinks(id)
+      void get().fetchEntryFieldValues(id)
+      void get().fetchAnchors(id)
     }
   },
 
@@ -544,7 +595,7 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
     if (!database) return
 
     const tags = await database.getEntryTags(entryId)
-    set({ entryTags: tags })
+    if (get().selectedEntryId === entryId) set({ entryTags: tags })
   },
 
   fetchEntryAliases: async (entryId) => {
@@ -552,7 +603,7 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
     if (!database) return
 
     const aliases = await database.getEntryAliases(entryId)
-    set({ entryAliases: aliases })
+    if (get().selectedEntryId === entryId) set({ entryAliases: aliases })
   },
 
   fetchProjectAssets: async () => {
@@ -568,7 +619,7 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
     if (!database) return
 
     const relations = await database.getEntryRelations(entryId)
-    set({ entryRelations: relations })
+    if (get().selectedEntryId === entryId) set({ entryRelations: relations })
   },
 
   fetchBacklinks: async (entryId) => {
@@ -576,7 +627,7 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
     if (!database) return
 
     const backlinks = await database.getBacklinks(entryId)
-    set({ backlinks })
+    if (get().selectedEntryId === entryId) set({ backlinks })
   },
 
   createTag: async (name, color) => {
@@ -598,11 +649,13 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
 
     await database.updateTag(id, name, color)
 
+    await get().fetchTags()
+    const selectedId = get().selectedEntryId
+    if (selectedId) await get().fetchEntryTags(selectedId)
+
     if (get().autoSaveEnabled) {
       await get().saveProject()
     }
-
-    await get().fetchTags()
   },
 
   deleteTag: async (id) => {
@@ -611,14 +664,13 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
 
     await database.deleteTag(id)
 
+    set((state) => ({
+      tags: state.tags.filter((tag) => tag.id !== id),
+      entryTags: state.entryTags.filter((tag) => tag.id !== id),
+    }))
+
     if (get().autoSaveEnabled) {
       await get().saveProject()
-    }
-
-    await get().fetchTags()
-    const selectedId = get().selectedEntryId
-    if (selectedId) {
-      await get().fetchEntryTags(selectedId)
     }
   },
 
@@ -696,11 +748,20 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
 
     await database.deleteAsset(id)
 
+    set((state) => ({
+      projectAssets: state.projectAssets.filter((asset) => asset.id !== id),
+      entries: state.entries.map((entry) =>
+        entry.coverAssetId === id ? { ...entry, coverAssetId: null } : entry,
+      ),
+      mapEntries: state.mapEntries.map((entry) =>
+        entry.coverAssetId === id ? { ...entry, coverAssetId: null } : entry,
+      ),
+      mapImageAssetId: state.mapImageAssetId === id ? null : state.mapImageAssetId,
+    }))
+
     if (get().autoSaveEnabled) {
       await get().saveProject()
     }
-
-    await get().fetchProjectAssets()
   },
 
   setEntryCoverAsset: async (entryId, assetId) => {
@@ -709,11 +770,18 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
 
     await database.updateEntryCoverAsset(entryId, assetId)
 
+    set((state) => ({
+      entries: state.entries.map((entry) =>
+        entry.id === entryId ? { ...entry, coverAssetId: assetId } : entry,
+      ),
+      mapEntries: state.mapEntries.map((entry) =>
+        entry.id === entryId ? { ...entry, coverAssetId: assetId } : entry,
+      ),
+    }))
+
     if (get().autoSaveEnabled) {
       await get().saveProject()
     }
-
-    await get().fetchEntries()
   },
 
   searchByTag: async (tagId) => {
@@ -729,13 +797,13 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
 
     await database.createRelation(currentProject.id, sourceEntryId, targetEntryId, type, note)
 
+    await get().fetchRelations()
+    const selectedId = get().selectedEntryId
+    if (selectedId) await get().fetchEntryRelations(selectedId)
+
     if (get().autoSaveEnabled) {
       await get().saveProject()
     }
-
-    await get().fetchRelations()
-    await get().fetchEntryRelations(sourceEntryId)
-    await get().fetchEntryRelations(targetEntryId)
   },
 
   updateRelation: async (id, updates) => {
@@ -744,13 +812,12 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
 
     await database.updateRelation(id, updates)
 
+    await get().fetchRelations()
+    const selectedId = get().selectedEntryId
+    if (selectedId) await get().fetchEntryRelations(selectedId)
+
     if (get().autoSaveEnabled) {
       await get().saveProject()
-    }
-
-    const selectedId = get().selectedEntryId
-    if (selectedId) {
-      await get().fetchEntryRelations(selectedId)
     }
   },
 
@@ -760,13 +827,13 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
 
     await database.deleteRelation(id)
 
+    set((state) => ({
+      relations: state.relations.filter((relation) => relation.id !== id),
+      entryRelations: state.entryRelations.filter((relation) => relation.id !== id),
+    }))
+
     if (get().autoSaveEnabled) {
       await get().saveProject()
-    }
-
-    const selectedId = get().selectedEntryId
-    if (selectedId) {
-      await get().fetchEntryRelations(selectedId)
     }
   },
 
@@ -796,7 +863,7 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
     if (!database) return
 
     const anchors = await database.getAnchors(entryId)
-    set({ anchors })
+    if (get().selectedEntryId === entryId) set({ anchors })
   },
 
   createAnchor: async (entryId, label, x, y, notes = '') => {
@@ -818,13 +885,16 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
 
     await database.deleteAnchor(id)
 
+    set((state) => ({
+      anchors: state.anchors.filter((anchor) => anchor.id !== id),
+      entries: state.entries.map((entry) => (entry.anchorId === id ? { ...entry, anchorId: null } : entry)),
+      mapEntries: state.mapEntries.map((entry) =>
+        entry.anchorId === id ? { ...entry, anchorId: null } : entry,
+      ),
+    }))
+
     if (get().autoSaveEnabled) {
       await get().saveProject()
-    }
-
-    const selectedId = get().selectedEntryId
-    if (selectedId) {
-      await get().fetchAnchors(selectedId)
     }
   },
 
@@ -835,6 +905,9 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
     await database.updateEntryMapPosition(entryId, x, y)
     set((state) => ({
       entries: state.entries.map((entry) =>
+        entry.id === entryId ? { ...entry, mapPositionX: x, mapPositionY: y } : entry,
+      ),
+      mapEntries: state.mapEntries.map((entry) =>
         entry.id === entryId ? { ...entry, mapPositionX: x, mapPositionY: y } : entry,
       ),
     }))
@@ -851,6 +924,11 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
     if (!database) return
 
     await database.updateEntryAnchor(entryId, anchorId)
+
+    set((state) => ({
+      entries: state.entries.map((entry) => (entry.id === entryId ? { ...entry, anchorId } : entry)),
+      mapEntries: state.mapEntries.map((entry) => (entry.id === entryId ? { ...entry, anchorId } : entry)),
+    }))
 
     if (get().autoSaveEnabled) {
       await get().saveProject()
@@ -874,7 +952,7 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
     if (!database) return
 
     const events = await database.getTimelineEvents(entryId)
-    set({ entryTimelineEvents: events })
+    if (get().selectedEntryId === entryId) set({ entryTimelineEvents: events })
   },
 
   fetchWorldTimelineEvents: async () => {
@@ -966,12 +1044,13 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
   saveProject: async () => {
     const { database, currentProject, recentProjects } = get()
     if (!database || !currentProject) return
+    set({ saveStatus: 'saving', saveError: null })
+    try {
+      const dbData = await database.exportDatabase()
+      const result = await saveProjectData(currentProject.id, currentProject, dbData)
+      if (!result.ok) throw new Error(result.error || '保存失败')
 
-    const dbData = await database.exportDatabase()
-    const result = await saveProjectData(currentProject.id, currentProject, dbData)
-
-    const now = new Date().toISOString()
-    if (result.ok) {
+      const now = new Date().toISOString()
       const updatedRecent = recentProjects.map((p) =>
         p.id === currentProject.id
           ? { ...p, name: currentProject.name, path: currentProject.slug, lastOpened: now }
@@ -986,10 +1065,12 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
         })
       }
       const trimmed = updatedRecent.slice(0, 20)
-      set({ recentProjects: trimmed, lastSaveTime: now })
+      set({ recentProjects: trimmed, lastSaveTime: now, saveStatus: 'saved', saveError: null })
       await get().saveRecentProjects()
-    } else {
-      set({ lastSaveTime: now })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '未知错误'
+      console.error('Save failed:', error)
+      set({ saveStatus: 'error', saveError: message })
     }
   },
 
@@ -1013,22 +1094,33 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
     }
   },
 
+  getProjectBackupJSON: async () => {
+    const { database, currentProject } = get()
+    if (!database || !currentProject) throw new Error('请先打开一个项目')
+    return database.exportProjectJSON(currentProject.id)
+  },
+
+  importProjectBackupJSON: async (text) => {
+    let db = get().database
+    if (!db) {
+      await get().initializeDatabase()
+      db = get().database
+    }
+    if (!db) throw new Error('数据库初始化失败')
+
+    const newProject = await db.importProjectJSON(text)
+    const dbData = await db.exportDatabase()
+    const result = await saveProjectData(newProject.id, newProject, dbData)
+    if (!result.ok) throw new Error(result.error || '导入后的项目保存失败')
+
+    await get().openProject(newProject.id)
+    return newProject
+  },
+
   importProjectJSON: async (file: File) => {
-    const { database } = get()
-    let db = database
     try {
-      if (!db) {
-        await get().initializeDatabase()
-        db = get().database!
-      }
-
       const text = await file.text()
-      const newProject = await db.importProjectJSON(text)
-      const dbData = await db.exportDatabase()
-      await saveProjectData(newProject.id, newProject, dbData)
-
-      await get().loadRecentProjects()
-      await get().openProject(newProject.id)
+      await get().importProjectBackupJSON(text)
     } catch (error) {
       console.error('Import failed:', error)
       alert(`导入失败：${error instanceof Error ? error.message : '未知错误'}`)
@@ -1049,7 +1141,7 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
     if (!database) return
 
     const values = await database.getEntryFieldValues(entryId)
-    set({ entryFieldValues: values })
+    if (get().selectedEntryId === entryId) set({ entryFieldValues: values })
   },
 
   saveFieldValue: async (entryId, fieldId, value) => {
@@ -1084,11 +1176,14 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
 
     await database.deleteCustomFieldSchema(schemaId)
 
+    set((state) => ({
+      fieldSchemas: state.fieldSchemas.filter((schema) => schema.id !== schemaId),
+      entryFieldValues: state.entryFieldValues.filter((value) => value.fieldId !== schemaId),
+    }))
+
     if (get().autoSaveEnabled) {
       await get().saveProject()
     }
-
-    await get().fetchFieldSchemas()
   },
 
   fetchEras: async () => {

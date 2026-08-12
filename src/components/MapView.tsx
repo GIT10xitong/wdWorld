@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '@/store'
 import { EntryType } from '@/types'
-import { Crosshair, Image, MapPin, Move, Plus, ZoomIn, ZoomOut } from 'lucide-react'
+import { Crosshair, Image, MapPin, Move, Plus, X, ZoomIn, ZoomOut } from 'lucide-react'
 import linjiangMapUrl from '@/assets/linjiang-investigation-map.png'
 import { BUILTIN_ASSET_PATHS, resolveAssetSource } from '@/lib/assetSources'
 
@@ -30,6 +30,15 @@ export function MapView() {
   useEffect(() => {
     fetchMapEntries()
   }, [fetchMapEntries])
+
+  useEffect(() => {
+    if (!isPlacingMode) return
+    const cancelOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPlacingEntryId(null)
+    }
+    window.addEventListener('keydown', cancelOnEscape)
+    return () => window.removeEventListener('keydown', cancelOnEscape)
+  }, [isPlacingMode])
 
   const mapImage =
     projectAssets.find((asset) => asset.id === mapImageAssetId) ??
@@ -207,8 +216,19 @@ export function MapView() {
                 <div className="absolute inset-0 pointer-events-none border-2 border-dashed border-green-500/60 rounded-lg">
                   <div className="absolute top-4 left-4 px-3 py-1 rounded bg-green-950/80 text-green-300 text-sm flex items-center gap-2">
                     <Move className="w-4 h-4" />
-                    点击地图放置条目
+                    点击地图放置条目 · Esc 取消
                   </div>
+                  <button
+                    type="button"
+                    className="pointer-events-auto absolute right-4 top-4 flex items-center gap-1 rounded bg-slate-950/85 px-3 py-1 text-sm text-slate-200 hover:bg-slate-900"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setPlacingEntryId(null)
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                    取消
+                  </button>
                 </div>
               )}
             </div>

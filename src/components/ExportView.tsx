@@ -3,6 +3,7 @@ import { useStore } from '@/store'
 import { Entry, EntryType, Relation } from '@/types'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
+import { contentToSafeHtml, escapeHtml } from '@/lib/markdown'
 import {
   Download,
   FileText,
@@ -41,25 +42,6 @@ const ENTRY_TYPE_ICONS: Record<EntryType, typeof FileText> = {
   note: FileText,
 }
 
-function markdownToHtml(markdown: string): string {
-  let html = markdown
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/gim, '<em>$1</em>')
-    .replace(/`(.*?)`/gim, '<code>$1</code>')
-    .replace(/^- (.*$)/gim, '<li>$1</li>')
-    .replace(/^\d+\. (.*$)/gim, '<li>$1</li>')
-    .replace(/\n\n/gim, '</p><p>')
-    .replace(/\n/gim, '<br>')
-
-  html = html.replace(/<li>(.*?)<\/li>\s*<li>(.*?)<\/li>/gim, '<ul><li>$1</li><li>$2</li></ul>')
-  html = html.replace(/<\/ul>\s*<ul>/gim, '')
-
-  return `<p>${html}</p>`
-}
-
 function generateEntryHtml(entry: Entry, entries: Entry[], relations: Relation[]): string {
   const relatedRelations = relations.filter(
     (r) => r.sourceEntryId === entry.id || r.targetEntryId === entry.id,
@@ -77,7 +59,7 @@ function generateEntryHtml(entry: Entry, entries: Entry[], relations: Relation[]
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${entry.title} - WDWorld</title>
+  <title>${escapeHtml(entry.title)} - WDWorld</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -96,15 +78,15 @@ function generateEntryHtml(entry: Entry, entries: Entry[], relations: Relation[]
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
           <div>
-            <h1 class="entry-title">${entry.title}</h1>
+            <h1 class="entry-title">${escapeHtml(entry.title)}</h1>
             <span class="entry-type">${ENTRY_TYPE_LABELS[entry.type]}</span>
           </div>
         </div>
         
-        ${entry.summary ? `<p class="entry-summary">${entry.summary}</p>` : ''}
+        ${entry.summary ? `<p class="entry-summary">${escapeHtml(entry.summary)}</p>` : ''}
         
         <div class="entry-content">
-          ${markdownToHtml(entry.content)}
+          ${contentToSafeHtml(entry.content)}
         </div>
         
         ${
@@ -116,7 +98,7 @@ function generateEntryHtml(entry: Entry, entries: Entry[], relations: Relation[]
             ${relatedEntries
               .map(
                 (rel) => `
-              <li><a href="${rel!.slug}.html">${rel!.title}</a></li>
+              <li><a href="${encodeURIComponent(rel!.slug)}.html">${escapeHtml(rel!.title)}</a></li>
             `,
               )
               .join('')}
@@ -185,8 +167,8 @@ function generateIndexHtml(entries: Entry[]): string {
                   .map(
                     (entry) => `
                   <li>
-                    <a href="${entry.slug}.html">${entry.title}</a>
-                    ${entry.summary ? `<span class="summary">${entry.summary}</span>` : ''}
+                    <a href="${encodeURIComponent(entry.slug)}.html">${escapeHtml(entry.title)}</a>
+                    ${entry.summary ? `<span class="summary">${escapeHtml(entry.summary)}</span>` : ''}
                   </li>
                 `,
                   )
@@ -475,7 +457,7 @@ export function ExportView() {
 
       const entryProgress = 70 / entries.length
       entries.forEach((entry, index) => {
-        zip.file(`${entry.slug}.html`, generateEntryHtml(entry, entries, relations))
+        zip.file(`${encodeURIComponent(entry.slug)}.html`, generateEntryHtml(entry, entries, relations))
         setExportProgress(20 + (index + 1) * entryProgress)
       })
 

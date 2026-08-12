@@ -54,6 +54,8 @@ import {
   Edit3,
   Clock as ClockIcon,
   CreditCard,
+  Loader2,
+  AlertTriangle,
 } from 'lucide-react'
 
 const ENTRY_TYPE_ICONS: Record<EntryType, typeof FileText> = {
@@ -126,6 +128,8 @@ export function Workspace() {
     closeProject,
     saveProject,
     lastSaveTime,
+    saveStatus,
+    saveError,
     createTag,
     addTagToEntry,
     removeTagFromEntry,
@@ -183,22 +187,64 @@ export function Workspace() {
     }
   }, [selectedEntryId, selectedEntry])
 
-  const debouncedSave = debounce(async () => {
-    if (selectedEntryId && selectedEntry) {
-      const updates: Partial<Pick<Entry, 'title' | 'summary' | 'content'>> = {}
-      if (entryTitle !== selectedEntry.title) updates.title = entryTitle
-      if (entrySummary !== selectedEntry.summary) updates.summary = entrySummary
-      if (entryContent !== selectedEntry.content) updates.content = entryContent
-      if (Object.keys(updates).length > 0) {
-        await updateEntry(selectedEntryId, updates)
-      }
-    }
-  }, 1000)
+  const debouncedSave = useMemo(
+    () =>
+      debounce(
+        async (entryId: string, updates: Partial<Pick<Entry, 'title' | 'summary' | 'content'>>) =>
+          updateEntry(entryId, updates),
+        1000,
+      ),
+    [updateEntry],
+  )
 
   useEffect(() => {
-    debouncedSave()
-    return () => debouncedSave.cancel()
-  }, [entryTitle, entrySummary, entryContent])
+    if (!selectedEntryId || !selectedEntry) return
+    const updates: Partial<Pick<Entry, 'title' | 'summary' | 'content'>> = {}
+    if (entryTitle !== selectedEntry.title) updates.title = entryTitle
+    if (entrySummary !== selectedEntry.summary) updates.summary = entrySummary
+    if (entryContent !== selectedEntry.content) updates.content = entryContent
+    if (Object.keys(updates).length > 0) debouncedSave(selectedEntryId, updates)
+  }, [debouncedSave, entryContent, entrySummary, entryTitle, selectedEntry, selectedEntryId])
+
+  useEffect(
+    () => () => {
+      void debouncedSave.flush()
+    },
+    [debouncedSave],
+  )
+
+  useEffect(() => {
+    const flushBeforeUnload = () => {
+      void debouncedSave.flush()
+    }
+    window.addEventListener('beforeunload', flushBeforeUnload)
+    return () => window.removeEventListener('beforeunload', flushBeforeUnload)
+  }, [debouncedSave])
+
+  const flushDraft = async () => {
+    await debouncedSave.flush()
+  }
+
+  const handleSelectEntry = async (id: string | null) => {
+    await flushDraft()
+    selectEntry(id)
+  }
+
+  const handleViewChange = async (view: typeof activeView) => {
+    await flushDraft()
+    setActiveView(view)
+  }
+
+  const handleSave = async () => {
+    await flushDraft()
+    await saveProject()
+  }
+
+  const handleCloseProject = async () => {
+    await flushDraft()
+    await saveProject()
+    if (useStore.getState().saveStatus !== 'error') closeProject()
+  }
 
   useEffect(() => {
     fetchProjectAssets()
@@ -730,7 +776,7 @@ export function Workspace() {
                               return (
                                 <button
                                   key={entry.id}
-                                  onClick={() => selectEntry(entry.id)}
+                                  onClick={() => void handleSelectEntry(entry.id)}
                                   className={`mb-0.5 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
                                     isSelected
                                       ? 'bg-amber-400/10 text-amber-100'
@@ -765,7 +811,7 @@ export function Workspace() {
                   return (
                     <button
                       key={entry.id}
-                      onClick={() => selectEntry(entry.id)}
+                      onClick={() => void handleSelectEntry(entry.id)}
                       className={`group mb-1.5 flex w-full items-center gap-3 rounded-xl border p-2 text-left transition-all ${
                         isSelected
                           ? 'border-amber-400/50 bg-amber-400/10 shadow-[0_8px_24px_rgba(245,158,11,0.08)]'
@@ -846,7 +892,7 @@ export function Workspace() {
           <div className="flex items-center gap-3">
             <div className="view-switcher flex items-center bg-white/10 rounded-lg p-1">
               <button
-                onClick={() => setActiveView('editor')}
+                onClick={() => void handleViewChange('editor')}
                 className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
                   activeView === 'editor' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
                 }`}
@@ -855,7 +901,7 @@ export function Workspace() {
                 编辑器
               </button>
               <button
-                onClick={() => setActiveView('wiki')}
+                onClick={() => void handleViewChange('wiki')}
                 className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
                   activeView === 'wiki' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
                 }`}
@@ -864,7 +910,7 @@ export function Workspace() {
                 百科
               </button>
               <button
-                onClick={() => setActiveView('map')}
+                onClick={() => void handleViewChange('map')}
                 className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
                   activeView === 'map' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
                 }`}
@@ -873,7 +919,7 @@ export function Workspace() {
                 地图
               </button>
               <button
-                onClick={() => setActiveView('graph')}
+                onClick={() => void handleViewChange('graph')}
                 className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
                   activeView === 'graph' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
                 }`}
@@ -882,7 +928,7 @@ export function Workspace() {
                 图谱
               </button>
               <button
-                onClick={() => setActiveView('timeline')}
+                onClick={() => void handleViewChange('timeline')}
                 className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
                   activeView === 'timeline' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
                 }`}
@@ -891,7 +937,7 @@ export function Workspace() {
                 时间轴
               </button>
               <button
-                onClick={() => setActiveView('template')}
+                onClick={() => void handleViewChange('template')}
                 className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
                   activeView === 'template' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
                 }`}
@@ -900,7 +946,7 @@ export function Workspace() {
                 模板
               </button>
               <button
-                onClick={() => setActiveView('export')}
+                onClick={() => void handleViewChange('export')}
                 className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
                   activeView === 'export' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
                 }`}
@@ -909,7 +955,7 @@ export function Workspace() {
                 导出
               </button>
               <button
-                onClick={() => setActiveView('collab')}
+                onClick={() => void handleViewChange('collab')}
                 className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
                   activeView === 'collab' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
                 }`}
@@ -918,7 +964,7 @@ export function Workspace() {
                 协作
               </button>
               <button
-                onClick={() => setActiveView('card')}
+                onClick={() => void handleViewChange('card')}
                 className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
                   activeView === 'card' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
                 }`}
@@ -928,21 +974,38 @@ export function Workspace() {
               </button>
             </div>
 
-            {lastSaveTime && (
-              <div className="flex items-center gap-2 text-slate-500 text-sm">
+            <div
+              className={`flex items-center gap-2 text-sm ${saveStatus === 'error' ? 'text-red-400' : 'text-slate-500'}`}
+              title={saveStatus === 'error' ? saveError || '保存失败' : undefined}
+              role="status"
+            >
+              {saveStatus === 'saving' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : saveStatus === 'error' ? (
+                <AlertTriangle className="w-4 h-4" />
+              ) : (
                 <Clock className="w-4 h-4" />
-                <span>自动保存于 {formatDate(lastSaveTime)}</span>
-              </div>
-            )}
+              )}
+              <span>
+                {saveStatus === 'saving'
+                  ? '正在保存'
+                  : saveStatus === 'error'
+                    ? '保存失败，请重试'
+                    : lastSaveTime
+                      ? `已保存于 ${formatDate(lastSaveTime)}`
+                      : '尚未保存'}
+              </span>
+            </div>
             <button
-              onClick={saveProject}
+              onClick={() => void handleSave()}
+              disabled={saveStatus === 'saving'}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors"
             >
               <Save className="w-4 h-4" />
               <span>保存</span>
             </button>
             <button
-              onClick={closeProject}
+              onClick={() => void handleCloseProject()}
               title="关闭项目"
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-slate-500 transition-colors hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-400"
             >
@@ -1166,7 +1229,7 @@ export function Workspace() {
                           <div
                             key={relation.id}
                             className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors group cursor-pointer"
-                            onClick={() => targetEntry && selectEntry(targetEntry.id)}
+                            onClick={() => targetEntry && void handleSelectEntry(targetEntry.id)}
                           >
                             <div className="flex items-center gap-2">
                               <ArrowRightLeft className="w-3 h-3 text-purple-400" />
@@ -1204,7 +1267,7 @@ export function Workspace() {
                           <div
                             key={`${backlink.entry.id}-${index}`}
                             className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
-                            onClick={() => selectEntry(backlink.entry.id)}
+                            onClick={() => void handleSelectEntry(backlink.entry.id)}
                           >
                             <ExternalLink className="w-3 h-3 text-blue-400" />
                             <span className="text-sm text-white">{backlink.entry.title}</span>

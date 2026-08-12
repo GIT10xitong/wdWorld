@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '@/store'
 import { getEntryPlaceholderSource, resolveAssetSource } from '@/lib/assetSources'
+import { contentToSafeHtml } from '@/lib/markdown'
 import { Entry, EntryType, Relation } from '@/types'
 import {
   BookOpen,
@@ -39,29 +40,46 @@ export function WikiView() {
     fetchEntries,
     fetchTags,
     fetchRelations,
+    searchByTag,
   } = useStore()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null)
+  const [tagFilteredEntryIds, setTagFilteredEntryIds] = useState<Set<string> | null>(null)
   const [expandedTypes, setExpandedTypes] = useState<Set<EntryType>>(new Set(['character', 'location']))
 
   useEffect(() => {
     fetchEntries()
     fetchTags()
     fetchRelations()
-  }, [])
+  }, [fetchEntries, fetchRelations, fetchTags])
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!selectedTagId) {
+      setTagFilteredEntryIds(null)
+      return () => {
+        cancelled = true
+      }
+    }
+
+    setTagFilteredEntryIds(new Set())
+    void searchByTag(selectedTagId).then((matchedEntries) => {
+      if (!cancelled) setTagFilteredEntryIds(new Set(matchedEntries.map((entry) => entry.id)))
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [searchByTag, selectedTagId])
 
   const filteredEntries = entries.filter((entry) => {
     if (searchQuery && !entry.title.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false
     }
-    if (selectedTagId) {
-      const entryTags = tags.filter(
-        (tag) =>
-          relations.some((r) => r.sourceEntryId === entry.id && r.targetEntryId === tag.id) ||
-          relations.some((r) => r.targetEntryId === entry.id && r.sourceEntryId === tag.id),
-      )
-      return entryTags.some((tag) => tag.id === selectedTagId)
+    if (selectedTagId && tagFilteredEntryIds) {
+      return tagFilteredEntryIds.has(entry.id)
     }
     return true
   })
@@ -262,7 +280,7 @@ export function WikiView() {
                 <div className="prose prose-invert max-w-none mb-8">
                   <div
                     dangerouslySetInnerHTML={{
-                      __html: markdownToHtml(selectedEntry.content),
+                      __html: contentToSafeHtml(selectedEntry.content),
                     }}
                   />
                 </div>
@@ -362,20 +380,6 @@ const ENTRY_TYPE_LABELS: Record<EntryType, string> = {
   lore: '设定',
   region: '区域',
   note: '笔记',
-}
-
-function markdownToHtml(markdown: string): string {
-  const html = markdown
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
-    .replace(/\*(.*)\*/gim, '<em>$1</em>')
-    .replace(/\[(.*)\]\((.*)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
-    .replace(/`([^`]+)`/gim, '<code>$1</code>')
-    .replace(/\n/gim, '<br />')
-    .replace(/\[\[([^\]]+)\]\]/gim, '<span class="text-purple-400 cursor-pointer hover:underline">$1</span>')
-  return html
 }
 
 function formatDate(dateString: string): string {

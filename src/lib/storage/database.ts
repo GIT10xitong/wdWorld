@@ -256,6 +256,7 @@ export class Database {
 
   async init(): Promise<void> {
     if (!this.db) throw new Error('Database not opened')
+    this.db.run('PRAGMA foreign_keys = ON')
     this.db.run(INITIAL_SQL)
 
     const versionResult = this.db.exec('PRAGMA user_version')
@@ -486,7 +487,25 @@ export class Database {
 
   async deleteEntry(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not opened')
-    this.db.run('DELETE FROM entries WHERE id = ?', [id])
+    this.db.run('BEGIN TRANSACTION')
+    try {
+      this.db.run('DELETE FROM custom_field_values WHERE entry_id = ?', [id])
+      this.db.run('DELETE FROM entry_tags WHERE entry_id = ?', [id])
+      this.db.run('DELETE FROM entry_aliases WHERE entry_id = ?', [id])
+      this.db.run(
+        'UPDATE entries SET anchor_id = NULL WHERE anchor_id IN (SELECT id FROM anchors WHERE entry_id = ?)',
+        [id],
+      )
+      this.db.run('DELETE FROM anchors WHERE entry_id = ?', [id])
+      this.db.run('DELETE FROM timeline_events WHERE entry_id = ?', [id])
+      this.db.run('DELETE FROM relations WHERE source_entry_id = ? OR target_entry_id = ?', [id, id])
+      this.db.run('DELETE FROM backlinks WHERE source_entry_id = ? OR target_entry_id = ?', [id, id])
+      this.db.run('DELETE FROM entries WHERE id = ?', [id])
+      this.db.run('COMMIT')
+    } catch (error) {
+      this.db.run('ROLLBACK')
+      throw error
+    }
   }
 
   async listEntries(projectId: string, type?: EntryType): Promise<Entry[]> {
@@ -604,8 +623,15 @@ export class Database {
 
   async deleteTag(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not opened')
-    this.db.run('DELETE FROM tags WHERE id = ?', [id])
-    this.db.run('DELETE FROM entry_tags WHERE tag_id = ?', [id])
+    this.db.run('BEGIN TRANSACTION')
+    try {
+      this.db.run('DELETE FROM entry_tags WHERE tag_id = ?', [id])
+      this.db.run('DELETE FROM tags WHERE id = ?', [id])
+      this.db.run('COMMIT')
+    } catch (error) {
+      this.db.run('ROLLBACK')
+      throw error
+    }
   }
 
   async getEntryTags(entryId: string): Promise<Tag[]> {
@@ -742,7 +768,15 @@ export class Database {
 
   async deleteAsset(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not opened')
-    this.db.run('DELETE FROM assets WHERE id = ?', [id])
+    this.db.run('BEGIN TRANSACTION')
+    try {
+      this.db.run('UPDATE entries SET cover_asset_id = NULL WHERE cover_asset_id = ?', [id])
+      this.db.run('DELETE FROM assets WHERE id = ?', [id])
+      this.db.run('COMMIT')
+    } catch (error) {
+      this.db.run('ROLLBACK')
+      throw error
+    }
   }
 
   async updateEntryCoverAsset(entryId: string, assetId: string | null): Promise<void> {
@@ -1063,7 +1097,15 @@ export class Database {
 
   async deleteAnchor(id: string): Promise<void> {
     if (!this.db) throw new Error('Database not opened')
-    this.db.run('DELETE FROM anchors WHERE id = ?', [id])
+    this.db.run('BEGIN TRANSACTION')
+    try {
+      this.db.run('UPDATE entries SET anchor_id = NULL WHERE anchor_id = ?', [id])
+      this.db.run('DELETE FROM anchors WHERE id = ?', [id])
+      this.db.run('COMMIT')
+    } catch (error) {
+      this.db.run('ROLLBACK')
+      throw error
+    }
   }
 
   async updateEntryMapPosition(entryId: string, x: number | null, y: number | null): Promise<void> {
@@ -1589,7 +1631,9 @@ export class Database {
 
   async importDatabase(data: Uint8Array): Promise<void> {
     const SQL = await getSqlJs()
+    if (this.db) this.db.close()
     this.db = new SQL.Database(data)
+    await this.init()
   }
 
   async exportProjectJSON(projectId: string): Promise<string> {

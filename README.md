@@ -63,7 +63,7 @@
 
 ## 本地运行
 
-需要 Node.js 20 或更高版本。
+需要 Node.js 22.12 或更高版本。
 
 ```bash
 npm install

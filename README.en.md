@@ -71,7 +71,7 @@ Entries without a custom cover use bundled artwork based on their type in the ed
 
 ## Local Development
 
-Node.js 20 or newer is recommended.
+Node.js 22.12 or newer is recommended.
 
 ```bash
 npm install

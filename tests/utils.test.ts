@@ -35,4 +35,19 @@ describe('utility helpers', () => {
     expect(callback).toHaveBeenCalledOnce()
     vi.useRealTimers()
   })
+
+  it('flushes the latest pending debounced call immediately', () => {
+    vi.useFakeTimers()
+    const callback = vi.fn((value: string) => value)
+    const run = debounce(callback, 200)
+
+    run('first')
+    run('latest')
+    expect(run.flush()).toBe('latest')
+    expect(callback).toHaveBeenCalledOnce()
+    expect(callback).toHaveBeenCalledWith('latest')
+    vi.advanceTimersByTime(200)
+    expect(callback).toHaveBeenCalledOnce()
+    vi.useRealTimers()
+  })
 })

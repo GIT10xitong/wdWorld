@@ -4,6 +4,250 @@ import { BUILTIN_ASSET_PATHS } from '@/lib/assetSources'
 export const EXAMPLE_PROJECT_NAME = '神秘复苏示例：雾港档案'
 export const EXAMPLE_PROJECT_DESCRIPTION = '原创灵异生存示例：诡异遵循规则，力量伴随代价。'
 export const DEFAULT_MAP_ASSET_PATH = BUILTIN_ASSET_PATHS.map
+export const EXAMPLE_CONTENT_VERSION = 2
+
+/** Adds the feature-rich second chapter to old and newly created example projects. */
+export async function enhanceMysteryRevivalWorld(database: Database, projectId: string): Promise<void> {
+  const existingEntries = await database.listEntries(projectId)
+  if (existingEntries.some((entry) => entry.title === '周岚')) return
+
+  const entryByTitle = new Map(existingEntries.map((entry) => [entry.title, entry]))
+  const existingTags = await database.getTags(projectId)
+  const ensureTag = async (name: string, color: string) =>
+    existingTags.find((tag) => tag.name === name) ?? database.createTag(projectId, name, color)
+  const [clueTag, containedTag, unresolvedTag, dangerTag] = await Promise.all([
+    ensureTag('调查线索', '#06b6d4'),
+    ensureTag('暂时收容', '#22c55e'),
+    ensureTag('未解事件', '#f59e0b'),
+    ensureTag('高危区域', '#64748b'),
+  ])
+
+  const [analyst, missingAgent, silenceIncident, broadcastRoom, classPhoto] = await Promise.all([
+    database.createEntry(
+      projectId,
+      'character',
+      '周岚',
+      '调查局档案分析员，擅长从被篡改的记录中辨认“缺席者”。',
+      `## 人物档案
+
+三十四岁，原市档案馆修复师。她无法驾驭诡异，却能注意到被灵异力量删除后留下的格式空洞。
+
+## 调查方法
+
+- 对照纸质档案与电子副本的页码差异；
+- 用红线标记所有“语法正确但没有主语”的句子；
+- 从不在零点后阅读名单。
+
+## 隐瞒事项
+
+周岚早已在1998届七中毕业照中见过林默，但她没有把这件事写进正式报告。`,
+    ),
+    database.createEntry(
+      projectId,
+      'character',
+      '陈渡',
+      '三年前失踪的调查员，他的编号仍在系统中持续提交值班记录。',
+      `## 失踪经过
+
+陈渡在调查七中旧广播室时失联。最后一段录音只有粉笔书写声，以及一句反复出现的提示：“别让它点完名。”
+
+## 当前疑点
+
+他的门禁卡每周三凌晨会刷开调查局地下档案库，但监控画面中没有任何人。`,
+    ),
+    database.createEntry(
+      projectId,
+      'event',
+      '七中静默事件',
+      '一场被全市档案共同遗忘的集体失踪，是雾港异常的早期源头。',
+      `## 已还原经过
+
+1998年秋，七中晚自习期间有一整个班级从教学楼中消失。次日，校方名册、家长记忆与新闻记录同时发生改写，只留下数量对不上的课桌。
+
+## 事件闭环
+
+广播点名会删除“被确认存在的人”；无声影能暂时中断确认；旧课表则保存着尚未被点完的名单。
+
+## 当前风险
+
+雾港敲门事件正在把失踪者的声音送回现实，两个事件可能即将合并。`,
+    ),
+    database.createEntry(
+      projectId,
+      'location',
+      '七中旧广播室',
+      '位于不存在的第四层尽头，广播设备没有电源却始终保持温热。',
+      `## 空间规则
+
+门牌只会在广播念到第二个名字后出现。进入者必须带走一件物品，否则离开时会遗忘自己来过这里。
+
+## 现场证据
+
+控制台内藏有一盘标注“1998·秋”的磁带；墙后传来规律敲击，与雾港公寓录音完全一致。`,
+    ),
+    database.createEntry(
+      projectId,
+      'item',
+      '证物：1998届合照',
+      '照片人数会随广播点名减少，背面却会增加对应姓名。',
+      `## 外观
+
+褪色的三排合照，拍摄地点是七中操场。照片中共有四十二把椅子，但任何时候都只能数出四十一名学生。
+
+## 观察记录
+
+林默与周岚都出现在照片边缘，年龄却与拍摄年份不符。不要在镜子前翻看照片背面。`,
+    ),
+  ])
+
+  await Promise.all([
+    database.updateEntry(analyst.id, { status: 'active', visibility: 'internal' }),
+    database.updateEntry(missingAgent.id, { status: 'complete', visibility: 'internal' }),
+    database.updateEntry(silenceIncident.id, {
+      status: 'active',
+      visibility: 'internal',
+      region: '雾港旧城区',
+      condition: '疑似重新活跃',
+      occupants: '失踪人数：42（记录仅承认41）',
+    }),
+    database.updateEntry(broadcastRoom.id, {
+      status: 'active',
+      region: '雾港第七中学·第四层',
+      condition: '封锁中',
+      occupants: '陈渡（状态未知）',
+    }),
+    database.updateEntry(classPhoto.id, { status: 'active', condition: '低温密封保存' }),
+  ])
+
+  await Promise.all([
+    database.createAlias(analyst.id, '红笔档案员'),
+    database.createAlias(missingAgent.id, 'D-17'),
+    database.createAlias(silenceIncident.id, '1998届消失案'),
+    database.createAlias(broadcastRoom.id, '不存在的第四层'),
+    database.createAlias(classPhoto.id, '第四十二人'),
+    database.addTagToEntry(analyst.id, clueTag.id),
+    database.addTagToEntry(missingAgent.id, clueTag.id),
+    database.addTagToEntry(silenceIncident.id, clueTag.id),
+    database.addTagToEntry(silenceIncident.id, unresolvedTag.id),
+    database.addTagToEntry(broadcastRoom.id, dangerTag.id),
+    database.addTagToEntry(classPhoto.id, clueTag.id),
+    database.addTagToEntry(classPhoto.id, containedTag.id),
+  ])
+
+  const requireEntry = (title: string) => {
+    const entry = entryByTitle.get(title)
+    if (!entry) throw new Error(`示例世界缺少基础条目：${title}`)
+    return entry
+  }
+  const investigator = requireEntry('林默')
+  const bureau = requireEntry('异常事件调查局')
+  const school = requireEntry('雾港第七中学')
+  const incident = requireEntry('雾港敲门事件')
+  const umbrella = requireEntry('收容物：黑伞')
+
+  await Promise.all([
+    database.createRelation(projectId, analyst.id, bureau.id, 'member_of', '档案与情报组'),
+    database.createRelation(projectId, analyst.id, investigator.id, 'colleague_of', '雾港联合调查搭档'),
+    database.createRelation(projectId, missingAgent.id, school.id, 'discovered', '失踪前定位到旧广播室'),
+    database.createRelation(projectId, silenceIncident.id, school.id, 'located_in', '事件发生地点'),
+    database.createRelation(
+      projectId,
+      silenceIncident.id,
+      classPhoto.id,
+      'related',
+      '唯一未被完全改写的物证',
+    ),
+    database.createRelation(projectId, incident.id, silenceIncident.id, 'related', '声音与失踪规律正在合并'),
+    database.createRelation(
+      projectId,
+      missingAgent.id,
+      incident.id,
+      'participated_in',
+      '失踪后仍发送事件记录',
+    ),
+    database.createRelation(projectId, broadcastRoom.id, school.id, 'part_of', '不存在的第四层'),
+    database.createRelation(projectId, umbrella.id, classPhoto.id, 'related', '伞面冷水会显现照片背面的姓名'),
+    database.addBacklink(projectId, analyst.id, investigator.id, '1998届合照中的林默'),
+    database.addBacklink(projectId, classPhoto.id, silenceIncident.id, '人数随点名变化'),
+    database.addBacklink(projectId, broadcastRoom.id, incident.id, '敲击录音一致'),
+  ])
+
+  await Promise.all([
+    database.createTimelineEvent(
+      silenceIncident.id,
+      '1998年·第0夜',
+      '最后一次晚自习',
+      1,
+      '四十二名学生进入主楼。',
+    ),
+    database.createTimelineEvent(
+      silenceIncident.id,
+      '1998年·第1日',
+      '全班从记录中消失',
+      2,
+      '档案被同步改写，只剩数量异常。',
+    ),
+    database.createTimelineEvent(
+      silenceIncident.id,
+      '三年前',
+      '陈渡重启调查',
+      40,
+      '旧广播室首次被现代调查员定位。',
+    ),
+    database.createTimelineEvent(
+      silenceIncident.id,
+      '现在',
+      '两个事件开始合并',
+      90,
+      '雾港失踪者电话出现点名广播。',
+    ),
+  ])
+
+  const anchor = await database.createAnchor(
+    school.id,
+    '旧广播室入口',
+    0.78,
+    0.22,
+    '广播念到第二个名字后，第四层走廊尽头出现门牌。',
+  )
+  await database.updateEntryAnchor(broadcastRoom.id, anchor.id)
+  await Promise.all([
+    database.updateEntryMapPosition(broadcastRoom.id, 0.6, 0.14),
+    database.updateEntryMapPosition(silenceIncident.id, 0.55, 0.2),
+    database.updateEntryMapPosition(analyst.id, 0.66, 0.42),
+  ])
+
+  const fieldSchemas = await database.listFieldSchemas(projectId)
+  const riskField =
+    fieldSchemas.find((field) => field.id === 'example_event_risk') ??
+    (await database.createCustomFieldSchema(projectId, {
+      id: 'example_event_risk',
+      key: 'event_risk',
+      label: '事件等级',
+      type: 'select',
+      entryType: 'event',
+      options: ['C级', 'B级', 'A级', 'S级'],
+      sortOrder: 5,
+      group: '调查局评估',
+    }))
+  await Promise.all([
+    database.upsertFieldValue(incident.id, riskField.id, 'A级'),
+    database.upsertFieldValue(silenceIncident.id, riskField.id, 'A级'),
+  ])
+
+  const templates = await database.getTemplates(projectId)
+  if (!templates.some((template) => template.name === '灵异事件调查档案')) {
+    await database.createTemplate(
+      projectId,
+      '灵异事件调查档案',
+      'event',
+      '用于记录触发条件、生存规则与未确认线索。',
+      '## 现象\n\n## 触发条件\n\n## 行动规律\n\n## 规避方式\n\n## 未确认线索',
+      ['未解事件'],
+      ['事件代号'],
+    )
+  }
+}
 
 /** Creates the original supernatural-horror example world. */
 export async function seedMysteryRevivalWorld(
@@ -265,6 +509,8 @@ export async function seedMysteryRevivalWorld(
     database.updateEntryMapPosition(bureau.id, 0.69, 0.39),
     database.updateEntryMapPosition(investigator.id, 0.61, 0.48),
   ])
+
+  await enhanceMysteryRevivalWorld(database, projectId)
 
   return { mapAssetId: mapAsset.id }
 }

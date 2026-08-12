@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useStore } from '@/store'
 import { TimelineEvent, EntryType, Era } from '@/types'
 import { Clock, Plus, Calendar, Trash2, Layers } from 'lucide-react'
@@ -66,6 +66,7 @@ export function TimelineView() {
   const [newEventTitle, setNewEventTitle] = useState('')
   const [newEventSortValue, setNewEventSortValue] = useState(0)
   const [newEventDescription, setNewEventDescription] = useState('')
+  const [newEventEntryId, setNewEventEntryId] = useState('')
 
   const [newEraParentId, setNewEraParentId] = useState<string | null>(null)
   const [newEraName, setNewEraName] = useState('')
@@ -76,14 +77,22 @@ export function TimelineView() {
   const [newEraColor, setNewEraColor] = useState('#6366f1')
   const [editingEraId, setEditingEraId] = useState<string | null>(null)
 
+  const selectedEntry = useMemo(
+    () => entries.find((entry) => entry.id === selectedEntryId) ?? null,
+    [entries, selectedEntryId],
+  )
+  const selectedEntryTitleRef = useRef('条目时间轴')
+
+  if (selectedEntry) {
+    selectedEntryTitleRef.current = selectedEntry.title
+  }
+
   useEffect(() => {
     if (selectedEntryId) {
-      fetchTimelineEvents(selectedEntryId)
+      void fetchTimelineEvents(selectedEntryId)
     }
-    fetchWorldTimelineEvents()
-  }, [selectedEntryId])
-
-  const selectedEntry = entries.find((e) => e.id === selectedEntryId)
+    void fetchWorldTimelineEvents()
+  }, [fetchTimelineEvents, fetchWorldTimelineEvents, selectedEntryId])
 
   const events = mode === 'entry' ? entryTimelineEvents : worldTimelineEvents
 
@@ -124,7 +133,7 @@ export function TimelineView() {
   const handleAddEvent = () => {
     if (!newEventTitle) return
 
-    const targetEntryId = mode === 'entry' && selectedEntryId ? selectedEntryId : entries[0]?.id
+    const targetEntryId = mode === 'entry' && selectedEntryId ? selectedEntryId : newEventEntryId
     if (!targetEntryId) {
       alert('请先创建至少一个条目')
       return
@@ -142,6 +151,7 @@ export function TimelineView() {
     setNewEventTitle('')
     setNewEventSortValue(0)
     setNewEventDescription('')
+    setNewEventEntryId('')
   }
 
   const groupedEvents = useMemo(() => {
@@ -242,11 +252,11 @@ export function TimelineView() {
           <Clock className="w-5 h-5 text-purple-400" />
           <h2 className="text-lg font-semibold text-white">时间轴</h2>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-white/10 rounded-lg p-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex shrink-0 items-center bg-white/10 rounded-lg p-1">
             <button
               onClick={() => setMode('world')}
-              className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
+              className={`min-w-[6.5rem] px-3 py-1.5 rounded-md text-sm transition-colors ${
                 mode === 'world' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
               }`}
             >
@@ -255,7 +265,7 @@ export function TimelineView() {
             <button
               onClick={() => setMode('entry')}
               disabled={!selectedEntryId}
-              className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
+              className={`w-32 truncate px-3 py-1.5 rounded-md text-sm transition-colors ${
                 mode === 'entry'
                   ? 'bg-purple-500 text-white'
                   : selectedEntryId
@@ -263,7 +273,7 @@ export function TimelineView() {
                     : 'text-slate-500 cursor-not-allowed'
               }`}
             >
-              {selectedEntry ? `${selectedEntry.title}` : '条目时间轴'}
+              {selectedEntryId ? selectedEntryTitleRef.current : '条目时间轴'}
             </button>
           </div>
           <button
@@ -274,7 +284,10 @@ export function TimelineView() {
             纪元管理
           </button>
           <button
-            onClick={() => setShowAddEventModal(true)}
+            onClick={() => {
+              setNewEventEntryId(selectedEntryId || entries[0]?.id || '')
+              setShowAddEventModal(true)
+            }}
             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-500 text-white hover:bg-purple-600 transition-colors"
           >
             <Plus className="w-4 h-4" />
@@ -418,7 +431,8 @@ export function TimelineView() {
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">关联条目</label>
                   <select
-                    value={entries[0]?.id}
+                    value={newEventEntryId}
+                    onChange={(event) => setNewEventEntryId(event.target.value)}
                     className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:border-purple-500/50 transition-colors"
                   >
                     {entries.map((entry) => (
@@ -483,7 +497,7 @@ export function TimelineView() {
                 </button>
                 <button
                   onClick={handleAddEvent}
-                  disabled={!newEventTitle}
+                  disabled={!newEventTitle || (mode === 'world' && !newEventEntryId)}
                   className="flex-1 px-4 py-3 rounded-lg bg-purple-500 text-white hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   添加事件
