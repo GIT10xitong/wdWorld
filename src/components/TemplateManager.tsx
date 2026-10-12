@@ -1,3 +1,4 @@
+import { t } from '@/lib/i18n'
 import { useState, useEffect } from 'react'
 import { useStore } from '@/store'
 import { Template, EntryType } from '@/types'
@@ -19,14 +20,30 @@ import {
 } from 'lucide-react'
 
 const ENTRY_TYPE_LABELS: Record<EntryType, string> = {
-  character: '人物',
-  location: '地点',
-  faction: '组织',
-  item: '物品',
-  event: '事件',
-  lore: '设定',
-  region: '区域',
-  note: '笔记',
+  get character() {
+    return t('人物')
+  },
+  get location() {
+    return t('地点')
+  },
+  get faction() {
+    return t('组织')
+  },
+  get item() {
+    return t('物品')
+  },
+  get event() {
+    return t('事件')
+  },
+  get lore() {
+    return t('设定')
+  },
+  get region() {
+    return t('区域')
+  },
+  get note() {
+    return t('笔记')
+  },
 }
 
 const ENTRY_TYPE_ICONS: Record<EntryType, typeof FileText> = {
@@ -49,94 +66,67 @@ const DEFAULT_TEMPLATES: {
   aliases: string[]
 }[] = [
   {
-    name: '人物模板',
+    get name() {
+      return t('人物模板')
+    },
     type: 'character',
-    description: '适用于角色人物设定',
-    content: `## 基本信息
-
-- 姓名：
-- 性别：
-- 年龄：
-- 种族：
-- 职业：
-
-## 外貌特征
-
-## 性格特点
-
-## 背景故事
-
-## 能力特长
-
-## 关系人物`,
-    tags: ['人物'],
+    get description() {
+      return t('适用于角色人物设定')
+    },
+    get content() {
+      return t(
+        '## 基本信息\n\n- 姓名：\n- 性别：\n- 年龄：\n- 种族：\n- 职业：\n\n## 外貌特征\n\n## 性格特点\n\n## 背景故事\n\n## 能力特长\n\n## 关系人物',
+      )
+    },
+    tags: [t('人物')],
     aliases: [],
   },
   {
-    name: '地点模板',
+    get name() {
+      return t('地点模板')
+    },
     type: 'location',
-    description: '适用于地理位置设定',
-    content: `## 基本信息
-
-- 名称：
-- 类型：城市/村庄/森林/山脉等
-- 所属区域：
-
-## 地理特征
-
-## 历史背景
-
-## 重要建筑
-
-## 知名人物
-
-## 相关事件`,
-    tags: ['地点'],
+    get description() {
+      return t('适用于地理位置设定')
+    },
+    get content() {
+      return t(
+        '## 基本信息\n\n- 名称：\n- 类型：城市/村庄/森林/山脉等\n- 所属区域：\n\n## 地理特征\n\n## 历史背景\n\n## 重要建筑\n\n## 知名人物\n\n## 相关事件',
+      )
+    },
+    tags: [t('地点')],
     aliases: [],
   },
   {
-    name: '组织模板',
+    get name() {
+      return t('组织模板')
+    },
     type: 'faction',
-    description: '适用于组织势力设定',
-    content: `## 基本信息
-
-- 名称：
-- 类型：国家/教派/行会/家族等
-- 成立时间：
-- 总部位置：
-
-## 组织结构
-
-## 核心成员
-
-## 宗旨与目标
-
-## 历史事件
-
-## 势力范围`,
-    tags: ['组织'],
+    get description() {
+      return t('适用于组织势力设定')
+    },
+    get content() {
+      return t(
+        '## 基本信息\n\n- 名称：\n- 类型：国家/教派/行会/家族等\n- 成立时间：\n- 总部位置：\n\n## 组织结构\n\n## 核心成员\n\n## 宗旨与目标\n\n## 历史事件\n\n## 势力范围',
+      )
+    },
+    tags: [t('组织')],
     aliases: [],
   },
   {
-    name: '事件模板',
+    get name() {
+      return t('事件模板')
+    },
     type: 'event',
-    description: '适用于重要事件设定',
-    content: `## 基本信息
-
-- 名称：
-- 时间：
-- 地点：
-
-## 事件概述
-
-## 参与人物
-
-## 事件经过
-
-## 事件结果
-
-## 影响与意义`,
-    tags: ['事件'],
+    get description() {
+      return t('适用于重要事件设定')
+    },
+    get content() {
+      return t(
+        '## 基本信息\n\n- 名称：\n- 时间：\n- 地点：\n\n## 事件概述\n\n## 参与人物\n\n## 事件经过\n\n## 事件结果\n\n## 影响与意义',
+      )
+    },
+    tags: [t('事件')],
     aliases: [],
   },
 ]
@@ -218,14 +208,14 @@ export function TemplateManager() {
   }
 
   const handleDelete = async (id: string) => {
-    if (confirm('确定要删除这个模板吗？')) {
+    if (confirm(t('确定要删除这个模板吗？'))) {
       await deleteTemplate(id)
     }
   }
 
   const handleApplyTemplate = async (template: Template) => {
     await createEntry(template.type, template.name, template.description, template.content)
-    alert('已根据模板创建条目')
+    alert(t('已根据模板创建条目'))
   }
 
   const handleCreateDefaultTemplates = async () => {
@@ -244,9 +234,9 @@ export function TemplateManager() {
         <div>
           <h2 className="text-2xl font-bold text-white flex items-center gap-3">
             <Sparkles className="w-7 h-7 text-amber-400" />
-            模板管理
+            {t('模板管理')}
           </h2>
-          <p className="text-slate-400 mt-1">创建和管理条目模板，快速生成标准化设定</p>
+          <p className="text-slate-400 mt-1">{t('创建和管理条目模板，快速生成标准化设定')}</p>
         </div>
         <div className="flex items-center gap-3">
           {templates.length === 0 && (
@@ -255,7 +245,7 @@ export function TemplateManager() {
               className="px-4 py-2 bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30 transition-colors flex items-center gap-2"
             >
               <Sparkles className="w-4 h-4" />
-              加载默认模板
+              {t('加载默认模板')}
             </button>
           )}
           <button
@@ -263,7 +253,7 @@ export function TemplateManager() {
             className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
-            新建模板
+            {t('新建模板')}
           </button>
         </div>
       </div>
@@ -272,16 +262,16 @@ export function TemplateManager() {
         {templates.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-slate-500">
             <FileText className="w-16 h-16 mb-4" />
-            <h3 className="text-xl font-medium mb-2">暂无模板</h3>
+            <h3 className="text-xl font-medium mb-2">{t('暂无模板')}</h3>
             <p className="text-center max-w-md mb-6">
-              点击"新建模板"创建自定义模板，或点击"加载默认模板"导入预设模板。
+              {t('点击"新建模板"创建自定义模板，或点击"加载默认模板"导入预设模板。')}
             </p>
             <button
               onClick={handleCreateDefaultTemplates}
               className="px-6 py-3 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-2"
             >
               <Sparkles className="w-5 h-5" />
-              加载默认模板
+              {t('加载默认模板')}
             </button>
           </div>
         ) : (
@@ -311,14 +301,14 @@ export function TemplateManager() {
                       <button
                         onClick={() => handleOpenModal(template)}
                         className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                        title="编辑"
+                        title={t('编辑')}
                       >
                         <Edit3 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(template.id)}
                         className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                        title="删除"
+                        title={t('删除')}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -351,7 +341,7 @@ export function TemplateManager() {
                     className="w-full py-2 bg-purple-500/20 text-purple-400 rounded-lg hover:bg-purple-500/30 transition-colors flex items-center justify-center gap-2"
                   >
                     <Plus className="w-4 h-4" />
-                    使用模板创建条目
+                    {t('使用模板创建条目')}
                   </button>
                 </div>
               )
@@ -364,7 +354,9 @@ export function TemplateManager() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="w-full max-w-2xl bg-slate-800 rounded-xl border border-white/10 shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-6 border-b border-white/10">
-              <h2 className="text-xl font-bold text-white">{editingTemplate ? '编辑模板' : '新建模板'}</h2>
+              <h2 className="text-xl font-bold text-white">
+                {editingTemplate ? t('编辑模板') : t('新建模板')}
+              </h2>
               <button
                 onClick={() => setShowCreateModal(false)}
                 className="p-2 text-slate-400 hover:text-white"
@@ -375,18 +367,18 @@ export function TemplateManager() {
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">模板名称</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">{t('模板名称')}</label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-4 py-2 bg-slate-700 border border-white/10 rounded-lg text-white focus:border-purple-500 focus:outline-none"
-                  placeholder="输入模板名称"
+                  placeholder={t('输入模板名称')}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">条目类型</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">{t('条目类型')}</label>
                 <select
                   value={formData.type}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value as EntryType })}
@@ -412,45 +404,49 @@ export function TemplateManager() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">描述</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">{t('描述')}</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-4 py-2 bg-slate-700 border border-white/10 rounded-lg text-white focus:border-purple-500 focus:outline-none"
-                  placeholder="简要描述这个模板的用途"
+                  placeholder={t('简要描述这个模板的用途')}
                   rows={2}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">标签（逗号分隔）</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  {t('标签（逗号分隔）')}
+                </label>
                 <input
                   type="text"
                   value={formData.tags}
                   onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
                   className="w-full px-4 py-2 bg-slate-700 border border-white/10 rounded-lg text-white focus:border-purple-500 focus:outline-none"
-                  placeholder="例如：人物, 角色"
+                  placeholder={t('例如：人物, 角色')}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">别名（逗号分隔）</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  {t('别名（逗号分隔）')}
+                </label>
                 <input
                   type="text"
                   value={formData.aliases}
                   onChange={(e) => setFormData({ ...formData, aliases: e.target.value })}
                   className="w-full px-4 py-2 bg-slate-700 border border-white/10 rounded-lg text-white focus:border-purple-500 focus:outline-none"
-                  placeholder="例如：昵称, 称号"
+                  placeholder={t('例如：昵称, 称号')}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">模板内容</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">{t('模板内容')}</label>
                 <textarea
                   value={formData.content}
                   onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                   className="w-full px-4 py-2 bg-slate-700 border border-white/10 rounded-lg text-white focus:border-purple-500 focus:outline-none font-mono text-sm"
-                  placeholder="输入模板的 Markdown 内容"
+                  placeholder={t('输入模板的 Markdown 内容')}
                   rows={10}
                 />
               </div>
@@ -461,7 +457,7 @@ export function TemplateManager() {
                 onClick={() => setShowCreateModal(false)}
                 className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
               >
-                取消
+                {t('取消')}
               </button>
               <button
                 onClick={handleSubmit}
@@ -469,7 +465,7 @@ export function TemplateManager() {
                 className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <Check className="w-4 h-4" />
-                {editingTemplate ? '保存修改' : '创建模板'}
+                {editingTemplate ? t('保存修改') : t('创建模板')}
               </button>
             </div>
           </div>

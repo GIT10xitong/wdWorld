@@ -1,3 +1,4 @@
+import { getLanguage } from './i18n'
 export function generateId(prefix: string): string {
   const random = Math.random().toString(36).substring(2, 9)
   return `${prefix}_${random}`
@@ -14,7 +15,7 @@ export function generateSlug(text: string): string {
 
 export function formatDate(dateStr: string): string {
   const date = new Date(dateStr)
-  return date.toLocaleDateString('zh-CN', {
+  return date.toLocaleDateString(getLanguage(), {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

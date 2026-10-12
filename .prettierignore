@@ -1,7 +1,7 @@
 dist
 release
 coverage
+test-results
 node_modules
 package-lock.json
-public/sql-wasm.wasm
 src/assets/**/*.png

@@ -1,3 +1,4 @@
+import { t, useLanguage } from '@/lib/i18n'
 import { useState, useMemo } from 'react'
 import { useStore } from '@/store'
 import { getEntryPlaceholderSource, resolveAssetSource } from '@/lib/assetSources'
@@ -9,6 +10,7 @@ import {
   ENTRY_TYPE_LABELS,
   ENTRY_STATUS_LABELS,
   RELATION_TYPE_META,
+  BUILTIN_FIELD_SCHEMAS,
 } from '@/types'
 import {
   CreditCard,
@@ -42,6 +44,7 @@ const ENTRY_TYPE_ICONS: Record<EntryType, typeof FileText> = {
 }
 
 const STATUS_BADGE_STYLES: Record<EntryStatus, string> = {
+  proposed: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
   draft: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
   active: 'bg-green-500/20 text-green-300 border-green-500/30',
   complete: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
@@ -51,6 +54,7 @@ const STATUS_BADGE_STYLES: Record<EntryStatus, string> = {
 type LayoutMode = 'horizontal' | 'vertical'
 
 export function EntryCardView() {
+  const language = useLanguage()
   const {
     entries,
     entryTags,
@@ -77,14 +81,18 @@ export function EntryCardView() {
     if (!selectedEntry) return []
     return fieldSchemas
       .filter((schema) => !schema.entryType || schema.entryType === selectedEntry.type)
+      .map((schema) => {
+        const builtin = BUILTIN_FIELD_SCHEMAS.find((s) => s.id === schema.id)
+        return builtin ? { ...schema, label: builtin.label, group: builtin.group } : schema
+      })
       .sort((a, b) => a.sortOrder - b.sortOrder)
-  }, [fieldSchemas, selectedEntry])
+  }, [fieldSchemas, selectedEntry, language])
 
   const groupedSchemas = useMemo(() => {
     const groups: Record<string, CustomFieldSchema[]> = {}
     for (const schema of applicableSchemas) {
       if (schema.key === 'theme_color') continue
-      const groupName = schema.group || '其他'
+      const groupName = schema.group || t('其他')
       if (!groups[groupName]) groups[groupName] = []
       groups[groupName].push(schema)
     }
@@ -109,9 +117,11 @@ export function EntryCardView() {
       return value.join('、')
     }
     if (schema.type === 'boolean') {
-      return value ? '是' : '否'
+      return value ? t('是') : t('否')
     }
-    return String(value)
+    return BUILTIN_FIELD_SCHEMAS.some((s) => s.id === schema.id) && schema.type === 'select'
+      ? t(String(value))
+      : String(value)
   }
 
   const generateMarkdown = (): string => {
@@ -121,7 +131,10 @@ export function EntryCardView() {
     lines.push(`# ${selectedEntry.title}`)
     lines.push('')
     lines.push(
-      `> **类型**: ${ENTRY_TYPE_LABELS[selectedEntry.type]} | **状态**: ${ENTRY_STATUS_LABELS[selectedEntry.status]}`,
+      t('> **类型**: {0} | **状态**: {1}', {
+        0: ENTRY_TYPE_LABELS[selectedEntry.type],
+        1: ENTRY_STATUS_LABELS[selectedEntry.status],
+      }),
     )
     lines.push('')
 
@@ -134,7 +147,7 @@ export function EntryCardView() {
       for (const [groupName, schemas] of Object.entries(groupedSchemas)) {
         lines.push(`## ${groupName}`)
         lines.push('')
-        lines.push('| 字段 | 值 |')
+        lines.push(t('| 字段 | 值 |'))
         lines.push('| --- | --- |')
         for (const schema of schemas) {
           const val = formatFieldValue(schema, getFieldValue(schema.id))
@@ -145,33 +158,33 @@ export function EntryCardView() {
     }
 
     if (entryAliases.length > 0) {
-      lines.push('## 别名')
+      lines.push(t('## 别名'))
       lines.push('')
       lines.push(entryAliases.map((a) => `- ${a.value}`).join('\n'))
       lines.push('')
     }
 
     if (entryTags.length > 0) {
-      lines.push('## 标签')
+      lines.push(t('## 标签'))
       lines.push('')
       lines.push(entryTags.map((t) => `\`${t.name}\``).join(' '))
       lines.push('')
     }
 
     if (entryRelations.length > 0) {
-      lines.push('## 关系')
+      lines.push(t('## 关系'))
       lines.push('')
       for (const rel of entryRelations) {
         const target = entries.find((e) => e.id === rel.targetEntryId)
         const relMeta = RELATION_TYPE_META[rel.type]
         const relLabel = relMeta?.label || rel.type
-        lines.push(`- [${relLabel}] → ${target?.title || '未知'}`)
+        lines.push(t('- [{0}] → {1}', { 0: relLabel, 1: target?.title || '未知' }))
       }
       lines.push('')
     }
 
     if (selectedEntry.content) {
-      lines.push('## 简介')
+      lines.push(t('## 简介'))
       lines.push('')
       const contentPreview = selectedEntry.content.slice(0, 500)
       lines.push(contentPreview)
@@ -180,7 +193,7 @@ export function EntryCardView() {
     }
 
     if (backlinks.length > 0) {
-      lines.push('## 引用')
+      lines.push(t('## 引用'))
       lines.push('')
       for (const bl of backlinks) {
         lines.push(`- [[${bl.entry.title}]]${bl.linkText ? ` — ${bl.linkText}` : ''}`)
@@ -196,7 +209,7 @@ export function EntryCardView() {
     const parts: string[] = []
     parts.push(`【${ENTRY_TYPE_LABELS[selectedEntry.type]}】${selectedEntry.title}`)
     if (selectedEntry.summary) parts.push(selectedEntry.summary)
-    if (entryTags.length > 0) parts.push(`标签: ${entryTags.map((t) => `#${t.name}`).join(' ')}`)
+    if (entryTags.length > 0) parts.push(t('标签: {0}', { 0: entryTags.map((t) => `#${t.name}`).join(' ') }))
     if (entryRelations.length > 0) {
       const relStr = entryRelations
         .slice(0, 5)
@@ -206,7 +219,7 @@ export function EntryCardView() {
           return `${meta?.label || r.type}→${target?.title || '?'}`
         })
         .join(' | ')
-      parts.push(`关系: ${relStr}`)
+      parts.push(t('关系: {0}', { 0: relStr }))
     }
     return parts.join('\n')
   }
@@ -218,7 +231,7 @@ export function EntryCardView() {
       setCopied('md')
       setTimeout(() => setCopied(null), 2000)
     } catch {
-      alert('复制失败，请手动选择复制')
+      alert(t('复制失败，请手动选择复制'))
     }
   }
 
@@ -229,7 +242,7 @@ export function EntryCardView() {
       setCopied('text')
       setTimeout(() => setCopied(null), 2000)
     } catch {
-      alert('复制失败，请手动选择复制')
+      alert(t('复制失败，请手动选择复制'))
     }
   }
 
@@ -237,8 +250,8 @@ export function EntryCardView() {
     return (
       <div className="h-full flex flex-col items-center justify-center text-slate-500 bg-slate-900">
         <CreditCard className="w-16 h-16 mb-4 opacity-50" />
-        <h3 className="text-xl font-medium mb-2">选择一个条目生成卡片</h3>
-        <p className="text-center max-w-md">在左侧面板选择一个条目后，这里会显示精美的卡片视图。</p>
+        <h3 className="text-xl font-medium mb-2">{t('选择一个条目生成卡片')}</h3>
+        <p className="text-center max-w-md">{t('在左侧面板选择一个条目后，这里会显示精美的卡片视图。')}</p>
       </div>
     )
   }
@@ -250,7 +263,7 @@ export function EntryCardView() {
       <div className="flex items-center justify-between px-6 py-4 bg-slate-800/50 border-b border-white/10 shrink-0">
         <div className="flex items-center gap-3">
           <CreditCard className="w-5 h-5 text-purple-400" />
-          <h2 className="text-lg font-semibold text-white">卡片视图</h2>
+          <h2 className="text-lg font-semibold text-white">{t('卡片视图')}</h2>
         </div>
 
         <div className="flex items-center gap-2">
@@ -260,20 +273,20 @@ export function EntryCardView() {
               className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
                 layout === 'vertical' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
               }`}
-              title="纵向布局"
+              title={t('纵向布局')}
             >
               <LayoutList className="w-4 h-4" />
-              纵向
+              {t('纵向')}
             </button>
             <button
               onClick={() => setLayout('horizontal')}
               className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
                 layout === 'horizontal' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
               }`}
-              title="横向布局"
+              title={t('横向布局')}
             >
               <LayoutGrid className="w-4 h-4" />
-              横向
+              {t('横向')}
             </button>
           </div>
 
@@ -282,7 +295,7 @@ export function EntryCardView() {
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 text-slate-300 hover:bg-white/20 hover:text-white transition-colors"
           >
             {copied === 'md' ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-            {copied === 'md' ? '已复制' : '复制Markdown'}
+            {copied === 'md' ? t('已复制') : t('复制Markdown')}
           </button>
 
           <button
@@ -294,7 +307,7 @@ export function EntryCardView() {
             ) : (
               <Share2 className="w-4 h-4" />
             )}
-            {copied === 'text' ? '已复制' : '分享文本'}
+            {copied === 'text' ? t('已复制') : t('分享文本')}
           </button>
         </div>
       </div>
@@ -339,7 +352,7 @@ export function EntryCardView() {
                 <div className="mb-4 overflow-hidden rounded-xl border border-white/10 bg-slate-950/60">
                   <img
                     src={coverSource}
-                    alt={`${ENTRY_TYPE_LABELS[selectedEntry.type]}封面`}
+                    alt={t('{0}封面', { 0: ENTRY_TYPE_LABELS[selectedEntry.type] })}
                     className={`w-full object-contain ${
                       layout === 'horizontal' ? 'h-72' : 'h-[clamp(300px,38vw,520px)]'
                     }`}
@@ -396,7 +409,7 @@ export function EntryCardView() {
                       {entryAliases.length > 0 && (
                         <div>
                           <h4 className="text-xs font-medium text-slate-500 mb-2 uppercase tracking-wider">
-                            别名
+                            {t('别名')}
                           </h4>
                           <div className="flex flex-wrap gap-1.5">
                             {entryAliases.map((alias) => (
@@ -414,7 +427,7 @@ export function EntryCardView() {
                       {entryTags.length > 0 && (
                         <div>
                           <h4 className="text-xs font-medium text-slate-500 mb-2 uppercase tracking-wider">
-                            标签
+                            {t('标签')}
                           </h4>
                           <div className="flex flex-wrap gap-1.5">
                             {entryTags.map((tag: Tag) => {
@@ -442,7 +455,7 @@ export function EntryCardView() {
                   {entryRelations.length > 0 && (
                     <div>
                       <h4 className="text-xs font-medium text-slate-500 mb-2 uppercase tracking-wider">
-                        关系
+                        {t('关系')}
                       </h4>
                       <div className="flex flex-wrap gap-2 overflow-x-auto pb-1">
                         {entryRelations.map((rel) => {
@@ -468,7 +481,7 @@ export function EntryCardView() {
                               </span>
                               <ArrowRight className="w-3 h-3 text-slate-500" />
                               <span className="text-sm text-white truncate max-w-[120px]">
-                                {targetEntry?.title || '未知'}
+                                {targetEntry?.title || t('未知')}
                               </span>
                             </div>
                           )
@@ -481,12 +494,16 @@ export function EntryCardView() {
                     <div className="rounded-xl border border-white/10 overflow-hidden">
                       <div className="px-4 py-2.5 border-b border-white/10 bg-white/5 flex items-center gap-2">
                         <BookOpen className="w-4 h-4 text-slate-400" />
-                        <h3 className="text-sm font-semibold text-white">正文简介</h3>
+                        <h3 className="text-sm font-semibold text-white">{t('正文简介')}</h3>
                       </div>
                       <div className="p-4 text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
                         {selectedEntry.content.slice(0, 300)}
                         {selectedEntry.content.length > 300 && (
-                          <span className="text-slate-500"> …（共 {selectedEntry.content.length} 字）</span>
+                          <span className="text-slate-500">
+                            {t(' …（共')}
+                            {selectedEntry.content.length}
+                            {t(' 字）')}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -496,7 +513,7 @@ export function EntryCardView() {
                     <div>
                       <h4 className="text-xs font-medium text-slate-500 mb-2 uppercase tracking-wider flex items-center gap-1.5">
                         <Link className="w-3 h-3" />
-                        引用（反链）
+                        {t('引用（反链）')}
                       </h4>
                       <div className="space-y-1.5">
                         {backlinks.map((bl, index) => (

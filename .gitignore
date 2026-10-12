@@ -2,5 +2,19 @@ node_modules/
 dist/
 release/
 coverage/
+test-results/
 *.log
 .DS_Store
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.wdw
+*.wdw.bak
+ai-settings.json
+*.tsbuildinfo
+# Retired generated resources, retained locally when cleanup is unavailable.
+/public/sql-wasm.wasm
+/docs/screenshots/

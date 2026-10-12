@@ -1,3 +1,4 @@
+import { t } from '@/lib/i18n'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useStore } from '@/store'
 import { TimelineEvent, EntryType, Era } from '@/types'
@@ -81,7 +82,7 @@ export function TimelineView() {
     () => entries.find((entry) => entry.id === selectedEntryId) ?? null,
     [entries, selectedEntryId],
   )
-  const selectedEntryTitleRef = useRef('条目时间轴')
+  const selectedEntryTitleRef = useRef(t('条目时间轴'))
 
   if (selectedEntry) {
     selectedEntryTitleRef.current = selectedEntry.title
@@ -135,7 +136,7 @@ export function TimelineView() {
 
     const targetEntryId = mode === 'entry' && selectedEntryId ? selectedEntryId : newEventEntryId
     if (!targetEntryId) {
-      alert('请先创建至少一个条目')
+      alert(t('请先创建至少一个条目'))
       return
     }
 
@@ -159,7 +160,7 @@ export function TimelineView() {
       (acc, event) => {
         const entry = entries.find((e) => e.id === event.entryId)
         const era = findEraForSortValue(eras, event.sortValue)
-        let groupKey = event.pointLabel || '未分组'
+        let groupKey = event.pointLabel || t('未分组')
         if (era) {
           groupKey = `${era.name} - ${groupKey}`
         }
@@ -235,7 +236,7 @@ export function TimelineView() {
   }
 
   const handleDeleteEra = (id: string) => {
-    if (confirm('确定要删除此纪元吗？子纪元将变为根纪元。')) {
+    if (confirm(t('确定要删除此纪元吗？子纪元将变为根纪元。'))) {
       deleteEra(id)
     }
   }
@@ -250,7 +251,7 @@ export function TimelineView() {
       <div className="flex items-center justify-between p-4 border-b border-white/10">
         <div className="flex items-center gap-3">
           <Clock className="w-5 h-5 text-purple-400" />
-          <h2 className="text-lg font-semibold text-white">时间轴</h2>
+          <h2 className="text-lg font-semibold text-white">{t('时间轴')}</h2>
         </div>
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex shrink-0 items-center bg-white/10 rounded-lg p-1">
@@ -260,7 +261,7 @@ export function TimelineView() {
                 mode === 'world' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
               }`}
             >
-              世界时间轴
+              {t('世界时间轴')}
             </button>
             <button
               onClick={() => setMode('entry')}
@@ -273,7 +274,7 @@ export function TimelineView() {
                     : 'text-slate-500 cursor-not-allowed'
               }`}
             >
-              {selectedEntryId ? selectedEntryTitleRef.current : '条目时间轴'}
+              {selectedEntryId ? selectedEntryTitleRef.current : t('条目时间轴')}
             </button>
           </div>
           <button
@@ -281,7 +282,7 @@ export function TimelineView() {
             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 text-slate-300 hover:bg-white/20 hover:text-white transition-colors"
           >
             <Layers className="w-4 h-4" />
-            纪元管理
+            {t('纪元管理')}
           </button>
           <button
             onClick={() => {
@@ -291,7 +292,7 @@ export function TimelineView() {
             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-purple-500 text-white hover:bg-purple-600 transition-colors"
           >
             <Plus className="w-4 h-4" />
-            添加事件
+            {t('添加事件')}
           </button>
         </div>
       </div>
@@ -300,8 +301,8 @@ export function TimelineView() {
         {events.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-slate-500">
             <Calendar className="w-16 h-16 mb-4 opacity-50" />
-            <p>{mode === 'entry' ? '该条目暂无时间轴事件' : '暂无世界时间轴事件'}</p>
-            <p className="text-sm mt-2">点击上方"添加事件"创建</p>
+            <p>{mode === 'entry' ? t('该条目暂无时间轴事件') : t('暂无世界时间轴事件')}</p>
+            <p className="text-sm mt-2">{t('点击上方"添加事件"创建')}</p>
           </div>
         ) : (
           <div className="relative">
@@ -344,7 +345,7 @@ export function TimelineView() {
 
             {sortedGroups.map(([groupLabel, groupEvents]) => (
               <div key={groupLabel} className="mb-8">
-                {groupLabel !== '未分组' && !groupLabel.startsWith('未分组') && (
+                {groupLabel !== t('未分组') && !groupLabel.startsWith(t('未分组')) && (
                   <div className="flex items-center gap-4 mb-4">
                     <div className="w-16 h-10 flex items-center justify-center">
                       <span className="text-xs font-medium text-slate-400">{groupLabel}</span>
@@ -418,7 +419,7 @@ export function TimelineView() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="w-full max-w-md bg-slate-800 rounded-xl border border-white/10 shadow-2xl">
             <div className="flex items-center justify-between p-6 border-b border-white/10">
-              <h2 className="text-xl font-bold text-white">添加时间轴事件</h2>
+              <h2 className="text-xl font-bold text-white">{t('添加时间轴事件')}</h2>
               <button
                 onClick={() => setShowAddEventModal(false)}
                 className="p-2 rounded-lg hover:bg-white/10 transition-colors"
@@ -429,7 +430,7 @@ export function TimelineView() {
             <div className="p-6 space-y-4">
               {mode === 'world' && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">关联条目</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">{t('关联条目')}</label>
                   <select
                     value={newEventEntryId}
                     onChange={(event) => setNewEventEntryId(event.target.value)}
@@ -445,44 +446,44 @@ export function TimelineView() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">时间点标签</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">{t('时间点标签')}</label>
                 <input
                   type="text"
                   value={newEventPointLabel}
                   onChange={(e) => setNewEventPointLabel(e.target.value)}
-                  placeholder="例如：故事开端、第一章"
+                  placeholder={t('例如：故事开端、第一章')}
                   className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">事件标题 *</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">{t('事件标题 *')}</label>
                 <input
                   type="text"
                   value={newEventTitle}
                   onChange={(e) => setNewEventTitle(e.target.value)}
-                  placeholder="事件名称"
+                  placeholder={t('事件名称')}
                   className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">排序值</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">{t('排序值')}</label>
                 <input
                   type="number"
                   value={newEventSortValue}
                   onChange={(e) => setNewEventSortValue(Number(e.target.value))}
-                  placeholder="用于时间排序，越小越靠前"
+                  placeholder={t('用于时间排序，越小越靠前')}
                   className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">描述</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">{t('描述')}</label>
                 <textarea
                   value={newEventDescription}
                   onChange={(e) => setNewEventDescription(e.target.value)}
-                  placeholder="事件详情描述..."
+                  placeholder={t('事件详情描述...')}
                   rows={3}
                   className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors resize-none"
                 />
@@ -493,14 +494,14 @@ export function TimelineView() {
                   onClick={() => setShowAddEventModal(false)}
                   className="flex-1 px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-colors"
                 >
-                  取消
+                  {t('取消')}
                 </button>
                 <button
                   onClick={handleAddEvent}
                   disabled={!newEventTitle || (mode === 'world' && !newEventEntryId)}
                   className="flex-1 px-4 py-3 rounded-lg bg-purple-500 text-white hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  添加事件
+                  {t('添加事件')}
                 </button>
               </div>
             </div>
@@ -512,7 +513,7 @@ export function TimelineView() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="w-full max-w-lg bg-slate-800 rounded-xl border border-white/10 shadow-2xl">
             <div className="flex items-center justify-between p-6 border-b border-white/10">
-              <h2 className="text-xl font-bold text-white">{editingEraId ? '编辑纪元' : '创建纪元'}</h2>
+              <h2 className="text-xl font-bold text-white">{editingEraId ? t('编辑纪元') : t('创建纪元')}</h2>
               <button
                 onClick={toggleCreateEraModal}
                 className="p-2 rounded-lg hover:bg-white/10 transition-colors"
@@ -523,7 +524,9 @@ export function TimelineView() {
 
             {!editingEraId && eras.length > 0 && (
               <div className="px-6 pt-4">
-                <div className="mb-3 text-sm font-medium text-slate-400">现有纪元（点击编辑/删除）：</div>
+                <div className="mb-3 text-sm font-medium text-slate-400">
+                  {t('现有纪元（点击编辑/删除）：')}
+                </div>
                 <div className="space-y-2 max-h-40 overflow-y-auto mb-4">
                   {eras.map((era) => (
                     <div
@@ -547,13 +550,13 @@ export function TimelineView() {
                           onClick={() => handleEditEra(era)}
                           className="px-2 py-1 text-xs rounded bg-white/10 text-slate-300 hover:bg-white/20 transition-colors"
                         >
-                          编辑
+                          {t('编辑')}
                         </button>
                         <button
                           onClick={() => handleDeleteEra(era.id)}
                           className="px-2 py-1 text-xs rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
                         >
-                          删除
+                          {t('删除')}
                         </button>
                       </div>
                     </div>
@@ -564,13 +567,13 @@ export function TimelineView() {
 
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">父纪元</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">{t('父纪元')}</label>
                 <select
                   value={newEraParentId || ''}
                   onChange={(e) => setNewEraParentId(e.target.value || null)}
                   className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:border-purple-500/50 transition-colors"
                 >
-                  <option value="">无（根纪元）</option>
+                  <option value="">{t('无（根纪元）')}</option>
                   {eras
                     .filter((e) => e.id !== editingEraId)
                     .map((era) => (
@@ -583,22 +586,22 @@ export function TimelineView() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">名称 *</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">{t('名称 *')}</label>
                   <input
                     type="text"
                     value={newEraName}
                     onChange={(e) => setNewEraName(e.target.value)}
-                    placeholder="例如：第三纪元"
+                    placeholder={t('例如：第三纪元')}
                     className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">简称</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">{t('简称')}</label>
                   <input
                     type="text"
                     value={newEraShortName}
                     onChange={(e) => setNewEraShortName(e.target.value)}
-                    placeholder="例如：三纪"
+                    placeholder={t('例如：三纪')}
                     className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors"
                   />
                 </div>
@@ -606,7 +609,7 @@ export function TimelineView() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">起始 sort 值</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">{t('起始 sort 值')}</label>
                   <input
                     type="number"
                     value={newEraStart}
@@ -615,7 +618,7 @@ export function TimelineView() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">结束 sort 值</label>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">{t('结束 sort 值')}</label>
                   <input
                     type="number"
                     value={newEraEnd}
@@ -626,18 +629,18 @@ export function TimelineView() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">描述</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">{t('描述')}</label>
                 <textarea
                   value={newEraDesc}
                   onChange={(e) => setNewEraDesc(e.target.value)}
-                  placeholder="纪元描述..."
+                  placeholder={t('纪元描述...')}
                   rows={2}
                   className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors resize-none"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">颜色</label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">{t('颜色')}</label>
                 <div className="flex items-center gap-3">
                   <input
                     type="color"
@@ -659,14 +662,14 @@ export function TimelineView() {
                   onClick={toggleCreateEraModal}
                   className="flex-1 px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-colors"
                 >
-                  取消
+                  {t('取消')}
                 </button>
                 <button
                   onClick={handleSaveEra}
                   disabled={!newEraName}
                   className="flex-1 px-4 py-3 rounded-lg bg-purple-500 text-white hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  {editingEraId ? '保存修改' : '创建纪元'}
+                  {editingEraId ? t('保存修改') : t('创建纪元')}
                 </button>
               </div>
             </div>

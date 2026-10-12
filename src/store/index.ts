@@ -32,6 +32,9 @@ import {
   seedMysteryRevivalWorld,
 } from '@/lib/defaultWorld'
 import { BUILTIN_ASSET_PATHS } from '@/lib/assetSources'
+import { enqueueSave } from '@/lib/storage/saveQueue'
+
+let saveRevision = 0
 
 interface AppState {
   database: Database | null
@@ -70,7 +73,7 @@ interface AppState {
 
 interface AppActions {
   initializeDatabase: () => Promise<void>
-  createProject: (name: string, description?: string) => Promise<void>
+  createProject: (name: string, description?: string, mode?: Project['mode']) => Promise<void>
   openExampleProject: () => Promise<void>
   openProject: (projectId: string) => Promise<void>
   closeProject: () => void
@@ -255,19 +258,19 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
     }
   },
 
-  createProject: async (name, description = '') => {
+  createProject: async (name, description = '', mode = 'free') => {
     const { database } = get()
     if (!database) {
       await get().initializeDatabase()
     }
 
     const db = get().database!
-    const project = await db.createProject(name, description)
+    const project = await db.createProject(name, description, mode)
 
     const now = new Date().toISOString()
     const recentProjects = get().recentProjects
     const updatedRecent = [
-      { id: project.id, name: project.name, path: project.slug, lastOpened: now },
+      { id: project.id, name: project.name, path: project.slug, mode: project.mode, lastOpened: now },
       ...recentProjects.filter((p) => p.id !== project.id),
     ].slice(0, 20)
 
@@ -387,11 +390,18 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
 
     const db = new Database()
     await db.importDatabase(loaded.dbData)
+    loaded.project.mode = db.getProjectMode(loaded.project.id)
 
     const now = new Date().toISOString()
     const { recentProjects } = get()
     const updatedRecent = [
-      { id: loaded.project.id, name: loaded.project.name, path: loaded.project.slug, lastOpened: now },
+      {
+        id: loaded.project.id,
+        name: loaded.project.name,
+        path: loaded.project.slug,
+        mode: loaded.project.mode,
+        lastOpened: now,
+      },
       ...recentProjects.filter((p) => p.id !== loaded.project.id),
     ].slice(0, 20)
     set({ recentProjects: updatedRecent })
@@ -1044,16 +1054,24 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
   saveProject: async () => {
     const { database, currentProject, recentProjects } = get()
     if (!database || !currentProject) return
+    const revision = ++saveRevision
     set({ saveStatus: 'saving', saveError: null })
     try {
       const dbData = await database.exportDatabase()
-      const result = await saveProjectData(currentProject.id, currentProject, dbData)
+      const result = await enqueueSave(() => saveProjectData(currentProject.id, currentProject, dbData))
       if (!result.ok) throw new Error(result.error || '保存失败')
+      if (get().currentProject?.id !== currentProject.id || revision !== saveRevision) return
 
       const now = new Date().toISOString()
       const updatedRecent = recentProjects.map((p) =>
         p.id === currentProject.id
-          ? { ...p, name: currentProject.name, path: currentProject.slug, lastOpened: now }
+          ? {
+              ...p,
+              name: currentProject.name,
+              path: currentProject.slug,
+              mode: currentProject.mode,
+              lastOpened: now,
+            }
           : p,
       )
       if (!updatedRecent.some((p) => p.id === currentProject.id)) {
@@ -1061,6 +1079,7 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
           id: currentProject.id,
           name: currentProject.name,
           path: currentProject.slug,
+          mode: currentProject.mode,
           lastOpened: now,
         })
       }
@@ -1068,6 +1087,7 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
       set({ recentProjects: trimmed, lastSaveTime: now, saveStatus: 'saved', saveError: null })
       await get().saveRecentProjects()
     } catch (error) {
+      if (get().currentProject?.id !== currentProject.id || revision !== saveRevision) return
       const message = error instanceof Error ? error.message : '未知错误'
       console.error('Save failed:', error)
       set({ saveStatus: 'error', saveError: message })
@@ -1101,20 +1121,18 @@ export const useStore = create<AppState & AppActions>((set, get) => ({
   },
 
   importProjectBackupJSON: async (text) => {
-    let db = get().database
-    if (!db) {
-      await get().initializeDatabase()
-      db = get().database
+    const db = new Database()
+    await db.open()
+    try {
+      const newProject = await db.importProjectJSON(text)
+      const dbData = await db.exportDatabase()
+      const result = await enqueueSave(() => saveProjectData(newProject.id, newProject, dbData))
+      if (!result.ok) throw new Error(result.error || '导入后的项目保存失败')
+      await get().openProject(newProject.id)
+      return newProject
+    } finally {
+      await db.close()
     }
-    if (!db) throw new Error('数据库初始化失败')
-
-    const newProject = await db.importProjectJSON(text)
-    const dbData = await db.exportDatabase()
-    const result = await saveProjectData(newProject.id, newProject, dbData)
-    if (!result.ok) throw new Error(result.error || '导入后的项目保存失败')
-
-    await get().openProject(newProject.id)
-    return newProject
   },
 
   importProjectJSON: async (file: File) => {

@@ -1,3 +1,4 @@
+import { t, message } from '@/lib/i18n'
 import { useState, useEffect, useRef } from 'react'
 import { useStore } from '@/store'
 import {
@@ -13,8 +14,10 @@ import {
   FileText,
 } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
+import type { CreationMode } from '@/types'
+import { PROFILES } from '@/features/studio/profiles'
 
-export function WelcomePage() {
+export function WelcomePage({ mode = 'free' }: { mode?: CreationMode }) {
   const {
     createProject,
     openExampleProject,
@@ -22,11 +25,12 @@ export function WelcomePage() {
     toggleOpenProjectModal,
     showCreateProjectModal,
     showOpenProjectModal,
-    recentProjects,
+    recentProjects: allRecentProjects,
     openProject,
     deleteProject,
     importProjectJSON,
   } = useStore()
+  const recentProjects = allRecentProjects.filter((p) => (p.mode || 'free') === mode)
   const [projectName, setProjectName] = useState('')
   const [projectDescription, setProjectDescription] = useState('')
   const [isCreatingProject, setIsCreatingProject] = useState(false)
@@ -51,12 +55,12 @@ export function WelcomePage() {
     setIsCreatingProject(true)
     setCreateProjectError('')
     try {
-      await createProject(projectName.trim(), projectDescription.trim())
+      await createProject(projectName.trim(), projectDescription.trim(), mode)
       setProjectName('')
       setProjectDescription('')
     } catch (error) {
       console.error('Create project failed:', error)
-      setCreateProjectError(error instanceof Error ? error.message : '创建失败，请稍后重试。')
+      setCreateProjectError(error instanceof Error ? error.message : t('创建失败，请稍后重试。'))
     } finally {
       setIsCreatingProject(false)
     }
@@ -70,7 +74,7 @@ export function WelcomePage() {
       await openExampleProject()
     } catch (error) {
       console.error('Open example failed:', error)
-      setCreateProjectError(error instanceof Error ? error.message : '示例世界打开失败，请稍后重试。')
+      setCreateProjectError(error instanceof Error ? error.message : t('示例世界打开失败，请稍后重试。'))
     } finally {
       setIsOpeningExample(false)
     }
@@ -101,43 +105,50 @@ export function WelcomePage() {
               <Orbit />
             </div>
             <div>
-              <span className="brand-name">VVD WORLD</span>
-              <span className="brand-edition">WORLD BUILDER</span>
+              <span className="brand-name">WD WORLD</span>
+              <span className="brand-edition">WORLD & CHARACTER STUDIO</span>
             </div>
           </div>
 
           <div className="welcome-hero">
+            <h2>{PROFILES[mode].label}</h2>
+            <p>{PROFILES[mode].description}</p>
             <div className="eyebrow">
-              <Sparkles size={14} /> 本地优先 · 灵感永存
+              <Sparkles size={14} />
+              {t(' 本地优先 · 灵感永存')}
             </div>
             <h1>
-              让散落的灵感，
+              {t('让散落的灵感，')}
               <br />
-              <span>生长为一个世界。</span>
+              <span>{t('生长为一个世界。')}</span>
             </h1>
-            <p>在同一处编织人物、地点、事件与关系。你的设定保存在本地，随时可以继续书写。</p>
+            <p>
+              {t(
+                '先建立世界与角色，再选择小说、OC、TRPG 或酒馆制作模式。可以独立创作，也可以让 AI 推演变化；每一条设定都由你决定。',
+              )}
+            </p>
           </div>
 
-          <div className="welcome-stats" aria-label="产品特点">
+          <div className="welcome-stats" aria-label={t('产品特点')}>
             <div>
               <strong>08</strong>
-              <span>类设定条目</span>
+              <span>{t('类设定条目')}</span>
             </div>
             <div>
               <strong>∞</strong>
-              <span>关系与分支</span>
+              <span>{t('关系与分支')}</span>
             </div>
             <div>
               <strong>01</strong>
-              <span>完整世界</span>
+              <span>{t('完整世界')}</span>
             </div>
           </div>
         </div>
 
         <div className="welcome-actions">
           <div className="action-heading">
-            <span>开始创作</span>
-            <p>建立新宇宙，或回到正在生长的世界。</p>
+            <span>{t('开始创作')}</span>
+            <p>{t('建立新宇宙，或回到正在生长的世界。')}</p>
           </div>
 
           <button className="project-action project-action-primary" onClick={toggleCreateProjectModal}>
@@ -145,8 +156,8 @@ export function WelcomePage() {
               <FolderPlus />
             </span>
             <span className="project-action-copy">
-              <strong>新建世界</strong>
-              <small>从一个名字开始你的设定</small>
+              <strong>{t('新建世界')}</strong>
+              <small>{t('从一个名字开始你的设定')}</small>
             </span>
             <ArrowRight className="project-action-arrow" />
           </button>
@@ -156,35 +167,38 @@ export function WelcomePage() {
               <FolderOpen />
             </span>
             <span className="project-action-copy">
-              <strong>打开已有项目</strong>
-              <small>继续编辑本地保存的世界</small>
+              <strong>{t('打开已有项目')}</strong>
+              <small>{t('继续编辑本地保存的世界')}</small>
             </span>
             <ArrowRight className="project-action-arrow" />
           </button>
 
-          <button
-            className="project-action project-action-example"
-            onClick={handleOpenExample}
-            disabled={isOpeningExample}
-          >
-            <span className="project-action-icon">
-              <Sparkles />
-            </span>
-            <span className="project-action-copy">
-              <strong>{isOpeningExample ? '正在准备示例…' : '打开示例世界'}</strong>
-              <small>探索“神秘复苏：雾港档案”的完整设定</small>
-            </span>
-            <ArrowRight className="project-action-arrow" />
-          </button>
+          {mode === 'free' && (
+            <button
+              className="project-action project-action-example"
+              onClick={handleOpenExample}
+              disabled={isOpeningExample}
+            >
+              <span className="project-action-icon">
+                <Sparkles />
+              </span>
+              <span className="project-action-copy">
+                <strong>{isOpeningExample ? t('正在准备示例…') : t('打开示例世界')}</strong>
+                <small>{t('探索“神秘复苏：雾港档案”的完整设定')}</small>
+              </span>
+              <ArrowRight className="project-action-arrow" />
+            </button>
+          )}
 
           {createProjectError && !showCreateProjectModal && (
             <p className="form-error" role="alert">
-              {createProjectError}
+              {message(createProjectError)}
             </p>
           )}
 
           <div className="welcome-tip">
-            <BookOpen size={15} /> 所有内容仅存储在你的设备中
+            <BookOpen size={15} />
+            {t(' 所有内容仅存储在你的设备中')}
           </div>
         </div>
 
@@ -192,9 +206,10 @@ export function WelcomePage() {
           <div className="welcome-recent">
             <div className="action-heading">
               <span>
-                <Clock size={14} /> 最近项目
+                <Clock size={14} />
+                {t(' 最近项目')}
               </span>
-              <p>点击直接打开，或删除不再需要的项目。</p>
+              <p>{t('点击直接打开，或删除不再需要的项目。')}</p>
             </div>
             <div className="recent-list">
               {recentProjects.map((rp) => (
@@ -202,7 +217,8 @@ export function WelcomePage() {
                   <button
                     className="recent-item-main"
                     onClick={() => openProject(rp.id)}
-                    title={`打开 ${rp.name}`}
+                    title={t('打开 {0}', { 0: rp.name })}
+                    aria-label={t('打开 {0}', { 0: rp.name })}
                   >
                     <span className="recent-item-icon">
                       <FileText size={18} />
@@ -215,12 +231,12 @@ export function WelcomePage() {
                   </button>
                   {confirmDeleteId === rp.id ? (
                     <div className="recent-item-confirm">
-                      <span>确定删除？</span>
+                      <span>{t('确定删除？')}</span>
                       <button className="button-danger-small" onClick={() => handleDeleteProject(rp.id)}>
-                        删除
+                        {t('删除')}
                       </button>
                       <button className="button-ghost-small" onClick={() => setConfirmDeleteId(null)}>
-                        取消
+                        {t('取消')}
                       </button>
                     </div>
                   ) : (
@@ -230,7 +246,7 @@ export function WelcomePage() {
                         e.stopPropagation()
                         setConfirmDeleteId(rp.id)
                       }}
-                      title={`删除 ${rp.name}`}
+                      title={t('删除 {0}', { 0: rp.name })}
                     >
                       <Trash2 size={15} />
                     </button>
@@ -257,35 +273,37 @@ export function WelcomePage() {
             <header className="modal-header">
               <div>
                 <span className="modal-kicker">NEW WORLD</span>
-                <h2 id="create-project-title">创建新世界</h2>
+                <h2 id="create-project-title">{t('创建新世界')}</h2>
               </div>
-              <button className="icon-button" onClick={toggleCreateProjectModal} aria-label="关闭">
+              <button className="icon-button" onClick={toggleCreateProjectModal} aria-label={t('关闭')}>
                 <X />
               </button>
             </header>
             <div className="modal-body">
               <label className="field-label">
-                世界名称
+                {t('世界名称')}
                 <input
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
-                  placeholder="例如：雾海纪元"
+                  placeholder={t('例如：雾海纪元')}
                   autoFocus
                   onKeyDown={(e) => e.key === 'Enter' && handleCreateProject()}
                 />
               </label>
               <label className="field-label">
-                一句话简介 <span>可选</span>
+                {t('一句话简介 ')}
+                <span>{t('可选')}</span>
                 <textarea
                   value={projectDescription}
                   onChange={(e) => setProjectDescription(e.target.value)}
-                  placeholder="这个世界最独特的规则是什么？"
+                  placeholder={t('这个世界最独特的规则是什么？')}
                   rows={4}
                 />
               </label>
               {createProjectError && (
                 <p className="form-error" role="alert">
-                  创建失败：{createProjectError}
+                  {t('创建失败：')}
+                  {message(createProjectError)}
                 </p>
               )}
               <div className="modal-actions">
@@ -294,14 +312,14 @@ export function WelcomePage() {
                   onClick={toggleCreateProjectModal}
                   disabled={isCreatingProject}
                 >
-                  取消
+                  {t('取消')}
                 </button>
                 <button
                   className="button-primary"
                   onClick={handleCreateProject}
                   disabled={!projectName.trim() || isCreatingProject}
                 >
-                  {isCreatingProject ? '正在生成设定…' : '创建并进入'} <ArrowRight size={17} />
+                  {isCreatingProject ? t('正在生成设定…') : t('创建并进入')} <ArrowRight size={17} />
                 </button>
               </div>
             </div>
@@ -324,9 +342,9 @@ export function WelcomePage() {
             <header className="modal-header">
               <div>
                 <span className="modal-kicker">OPEN ARCHIVE</span>
-                <h2 id="open-project-title">打开已有项目</h2>
+                <h2 id="open-project-title">{t('打开已有项目')}</h2>
               </div>
-              <button className="icon-button" onClick={toggleOpenProjectModal} aria-label="关闭">
+              <button className="icon-button" onClick={toggleOpenProjectModal} aria-label={t('关闭')}>
                 <X />
               </button>
             </header>
@@ -334,8 +352,8 @@ export function WelcomePage() {
               <span className="empty-folder">
                 <FolderOpen />
               </span>
-              <h3>选择世界档案</h3>
-              <p>从本地选择一个已有项目，继续你的创作。</p>
+              <h3>{t('选择世界档案')}</h3>
+              <p>{t('从本地选择一个已有项目，继续你的创作。')}</p>
               <input
                 ref={openProjectInputRef}
                 type="file"
@@ -348,7 +366,7 @@ export function WelcomePage() {
                 onClick={() => openProjectInputRef.current?.click()}
                 disabled={isImportingProject}
               >
-                {isImportingProject ? '正在打开…' : '浏览本地文件'} <ArrowRight size={17} />
+                {isImportingProject ? t('正在打开…') : t('浏览本地文件')} <ArrowRight size={17} />
               </button>
             </div>
           </section>

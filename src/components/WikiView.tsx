@@ -1,3 +1,4 @@
+import { t, getLanguage } from '@/lib/i18n'
 import { useState, useEffect } from 'react'
 import { useStore } from '@/store'
 import { getEntryPlaceholderSource, resolveAssetSource } from '@/lib/assetSources'
@@ -147,7 +148,7 @@ export function WikiView() {
       <div className="flex items-center justify-between p-4 border-b border-white/10">
         <div className="flex items-center gap-3">
           <BookOpen className="w-5 h-5 text-purple-400" />
-          <h2 className="text-lg font-semibold text-white">百科视图</h2>
+          <h2 className="text-lg font-semibold text-white">{t('百科视图')}</h2>
         </div>
       </div>
 
@@ -160,14 +161,14 @@ export function WikiView() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="搜索条目..."
+                placeholder={t('搜索条目...')}
                 className="w-full pl-10 pr-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-purple-500/50 transition-colors"
               />
             </div>
           </div>
 
           <div className="p-4 border-b border-white/10">
-            <p className="text-xs text-slate-500 mb-2">按标签筛选</p>
+            <p className="text-xs text-slate-500 mb-2">{t('按标签筛选')}</p>
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setSelectedTagId(null)}
@@ -175,7 +176,7 @@ export function WikiView() {
                   !selectedTagId ? 'bg-purple-500 text-white' : 'bg-white/10 text-slate-400 hover:bg-white/20'
                 }`}
               >
-                全部
+                {t('全部')}
               </button>
               {tags.slice(0, 10).map((tag) => (
                 <button
@@ -242,7 +243,7 @@ export function WikiView() {
             {filteredEntries.length === 0 && (
               <div className="flex flex-col items-center justify-center py-8 text-slate-500">
                 <FileText className="w-8 h-8 mb-2" />
-                <p className="text-sm">暂无条目</p>
+                <p className="text-sm">{t('暂无条目')}</p>
               </div>
             )}
           </div>
@@ -254,7 +255,7 @@ export function WikiView() {
               <div className="relative mb-7 h-56 overflow-hidden rounded-2xl border border-white/10">
                 <img
                   src={getEntryCoverSource(selectedEntry)}
-                  alt={`${ENTRY_TYPE_LABELS[selectedEntry.type]}封面`}
+                  alt={t('{0}封面', { 0: ENTRY_TYPE_LABELS[selectedEntry.type] })}
                   className="h-full w-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
@@ -288,7 +289,7 @@ export function WikiView() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
-                  <h3 className="text-sm font-medium text-slate-300 mb-3">相关条目</h3>
+                  <h3 className="text-sm font-medium text-slate-300 mb-3">{t('相关条目')}</h3>
                   <div className="space-y-2">
                     {getRelatedEntries(selectedEntry.id).map((entry) => (
                       <div
@@ -304,13 +305,13 @@ export function WikiView() {
                       </div>
                     ))}
                     {getRelatedEntries(selectedEntry.id).length === 0 && (
-                      <p className="text-xs text-slate-500">暂无相关条目</p>
+                      <p className="text-xs text-slate-500">{t('暂无相关条目')}</p>
                     )}
                   </div>
                 </div>
 
                 <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
-                  <h3 className="text-sm font-medium text-slate-300 mb-3">同类型条目</h3>
+                  <h3 className="text-sm font-medium text-slate-300 mb-3">{t('同类型条目')}</h3>
                   <div className="space-y-2">
                     {getSameTypeEntries(selectedEntry).map((entry) => (
                       <div
@@ -326,13 +327,13 @@ export function WikiView() {
                       </div>
                     ))}
                     {getSameTypeEntries(selectedEntry).length === 0 && (
-                      <p className="text-xs text-slate-500">暂无同类型条目</p>
+                      <p className="text-xs text-slate-500">{t('暂无同类型条目')}</p>
                     )}
                   </div>
                 </div>
 
                 <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
-                  <h3 className="text-sm font-medium text-slate-300 mb-3">关系</h3>
+                  <h3 className="text-sm font-medium text-slate-300 mb-3">{t('关系')}</h3>
                   <div className="space-y-2">
                     {getEntryRelations(selectedEntry.id).map(({ targetEntry, relation }) => (
                       <div
@@ -350,19 +351,22 @@ export function WikiView() {
                       </div>
                     ))}
                     {getEntryRelations(selectedEntry.id).length === 0 && (
-                      <p className="text-xs text-slate-500">暂无关系</p>
+                      <p className="text-xs text-slate-500">{t('暂无关系')}</p>
                     )}
                   </div>
                 </div>
               </div>
 
-              <div className="mt-8 text-xs text-slate-500">更新于 {formatDate(selectedEntry.updatedAt)}</div>
+              <div className="mt-8 text-xs text-slate-500">
+                {t('更新于')}
+                {formatDate(selectedEntry.updatedAt)}
+              </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-slate-500">
               <BookOpen className="w-16 h-16 mb-4 opacity-50" />
-              <p className="text-lg">选择一个条目开始阅读</p>
-              <p className="text-sm mt-2">在左侧目录中选择条目，或使用搜索功能</p>
+              <p className="text-lg">{t('选择一个条目开始阅读')}</p>
+              <p className="text-sm mt-2">{t('在左侧目录中选择条目，或使用搜索功能')}</p>
             </div>
           )}
         </div>
@@ -372,19 +376,35 @@ export function WikiView() {
 }
 
 const ENTRY_TYPE_LABELS: Record<EntryType, string> = {
-  character: '人物',
-  location: '地点',
-  faction: '组织',
-  item: '物品',
-  event: '事件',
-  lore: '设定',
-  region: '区域',
-  note: '笔记',
+  get character() {
+    return t('人物')
+  },
+  get location() {
+    return t('地点')
+  },
+  get faction() {
+    return t('组织')
+  },
+  get item() {
+    return t('物品')
+  },
+  get event() {
+    return t('事件')
+  },
+  get lore() {
+    return t('设定')
+  },
+  get region() {
+    return t('区域')
+  },
+  get note() {
+    return t('笔记')
+  },
 }
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString)
-  return date.toLocaleDateString('zh-CN', {
+  return date.toLocaleDateString(getLanguage(), {
     year: 'numeric',
     month: 'long',
     day: 'numeric',

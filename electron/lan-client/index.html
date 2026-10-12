@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>WD World · LAN</title>
+    <link rel="stylesheet" href="/client.css" />
+    <script src="/client.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <strong>WD WORLD · LAN</strong
+      ><select id="language" aria-label="Language">
+        <option value="zh-CN">简体中文</option>
+        <option value="en">English</option>
+      </select>
+    </header>
+    <main>
+      <p id="error" role="alert"></p>
+      <form id="join">
+        <h1 data-zh="加入房间" data-en="Join room"></h1>
+        <p
+          data-zh="连接同一局域网，向房主索取房间码。仅在可信局域网使用 HTTP 房间。"
+          data-en="Connect to the same trusted network and ask your host for the room code. This room uses HTTP."
+        ></p>
+        <label
+          ><span data-zh="房间码" data-en="Room code"></span
+          ><input id="code" maxlength="12" required autocomplete="off" /></label
+        ><label
+          ><span data-zh="玩家名称" data-en="Player name"></span
+          ><input id="name" maxlength="80" required /></label
+        ><button data-zh="加入" data-en="Join"></button>
+      </form>
+      <section id="room" hidden>
+        <h1 id="title"></h1>
+        <button id="leave" data-zh="离开房间" data-en="Leave room"></button>
+        <h2 data-zh="公开场景" data-en="Public scene"></h2>
+        <pre id="scene"></pre>
+        <div class="columns">
+          <article>
+            <h2 data-zh="对话与掷骰" data-en="Chat & dice"></h2>
+            <div id="messages" role="log"></div>
+            <form id="chat">
+              <label
+                ><input type="checkbox" id="ooc" /><span
+                  data-zh="场外交流（OOC，不发送给 AI）"
+                  data-en="Out-of-character chat (excluded from AI)"
+                ></span
+              ></label>
+              <p id="pauseStatus"></p>
+              <textarea id="text" maxlength="4000" required aria-label="Message"></textarea
+              ><button data-zh="发送" data-en="Send"></button>
+            </form>
+            <form id="dice">
+              <input id="expression" value="1d20" maxlength="14" aria-label="Dice" /><button
+                data-zh="掷骰"
+                data-en="Roll dice"
+              ></button>
+            </form>
+          </article>
+          <aside>
+            <h2 data-zh="我的角色" data-en="My character"></h2>
+            <section id="roleSection" hidden>
+              <h3 data-zh="可认领角色" data-en="Available characters"></h3>
+              <div id="roles"></div>
+              <button
+                type="button"
+                id="releaseRole"
+                data-zh="释放我的角色"
+                data-en="Release my character"
+              ></button>
+            </section>
+            <form id="character">
+              <label
+                ><span data-zh="角色名称" data-en="Character name"></span
+                ><input id="characterName" maxlength="120" /></label
+              ><label
+                ><span data-zh="公开描述" data-en="Public description"></span
+                ><textarea id="description" maxlength="4000"></textarea></label
+              ><label>HP <input id="hp" type="number" min="0" max="100000" value="0" /></label
+              ><label
+                ><span data-zh="最大 HP" data-en="Max HP"></span
+                ><input id="maxHp" type="number" min="0" max="100000" value="0" /></label
+              ><button data-zh="保存角色" data-en="Save character"></button>
+            </form>
+            <h2 data-zh="玩家" data-en="Players"></h2>
+            <div id="players"></div>
+            <h2 data-zh="先攻顺序" data-en="Initiative"></h2>
+            <ol id="initiative"></ol>
+          </aside>
+        </div>
+        <h2 data-zh="房主发布的资料" data-en="Published handouts"></h2>
+        <div id="handouts"></div>
+      </section>
+    </main>
+  </body>
+</html>

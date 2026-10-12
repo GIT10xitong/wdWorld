@@ -1,0 +1,107 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+  background: #101923;
+  color: #e5e8eb;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+header {
+  padding: 20px 5%;
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #35434f;
+}
+main {
+  max-width: 1200px;
+  margin: auto;
+  padding: 24px;
+}
+h1 {
+  color: #e3bd7e;
+}
+h2 {
+  font-size: 1.1rem;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #455564;
+  background: #182530;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+  background: #b28646;
+  color: white;
+  margin: 6px 0;
+}
+label {
+  display: block;
+  margin: 12px 0;
+}
+label input,
+label textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+}
+form {
+  max-width: 600px;
+}
+textarea {
+  width: 100%;
+  min-height: 80px;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+}
+.columns {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+}
+#messages {
+  height: 400px;
+  overflow: auto;
+  background: #0d151d;
+  border-radius: 8px;
+  padding: 15px;
+}
+#messages p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid #293742;
+  padding-bottom: 12px;
+}
+#error {
+  color: #ffaaaa;
+}
+aside,
+article {
+  min-width: 0;
+}
+#handouts section {
+  background: #182530;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 12px 0;
+}
+@media (max-width: 700px) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
+  main {
+    padding: 14px;
+  }
+}

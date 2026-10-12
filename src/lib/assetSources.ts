@@ -33,6 +33,14 @@ const entryPlaceholderSources: Record<EntryType, string> = {
   note: itemPlaceholderUrl,
 }
 
+const assetDataCache = new Map<string, string>()
+export function cacheAssetData(path: string, data: string) {
+  assetDataCache.set(path, data)
+}
+export function cachedAssetData(path: string) {
+  return assetDataCache.get(path)
+}
+
 export function getEntryPlaceholderSource(type: EntryType): string {
   return entryPlaceholderSources[type]
 }
@@ -44,6 +52,7 @@ export function resolveAssetSource(asset: Asset | undefined, fallback = ''): str
   if (builtIn) return builtIn
 
   const stored =
+    cachedAssetData(asset.relativePath) ??
     localStorage.getItem(`wdworld_asset_${asset.relativePath}`) ??
     localStorage.getItem(`wdworld_asset_${asset.id}`)
   if (!stored) return fallback

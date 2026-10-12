@@ -1,49 +1,138 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, shell, safeStorage, dialog, Menu, session } = require('electron')
 const path = require('path')
 const fs = require('fs')
+const { registerAI } = require('./ai')
+const { pathToFileURL } = require('node:url')
+const { createProjectStorage } = require('./protected-storage')
+const { trustedSender, externalUrl } = require('./security')
+const { installMenu, menuText, nativeMessage } = require('./menu')
+const { registerLan } = require('./lan')
+
+// Keep the same data location in source and packaged builds.
+app.setPath('userData', path.join(app.getPath('appData'), 'wdworld'))
+if (!app.isPackaged && process.env.WDWORLD_TEST_USER_DATA) {
+  app.setPath('userData', path.resolve(process.env.WDWORLD_TEST_USER_DATA))
+}
+
+const appUrl =
+  app.isPackaged || process.env.WDWORLD_PREVIEW === '1'
+    ? pathToFileURL(path.join(__dirname, '../dist/index.html')).href
+    : 'http://localhost:5173/'
+const trustedIPC = {
+  handle: (channel, handler) =>
+    ipcMain.handle(channel, (event, ...args) => {
+      if (!trustedSender(event, BrowserWindow.getAllWindows(), appUrl)) throw new Error('拒绝未知页面请求')
+      return handler(event, ...args)
+    }),
+}
+const ai = registerAI({ ipcMain: trustedIPC, app, safeStorage })
+registerLan({ ipcMain: trustedIPC, app, safeStorage, generate: ai.generate })
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    title: 'WD World',
+    show: !process.env.WDWORLD_TEST_USER_DATA,
+    width: 1440,
+    height: 940,
+    minWidth: 1100,
+    minHeight: 720,
+    title: menuText('WD World · 世界创作', 'WD World · Worldbuilding'),
     webPreferences: {
+      backgroundThrottling: !process.env.WDWORLD_TEST_USER_DATA,
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
+      webviewTag: false,
+      allowRunningInsecureContent: false,
       enableRemoteModule: false,
       preload: path.join(__dirname, 'preload.js'),
     },
   })
 
+  let canClose = false
+  let closing = false
+  let closeTimer
+  win.on('close', (event) => {
+    if (canClose) return
+    event.preventDefault()
+    if (closing) return
+    closing = true
+    win.webContents.send('app:prepare-close')
+    closeTimer = setTimeout(() => {
+      closing = false
+      dialog.showMessageBox(win, {
+        type: 'error',
+        message: menuText(
+          '尚未收到保存完成确认，窗口已保留。请检查保存状态后重试。',
+          'Save confirmation not received. The window remains open. Check save status and retry.',
+        ),
+      })
+    }, 15000)
+  })
+  const onCloseReady = (event, ok) => {
+    if (!trustedSender(event, [win], appUrl) || !closing) return
+    clearTimeout(closeTimer)
+    closing = false
+    if (ok) {
+      canClose = true
+      win.close()
+    } else
+      dialog.showMessageBox(win, {
+        type: 'error',
+        message: menuText(
+          '保存失败，窗口已保留。请重试保存或导出备份。',
+          'Save failed. The window remains open. Retry saving or export a backup.',
+        ),
+      })
+  }
+  ipcMain.on('app:close-ready', onCloseReady)
+  win.on('closed', () => {
+    clearTimeout(closeTimer)
+    ipcMain.removeListener('app:close-ready', onCloseReady)
+  })
+
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:\/\//i.test(url)) void shell.openExternal(url)
+    if (externalUrl(url)) void shell.openExternal(url).catch(() => {})
     return { action: 'deny' }
   })
 
   win.webContents.on('will-navigate', (event, url) => {
-    const currentUrl = win.webContents.getURL()
-    if (url !== currentUrl && /^https?:\/\//i.test(url)) {
+    if (url !== appUrl) {
       event.preventDefault()
-      void shell.openExternal(url)
+      if (externalUrl(url)) void shell.openExternal(url).catch(() => {})
     }
   })
+  win.webContents.on('will-redirect', (event) => event.preventDefault())
+  win.webContents.on('will-attach-webview', (event) => event.preventDefault())
 
-  if (app.isPackaged) {
+  if (app.isPackaged || process.env.WDWORLD_PREVIEW === '1') {
     win.loadFile(path.join(__dirname, '../dist/index.html'))
   } else {
     win.loadURL('http://localhost:5173')
   }
 }
 
-app.whenReady().then(() => {
-  createWindow()
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
+if (!app.requestSingleInstanceLock()) app.quit()
+else {
+  app.on('second-instance', () => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win) {
+      if (win.isMinimized()) win.restore()
+      win.show()
+      win.focus()
     }
   })
-})
+  app.whenReady().then(() => {
+    session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
+    session.defaultSession.setPermissionCheckHandler(() => false)
+    session.defaultSession.setDevicePermissionHandler(() => false)
+    installMenu({ app, Menu, dialog, BrowserWindow, safeStorage, ipcMain: trustedIPC })
+    createWindow()
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
+  })
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -59,36 +148,11 @@ function getProjectsDir() {
   return path.join(getWdWorldDir(), 'projects')
 }
 
-function getProjectDir(projectId) {
-  if (typeof projectId !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(projectId)) {
-    throw new Error('无效的项目 ID')
-  }
-  return path.join(getProjectsDir(), projectId)
-}
+const projectStorage = createProjectStorage(getWdWorldDir(), safeStorage)
 
-function writeFileAtomic(filePath, data, encoding) {
-  const tempPath = `${filePath}.tmp`
-  const backupPath = `${filePath}.bak`
-  fs.writeFileSync(tempPath, data, encoding)
-  if (fs.existsSync(filePath)) fs.copyFileSync(filePath, backupPath)
-  fs.renameSync(tempPath, filePath)
-}
-
-function getRecentProjectsFilePath() {
-  return path.join(getWdWorldDir(), 'recent-projects.json')
-}
-
-ipcMain.handle('save-project', async (_event, projectId, projectJson, dbBase64) => {
+trustedIPC.handle('save-project', async (_event, projectId, projectJson, dbBase64) => {
   try {
-    const projectDir = getProjectDir(projectId)
-    fs.mkdirSync(projectDir, { recursive: true })
-
-    const projectJsonPath = path.join(projectDir, 'project.json')
-    writeFileAtomic(projectJsonPath, projectJson, 'utf-8')
-
-    const dbPath = path.join(projectDir, 'database.db')
-    const dbBuffer = Buffer.from(dbBase64, 'base64')
-    writeFileAtomic(dbPath, dbBuffer)
+    projectStorage.save(projectId, projectJson, dbBase64)
 
     return { ok: true }
   } catch (error) {
@@ -97,28 +161,21 @@ ipcMain.handle('save-project', async (_event, projectId, projectJson, dbBase64) 
   }
 })
 
-ipcMain.handle('load-project', async (_event, projectId) => {
+trustedIPC.handle('load-project', async (_event, projectId) => {
   try {
-    const projectDir = getProjectDir(projectId)
-    const projectJsonPath = path.join(projectDir, 'project.json')
-    const dbPath = path.join(projectDir, 'database.db')
-
-    if (!fs.existsSync(projectJsonPath) || !fs.existsSync(dbPath)) {
-      return { ok: false, projectJson: null, dbBase64: null, error: '项目不存在或数据不完整' }
-    }
-
-    const projectJson = fs.readFileSync(projectJsonPath, 'utf-8')
-    const dbBuffer = fs.readFileSync(dbPath)
-    const dbBase64 = dbBuffer.toString('base64')
-
-    return { ok: true, projectId, projectJson, dbBase64 }
+    return { ok: true, projectId, ...projectStorage.load(projectId) }
   } catch (error) {
     console.error('load-project error:', error)
+    void dialog.showMessageBox({
+      type: 'error',
+      message: menuText('无法打开项目', 'Could not open project'),
+      detail: nativeMessage(error.message),
+    })
     return { ok: false, projectJson: null, dbBase64: null, error: error.message }
   }
 })
 
-ipcMain.handle('list-projects', async () => {
+trustedIPC.handle('list-projects', async () => {
   try {
     const projectsDir = getProjectsDir()
     if (!fs.existsSync(projectsDir)) {
@@ -130,20 +187,17 @@ ipcMain.handle('list-projects', async () => {
 
     const projects = []
     for (const projectId of projectIds) {
-      const projectJsonPath = path.join(projectsDir, projectId, 'project.json')
-      if (fs.existsSync(projectJsonPath)) {
-        try {
-          const projectJson = fs.readFileSync(projectJsonPath, 'utf-8')
-          const project = JSON.parse(projectJson)
-          projects.push({
-            id: projectId,
-            name: project.name,
-            createdAt: project.createdAt,
-            updatedAt: project.updatedAt,
-          })
-        } catch (e) {
-          console.error(`list-projects: skip ${projectId}`, e)
-        }
+      try {
+        const { projectJson } = projectStorage.load(projectId)
+        const project = JSON.parse(projectJson)
+        projects.push({
+          id: projectId,
+          name: project.name,
+          createdAt: project.createdAt,
+          updatedAt: project.updatedAt,
+        })
+      } catch (e) {
+        console.error(`list-projects: skip ${projectId}`, e)
       }
     }
 
@@ -154,9 +208,9 @@ ipcMain.handle('list-projects', async () => {
   }
 })
 
-ipcMain.handle('delete-project', async (_event, projectId) => {
+trustedIPC.handle('delete-project', async (_event, projectId) => {
   try {
-    const projectDir = getProjectDir(projectId)
+    const projectDir = projectStorage.projectDir(projectId)
     if (fs.existsSync(projectDir)) {
       fs.rmSync(projectDir, { recursive: true, force: true })
     }
@@ -167,12 +221,9 @@ ipcMain.handle('delete-project', async (_event, projectId) => {
   }
 })
 
-ipcMain.handle('save-recent-projects', async (_event, list) => {
+trustedIPC.handle('save-recent-projects', async (_event, list) => {
   try {
-    const wdworldDir = getWdWorldDir()
-    fs.mkdirSync(wdworldDir, { recursive: true })
-    const filePath = getRecentProjectsFilePath()
-    writeFileAtomic(filePath, JSON.stringify(list, null, 2), 'utf-8')
+    projectStorage.saveRecent(list)
     return { ok: true }
   } catch (error) {
     console.error('save-recent-projects error:', error)
@@ -180,16 +231,16 @@ ipcMain.handle('save-recent-projects', async (_event, list) => {
   }
 })
 
-ipcMain.handle('load-recent-projects', async () => {
+trustedIPC.handle('load-recent-projects', async () => {
   try {
-    const filePath = getRecentProjectsFilePath()
-    if (!fs.existsSync(filePath)) {
-      return { ok: true, list: null }
-    }
-    const content = fs.readFileSync(filePath, 'utf-8')
-    return { ok: true, list: JSON.parse(content) }
+    return { ok: true, list: projectStorage.loadRecent() }
   } catch (error) {
     console.error('load-recent-projects error:', error)
+    void dialog.showMessageBox({
+      type: 'error',
+      message: menuText('无法读取最近项目', 'Could not load recent projects'),
+      detail: nativeMessage(error.message),
+    })
     return { ok: false, list: null, error: error.message }
   }
 })

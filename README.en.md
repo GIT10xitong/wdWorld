@@ -1,112 +1,77 @@
-# WD World
+# WD World 1.7
 
 English | [简体中文](README.md)
 
 [![CI](https://github.com/actrox/wdWorld/actions/workflows/ci.yml/badge.svg)](https://github.com/actrox/wdWorld/actions/workflows/ci.yml)
-[![Deploy GitHub Pages](https://github.com/actrox/wdWorld/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/actrox/wdWorld/actions/workflows/deploy-pages.yml)
 
-A local-first worldbuilding workbench for OC creators, novelists, and TRPG game masters. Characters, locations, factions, events, items, and world rules stay on your device, so writing can continue offline.
+A local-first desktop workbench for worldbuilding, novels, original characters, TRPG adventures and Tavern roleplay. Manual creation works offline. Connect your own model service for writing, consistency checks, world-change proposals and LAN narration.
 
-## Online Demo
+## Download
 
-- Planned URL: [WD World Online Demo](https://actrox.github.io/wdWorld/)
-- The repository must enable **Settings → Pages → Build and deployment → GitHub Actions** before the first deployment.
-- Browser data remains in the current browser and is not uploaded to a server.
-- Once Pages is enabled, pushes to `main` are deployed automatically.
+Download **WDWorld-Desktop-1.7.0-win-x64.zip** from [GitHub Releases](https://github.com/actrox/wdWorld/releases), extract the entire archive and run `WD World.exe`. Keep the complete folder. Windows builds are unsigned and do not auto-update.
 
-## Screenshots
+Choose Novel, OC, TRPG, Tavern or Free mode at startup. Specialized projects open their creator workspace; Free mode opens worldbuilding and exposes all tools. **File → Switch creation mode** (`Ctrl+Shift+M`) returns to mode selection. Simplified Chinese and English cover the interface and native menus while preserving authored text.
 
-### Welcome page and example world
-
-![WD World welcome page](docs/screenshots/welcome.png)
-
-### Interactive map
-
-![WD World map view](docs/screenshots/map-view.png)
+[Quick start](QUICKSTART.md), [user guide](docs/NOVEL-STUDIO.md) and [release notes](CHANGELOG.md) are available in Chinese.
 
 ## Features
 
-- Project management: create a blank world, open a local backup, resume recent projects, or open the standalone example world.
-- Eight entry types: character, location, faction, item, event, lore, region, and note.
-- Editor workspace: encyclopedia-style collapsible directory, quick create/delete actions, TipTap rich text, aliases, tags, custom fields, and internal links.
-- Card view: cover-based navigation, vertical and horizontal layouts, Markdown and plain-text copy. Portrait and landscape covers are shown without cropping.
-- Wiki view: type-based reading directory, tag filters, relation context, and built-in cover artwork.
-- Relationship graph: explicit relations, backlinks, and automatic layout.
-- Map view: bundled base map, custom base maps, zooming, panning, and interactive entry placement.
-- Timeline: world eras, global events, and entry events.
-- Import and export: JSON backups, static Wiki export, and automatic local saving.
-- Example world: “Mystery Revival Example: Fog Harbor Files,” including rules, characters, locations, relations, a timeline, and original artwork.
+| Mode                 | Tools                                                                                                                                     |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Worldbuilding / Free | Eight entry types, rich text, Wiki, relationships, maps, timeline, templates, static Wiki and JSON exports                                |
+| Novel                | Idea → characters and rules → outline → chapters → writing → consistency checks → author approval; staged context, summaries and versions |
+| OC                   | Concept, appearance, personality, motivation, background, relationships and character arcs                                                |
+| TRPG                 | Random worlds, adventure library, imports, GM secrets, public handouts, session logs, automatic LAN narration and host intervention       |
+| Tavern               | Complete worlds, character cards, worldbooks, scenario cards, opening messages and automatic AI replies                                   |
 
-## Built-in Original Artwork
+Generated settings appear as **AI pending review**. Accepting confirms them; world changes support individual approval, rejection and undo. Stale proposals cannot overwrite later author edits. Drafts save every ten seconds and support manual saving.
 
-The example world includes original covers generated with OpenAI's built-in ImageGen. They do not use characters from existing films, games, or novels.
+Three original system-neutral adventures cover fantasy exploration, mystery investigation and science-fiction survival. TRPG imports support WD World adventure JSON, exported world JSON, TXT and Markdown. Tavern supports V2 / legacy character JSON, worldbook JSON and WD World scenario JSON. PNG character cards, PDF and Word imports are not implemented.
 
-| Character: Lin Mo                       | Item: Black Umbrella                                    | Location: Fog Harbor No. 7 School                                |
-| --------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------- |
-| ![Lin Mo](src/assets/sample/lin-mo.png) | ![Black Umbrella](src/assets/sample/black-umbrella.png) | ![Fog Harbor No. 7 School](src/assets/sample/seventh-school.png) |
+## AI and LAN
 
-The map artwork is stored at [`src/assets/linjiang-investigation-map.png`](src/assets/linjiang-investigation-map.png), and the example covers are under [`src/assets/sample/`](src/assets/sample/).
+Desktop settings support DeepSeek, MiMo, OpenAI / Codex, Gemini, custom endpoints and local services through Chat Completions, Responses or native Gemini protocols. Enter your endpoint and key, retrieve models, select one and test it. No API key or credits are included.
 
-## Placeholder Artwork
+Generation sends selected context to the configured service; long inputs are processed in segments. With room automation enabled, player messages trigger model calls. Hosts can pause, take over, give guidance or edit a preview before publishing. TRPG automation uses public context and does not automatically receive unpublished GM secrets.
 
-Entries without a custom cover use bundled artwork based on their type in the editor, Wiki, and card views. A real uploaded cover always takes priority. Covers use contain-style sizing so important content is not cropped.
+The desktop host opens a room; players join through browsers on the same trusted network using its URL and room code. Up to 16 players can use characters, chat, OOC, dice, public scenes and handouts. TRPG adds initiative and session logs. Rooms use HTTP and do not configure firewalls or public port forwarding.
 
-| Character                                                       | Location                                                      | Faction                                                     | Item                                                  |
-| --------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------- | ----------------------------------------------------- |
-| ![Character placeholder](src/assets/placeholders/character.png) | ![Location placeholder](src/assets/placeholders/location.png) | ![Faction placeholder](src/assets/placeholders/faction.png) | ![Item placeholder](src/assets/placeholders/item.png) |
+## Data
 
-## Tech Stack
+Desktop projects, recovery backups, recent-project metadata, API settings and room archives are encrypted locally. Encryption depends on the OS account and application environment. Export a complete project JSON before moving computers or accounts. Exports are plaintext and exclude API keys.
 
-| Layer            | Technology            |
-| ---------------- | --------------------- |
-| Desktop shell    | Electron              |
-| Frontend         | React 18 + TypeScript |
-| Build            | Vite                  |
-| Styling          | Tailwind CSS          |
-| State management | Zustand               |
-| Rich text        | TipTap                |
-| Local database   | sql.js / SQLite WASM  |
-| Testing          | Vitest + V8 Coverage  |
-| Code quality     | ESLint + Prettier     |
+The [browser demo](https://actrox.github.io/wdWorld/) supports manual creation and stores data in the current browser. Desktop AI, hosting and desktop encryption are unavailable in the browser build.
 
-## Local Development
+## Development
 
-Node.js 22.12 or newer is recommended.
+Requires Node.js 22.12+ and npm. Use `npm.cmd` on Windows PowerShell if needed.
 
-```bash
-npm install
-npm run dev
+```sh
+npm ci
+npm run desktop        # Build and launch Electron
+npm run dev            # Browser development, usually localhost:5173
+npm run package        # Windows portable directory
+npm run electron:build # Windows NSIS installer
 ```
 
-Open `http://localhost:5173` in a browser.
+`start-desktop.cmd` opens `release/v1.7.0/WDWorld-Desktop-1.7.0/` when present, otherwise starts from source after dependencies have been installed. Packaging refuses to overwrite an existing version directory. Binaries are distributed as Release assets rather than committed to Git.
 
-## Quality Checks
-
-```bash
-npm run format:check  # Prettier
-npm run lint          # ESLint
-npm test              # Unit and integration tests
-npm run test:coverage # Tests with coverage thresholds
-npm run build         # TypeScript and production build
-```
-
-The suite currently covers shared utilities, built-in asset mappings, and example-world initialization. Coverage thresholds are configured in [`vitest.config.ts`](vitest.config.ts).
-
-## CI/CD
-
-- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs formatting, linting, coverage, and production builds for pushes and pull requests.
-- [`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml) deploys the `main` branch build to GitHub Pages.
-
-## Desktop Builds
-
-```bash
+```sh
+npm run format:check
+npm run lint
+npm run test:coverage
 npm run build
-npm run package
-npm run electron:build
+npm run test:desktop
+npm run test:studio
+npm run test:world
+npm run test:lan
+npm run test:automation
 ```
 
-## Local Data
+Desktop tests run on Windows with isolated profiles and local mock models. Regular tests never call a real model. `scripts/test-live-ai.js` requires explicit `WDWORLD_LIVE_AI=1` and may incur API usage using locally saved credentials.
 
-The browser build uses SQLite WASM, IndexedDB, and localStorage. The Electron build stores project data in the application data directory. WD World has no required cloud backend and does not proactively upload worldbuilding data.
+## Repository
 
-Use JSON backups to move projects between devices.
+`electron/` contains the desktop runtime, AI adapter, protected storage, LAN server and player web client. `src/features/` contains Novel, Studio and LAN host features; `src/components/` contains worldbuilding views. Storage and internationalization are in `src/lib/`, artwork in `src/assets/`, tests in `tests/`, scripts in `scripts/` and the guide in `docs/`.
+
+Stack: Electron, React 18, TypeScript, Vite, Tailwind CSS, Zustand, TipTap, sql.js, Vitest and Playwright. SQLite WASM is bundled directly from the dependency. [CI](.github/workflows/ci.yml) checks formatting, lint, coverage and build; [Pages](.github/workflows/deploy-pages.yml) deploys the browser build from main. Generated builds, reports, screenshots, logs and local credentials are excluded from Git.

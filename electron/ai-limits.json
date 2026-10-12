@@ -1,0 +1,1 @@
+{ "inputChars": 16000, "chunkChars": 10000, "maxContextChars": 2000000, "outputTokens": 8192 }

@@ -1,3 +1,4 @@
+import { t } from '@/lib/i18n'
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '@/store'
 import { EntryType } from '@/types'
@@ -94,7 +95,7 @@ export function MapView() {
       <div className="flex items-center justify-between p-4 border-b border-white/10">
         <div className="flex items-center gap-3">
           <MapPin className="w-5 h-5 text-purple-400" />
-          <h2 className="text-lg font-semibold text-white">地图视图</h2>
+          <h2 className="text-lg font-semibold text-white">{t('地图视图')}</h2>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -102,19 +103,19 @@ export function MapView() {
             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 transition-colors"
           >
             <Image className="w-4 h-4" />
-            {mapImage ? '更换底图' : '设置底图'}
+            {mapImage ? t('更换底图') : t('设置底图')}
           </button>
           <button
             onClick={() => setScale((current) => Math.min(3, current + 0.2))}
             className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300"
-            title="放大"
+            title={t('放大')}
           >
             <ZoomIn className="w-4 h-4" />
           </button>
           <button
             onClick={() => setScale((current) => Math.max(0.5, current - 0.2))}
             className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300"
-            title="缩小"
+            title={t('缩小')}
           >
             <ZoomOut className="w-4 h-4" />
           </button>
@@ -124,7 +125,7 @@ export function MapView() {
               setOffset({ x: 0, y: 0 })
             }}
             className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300"
-            title="重置视图"
+            title={t('重置视图')}
           >
             <Crosshair className="w-4 h-4" />
           </button>
@@ -133,7 +134,7 @@ export function MapView() {
 
       <div className="flex-1 flex min-h-0">
         <aside className="w-64 border-r border-white/10 p-4 overflow-y-auto">
-          <h3 className="text-sm font-medium text-slate-300 mb-3">待放置条目</h3>
+          <h3 className="text-sm font-medium text-slate-300 mb-3">{t('待放置条目')}</h3>
           <div className="space-y-2">
             {unplacedEntries.map((entry) => (
               <button
@@ -149,10 +150,10 @@ export function MapView() {
                 <Plus className="w-4 h-4 text-slate-500 group-hover:text-white" />
               </button>
             ))}
-            {unplacedEntries.length === 0 && <p className="text-xs text-slate-500">暂无待放置条目</p>}
+            {unplacedEntries.length === 0 && <p className="text-xs text-slate-500">{t('暂无待放置条目')}</p>}
           </div>
 
-          <h3 className="text-sm font-medium text-slate-300 mt-6 mb-3">已放置条目</h3>
+          <h3 className="text-sm font-medium text-slate-300 mt-6 mb-3">{t('已放置条目')}</h3>
           <div className="space-y-2">
             {mapEntries.map((entry) => (
               <button
@@ -186,7 +187,7 @@ export function MapView() {
             >
               <img
                 src={resolveAssetSource(mapImage, linjiangMapUrl)}
-                alt="地图底图"
+                alt={t('地图底图')}
                 className="block max-w-full max-h-[calc(100vh-12rem)] object-contain pointer-events-none"
                 draggable={false}
               />
@@ -216,7 +217,7 @@ export function MapView() {
                 <div className="absolute inset-0 pointer-events-none border-2 border-dashed border-green-500/60 rounded-lg">
                   <div className="absolute top-4 left-4 px-3 py-1 rounded bg-green-950/80 text-green-300 text-sm flex items-center gap-2">
                     <Move className="w-4 h-4" />
-                    点击地图放置条目 · Esc 取消
+                    {t('点击地图放置条目 · Esc 取消')}
                   </div>
                   <button
                     type="button"
@@ -227,7 +228,7 @@ export function MapView() {
                     }}
                   >
                     <X className="h-4 w-4" />
-                    取消
+                    {t('取消')}
                   </button>
                 </div>
               )}
@@ -240,11 +241,11 @@ export function MapView() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="w-full max-w-md bg-slate-800 rounded-xl border border-white/10 shadow-2xl">
             <div className="flex items-center justify-between p-6 border-b border-white/10">
-              <h2 className="text-xl font-bold text-white">选择地图底图</h2>
+              <h2 className="text-xl font-bold text-white">{t('选择地图底图')}</h2>
               <button
                 onClick={() => setShowImageSelectModal(false)}
                 className="p-2 rounded-lg hover:bg-white/10 text-slate-400"
-                aria-label="关闭"
+                aria-label={t('关闭')}
               >
                 ×
               </button>
@@ -274,7 +275,9 @@ export function MapView() {
                   ))}
                 </div>
               ) : (
-                <p className="text-slate-400 text-center">当前使用内置默认底图。上传图片后可在这里替换。</p>
+                <p className="text-slate-400 text-center">
+                  {t('当前使用内置默认底图。上传图片后可在这里替换。')}
+                </p>
               )}
             </div>
           </div>

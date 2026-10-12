@@ -1,0 +1,99 @@
+.lan-workspace {
+  height: 100%;
+  overflow: auto;
+  padding: 28px;
+  max-width: 1500px;
+  margin: auto;
+  color: #e1e7eb;
+}
+.lan-workspace header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.lan-workspace h1 {
+  font-size: 26px;
+}
+.lan-workspace h2 {
+  font-size: 19px;
+  color: #e4be7b;
+  margin-bottom: 12px;
+}
+.lan-workspace h3 {
+  font-size: 16px;
+  margin: 12px 0;
+}
+.lan-workspace section {
+  padding: 20px;
+  border: 1px solid #33424e;
+  background: #14202b;
+  border-radius: 12px;
+  margin: 16px 0;
+}
+.lan-workspace p {
+  margin: 10px 0;
+  color: #aebdca;
+}
+.lan-workspace button {
+  padding: 8px 14px;
+  background: #364653;
+  border-radius: 7px;
+  margin: 5px;
+}
+.lan-workspace button:disabled {
+  opacity: 0.45;
+}
+.lan-workspace label {
+  display: block;
+  margin: 10px 0;
+}
+.lan-workspace input,
+.lan-workspace textarea,
+.lan-workspace select {
+  background: #0d1720;
+  border: 1px solid #40505e;
+  border-radius: 7px;
+  padding: 9px;
+  color: white;
+}
+.lan-workspace textarea {
+  display: block;
+  width: 100%;
+  min-height: 100px;
+}
+.lan-workspace label input {
+  display: block;
+  margin-top: 6px;
+  width: 100%;
+}
+.lan-workspace label input[type='checkbox'] {
+  display: inline-block;
+  width: auto;
+  margin-right: 10px;
+}
+.lan-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 18px;
+}
+.lan-messages {
+  height: 320px;
+  overflow: auto;
+  background: #0a141d;
+  padding: 12px;
+}
+.lan-messages p,
+.lan-workspace pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+}
+.lan-invite strong {
+  letter-spacing: 3px;
+  color: #e4be7b;
+}
+@media (max-width: 900px) {
+  .lan-grid {
+    grid-template-columns: 1fr;
+  }
+}

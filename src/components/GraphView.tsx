@@ -1,3 +1,4 @@
+import { t } from '@/lib/i18n'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useStore } from '@/store'
 import { EntryType, RELATION_TYPE_META, RELATION_TYPE_LABELS, ENTRY_TYPE_LABELS, Entry } from '@/types'
@@ -237,30 +238,33 @@ export function GraphView() {
       <div className="flex items-center justify-between p-4 border-b border-white/10">
         <div className="flex items-center gap-3">
           <GitBranch className="w-5 h-5 text-purple-400" />
-          <h2 className="text-lg font-semibold text-white">关系图谱</h2>
+          <h2 className="text-lg font-semibold text-white">{t('关系图谱')}</h2>
           <span className="text-xs text-slate-500">
-            {visibleEntries.length} 个节点 · {visibleRelations.length} 条关系
+            {visibleEntries.length}
+            {t(' 个节点 ·')}
+            {visibleRelations.length}
+            {t(' 条关系')}
           </span>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleRelayout}
             className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 transition-colors"
-            title="重新布局"
+            title={t('重新布局')}
           >
             <RefreshCw className="w-4 h-4" />
           </button>
           <button
             onClick={() => setScale((prev) => Math.min(3, prev + 0.2))}
             className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 transition-colors"
-            title="放大"
+            title={t('放大')}
           >
             <ZoomIn className="w-4 h-4" />
           </button>
           <button
             onClick={() => setScale((prev) => Math.max(0.3, prev - 0.2))}
             className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 transition-colors"
-            title="缩小"
+            title={t('缩小')}
           >
             <ZoomOut className="w-4 h-4" />
           </button>
@@ -270,7 +274,7 @@ export function GraphView() {
               setOffset({ x: 0, y: 0 })
             }}
             className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 transition-colors"
-            title="重置视图"
+            title={t('重置视图')}
           >
             <Crosshair className="w-4 h-4" />
           </button>
@@ -280,7 +284,7 @@ export function GraphView() {
       <div className="flex-1 flex">
         <div className="w-56 border-r border-white/10 p-4 overflow-y-auto">
           <div className="mb-4">
-            <h3 className="text-sm font-medium text-slate-300 mb-2">图例</h3>
+            <h3 className="text-sm font-medium text-slate-300 mb-2">{t('图例')}</h3>
             <div className="space-y-2">
               {Object.entries(ENTRY_TYPE_COLORS).map(([type, color]) => (
                 <div key={type} className="flex items-center gap-2">
@@ -292,22 +296,22 @@ export function GraphView() {
           </div>
 
           <div className="mb-4 pt-4 border-t border-white/10">
-            <h3 className="text-sm font-medium text-slate-300 mb-2">操作</h3>
+            <h3 className="text-sm font-medium text-slate-300 mb-2">{t('操作')}</h3>
             <div className="space-y-1 text-xs text-slate-400">
               <div className="flex items-center gap-2">
                 <RefreshCw className="w-3 h-3" />
-                <span>重新布局按钮重置模拟</span>
+                <span>{t('重新布局按钮重置模拟')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Pin className="w-3 h-3" />
-                <span>右键节点切换固定</span>
+                <span>{t('右键节点切换固定')}</span>
               </div>
             </div>
           </div>
 
           {selectedEntryId && (
             <div>
-              <h3 className="text-sm font-medium text-slate-300 mb-2">相关关系</h3>
+              <h3 className="text-sm font-medium text-slate-300 mb-2">{t('相关关系')}</h3>
               <div className="space-y-2">
                 {visibleRelations.map((relation) => {
                   const targetEntry = entries.find(
@@ -607,7 +611,7 @@ export function GraphView() {
                         className="text-[11px] fill-slate-400"
                         textAnchor="middle"
                       >
-                        {ENTRY_TYPE_LABELS[entry.type]} · {isPinned ? '已固定' : '未固定'}
+                        {ENTRY_TYPE_LABELS[entry.type]} · {isPinned ? t('已固定') : t('未固定')}
                       </text>
                       {entry.summary && (
                         <text
@@ -618,7 +622,7 @@ export function GraphView() {
                         >
                           {entry.summary.length > 24
                             ? entry.summary.slice(0, 24) + '...'
-                            : entry.summary || '暂无简介'}
+                            : entry.summary || t('暂无简介')}
                         </text>
                       )}
                     </g>
@@ -631,28 +635,31 @@ export function GraphView() {
           {visibleEntries.length === 0 && (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
               <GitBranch className="w-16 h-16 mb-4 opacity-50" />
-              <p className="text-lg">暂无数据</p>
-              <p className="text-sm mt-2">创建条目和关系后可在此查看图谱</p>
+              <p className="text-lg">{t('暂无数据')}</p>
+              <p className="text-sm mt-2">{t('创建条目和关系后可在此查看图谱')}</p>
             </div>
           )}
 
           <div className="absolute bottom-4 left-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 bg-slate-900/70 px-3 py-2 rounded-lg backdrop-blur-sm">
             <div className="flex items-center gap-1">
               <MousePointer className="w-3 h-3" />
-              <span>点击选中 · 双击跳转</span>
+              <span>{t('点击选中 · 双击跳转')}</span>
             </div>
             <span className="text-slate-700">|</span>
-            <span>拖拽节点移动</span>
+            <span>{t('拖拽节点移动')}</span>
             <span className="text-slate-700">|</span>
-            <span>右键固定/解除</span>
+            <span>{t('右键固定/解除')}</span>
             <span className="text-slate-700">|</span>
-            <span>滚轮缩放</span>
+            <span>{t('滚轮缩放')}</span>
           </div>
 
           {pinnedNodes.size > 0 && (
             <div className="absolute bottom-4 right-4 flex items-center gap-2 text-xs text-amber-400 bg-amber-950/50 px-3 py-1.5 rounded-lg border border-amber-900/50">
               <Pin className="w-3 h-3" />
-              <span>{pinnedNodes.size} 个节点已固定</span>
+              <span>
+                {pinnedNodes.size}
+                {t(' 个节点已固定')}
+              </span>
             </div>
           )}
         </div>

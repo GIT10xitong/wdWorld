@@ -1,0 +1,37 @@
+[
+  {
+    "id": "deepseek",
+    "name": "DeepSeek",
+    "endpoint": "https://api.deepseek.com",
+    "protocol": "chat",
+    "hint": "获取账号可用模型后选择，支持 DeepSeek 对话与推理模型。"
+  },
+  {
+    "id": "mimo",
+    "name": "小米 MiMo",
+    "endpoint": "https://api.xiaomimimo.com/v1",
+    "protocol": "chat",
+    "hint": "使用小米 MiMo 开放平台的 API 密钥，请选择文字生成模型。"
+  },
+  {
+    "id": "openai",
+    "name": "OpenAI / Codex",
+    "endpoint": "https://api.openai.com/v1",
+    "protocol": "responses",
+    "hint": "通过 API 密钥连接，使用 Responses 接口；Codex 型号以账号实际返回和可调用的模型为准。"
+  },
+  {
+    "id": "gemini",
+    "name": "Google Gemini",
+    "endpoint": "https://generativelanguage.googleapis.com/v1beta",
+    "protocol": "gemini",
+    "hint": "使用 Google AI Studio 的 Gemini API 密钥，自动获取支持内容生成的模型。"
+  },
+  {
+    "id": "custom",
+    "name": "自定义 / 本地模型",
+    "endpoint": "http://127.0.0.1:11434/v1",
+    "protocol": "chat",
+    "hint": "适用于兼容接口、中转服务和本地模型；按服务商说明选择接口协议。"
+  }
+]

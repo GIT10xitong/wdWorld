@@ -19,8 +19,11 @@ import {
   Era,
 } from '@/types'
 import { generateId, generateSlug, getNow } from '@/lib/utils'
+import { emptyNovel, textToHtml, validateNovel, type NovelDocument } from '@/features/novel/model'
+import { emptyStudio, validateStudio, remapStudio, type StudioDocument } from '@/features/studio/model'
+import { cacheAssetData, cachedAssetData } from '@/lib/assetSources'
 
-const SCHEMA_VERSION = 2
+const SCHEMA_VERSION = 5
 
 const migrations: Array<{ fromVersion: number; toVersion: number; sql: string[] }> = [
   {
@@ -56,6 +59,19 @@ const migrations: Array<{ fromVersion: number; toVersion: number; sql: string[] 
 ]
 
 const INITIAL_SQL = `
+CREATE TABLE IF NOT EXISTS project_modes (project_id TEXT PRIMARY KEY, mode TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS studio_documents (
+  project_id TEXT PRIMARY KEY REFERENCES projects(id),
+  document TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS novel_documents (
+  project_id TEXT PRIMARY KEY REFERENCES projects(id),
+  document TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS asset_data (
+  asset_id TEXT PRIMARY KEY REFERENCES assets(id) ON DELETE CASCADE,
+  data_url TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS projects (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -277,7 +293,11 @@ export class Database {
     }
   }
 
-  async createProject(name: string, description: string = ''): Promise<Project> {
+  async createProject(
+    name: string,
+    description: string = '',
+    mode: Project['mode'] = 'free',
+  ): Promise<Project> {
     if (!this.db) throw new Error('Database not opened')
 
     const id = generateId('proj')
@@ -285,6 +305,7 @@ export class Database {
     const now = getNow()
 
     const project: Project = {
+      mode,
       id,
       name,
       slug,
@@ -299,6 +320,7 @@ export class Database {
       [id, name, slug, description, SCHEMA_VERSION, now, now] as SqlValue[],
     )
 
+    this.db.run('INSERT INTO project_modes (project_id, mode) VALUES (?, ?)', [id, mode])
     return project
   }
 
@@ -312,6 +334,7 @@ export class Database {
 
     const row = result[0].values[0]
     return {
+      mode: this.getProjectMode(id),
       id: row[0] as string,
       name: row[1] as string,
       slug: row[2] as string,
@@ -332,6 +355,14 @@ export class Database {
     }
   }
 
+  getProjectMode(id: string): NonNullable<Project['mode']> {
+    const value = this.db?.exec('SELECT mode FROM project_modes WHERE project_id = ?', [id])[0]
+      ?.values[0]?.[0]
+    return ['novel', 'oc', 'trpg', 'tavern'].includes(String(value))
+      ? (value as NonNullable<Project['mode']>)
+      : 'free'
+  }
+
   async createEntry(
     projectId: string,
     type: EntryType,
@@ -342,7 +373,14 @@ export class Database {
     if (!this.db) throw new Error('Database not opened')
 
     const id = generateId(type.slice(0, 3))
-    const slug = generateSlug(title)
+    const baseSlug = generateSlug(title)
+    let slug = baseSlug
+    let suffix = 2
+    while (
+      this.db.exec('SELECT id FROM entries WHERE project_id = ? AND slug = ?', [projectId, slug])[0]?.values
+        .length
+    )
+      slug = `${baseSlug}-${suffix++}`
     const now = getNow()
 
     const entry: Entry = {
@@ -446,8 +484,22 @@ export class Database {
     if (updates.title !== undefined) {
       fields.push('title = ?')
       values.push(updates.title)
-      fields.push('slug = ?')
-      values.push(generateSlug(updates.title))
+      const current = await this.getEntry(id)
+      if (current && updates.title !== current.title) {
+        const baseSlug = generateSlug(updates.title)
+        let slug = baseSlug
+        let suffix = 2
+        while (
+          this.db.exec('SELECT id FROM entries WHERE project_id = ? AND slug = ? AND id != ?', [
+            current.projectId,
+            slug,
+            id,
+          ])[0]?.values.length
+        )
+          slug = `${baseSlug}-${suffix++}`
+        fields.push('slug = ?')
+        values.push(slug)
+      }
     }
     if (updates.summary !== undefined) {
       fields.push('summary = ?')
@@ -745,6 +797,12 @@ export class Database {
 
   async getAssets(projectId: string, kind?: string): Promise<Asset[]> {
     if (!this.db) throw new Error('Database not opened')
+
+    const bytes = this.db.exec(
+      'SELECT a.relative_path, d.data_url FROM asset_data d JOIN assets a ON a.id = d.asset_id WHERE a.project_id = ?',
+      [projectId],
+    )
+    for (const [path, data] of bytes[0]?.values ?? []) cacheAssetData(String(path), String(data))
 
     const query = kind
       ? 'SELECT * FROM assets WHERE project_id = ? AND kind = ? ORDER BY created_at DESC'
@@ -1369,7 +1427,7 @@ export class Database {
   async listFieldSchemas(projectId: string, entryType?: EntryType): Promise<CustomFieldSchema[]> {
     if (!this.db) throw new Error('Database not opened')
 
-    let query = 'SELECT * FROM custom_field_schemas WHERE project_id = ?'
+    let query = 'SELECT * FROM custom_field_schemas WHERE (project_id = ? OR is_builtin = 1)'
     const params: SqlValue[] = [projectId]
 
     if (entryType) {
@@ -1624,8 +1682,241 @@ export class Database {
     return roots
   }
 
+  getStudio(projectId: string): StudioDocument {
+    if (!this.db) throw new Error('Database not opened')
+    const rows = this.db.exec('SELECT document FROM studio_documents WHERE project_id = ?', [projectId])
+    const doc = rows[0]?.values[0] ? JSON.parse(rows[0].values[0][0] as string) : emptyStudio()
+    validateStudio(doc)
+    return doc
+  }
+
+  async publishGeneratedSettings(
+    projectId: string,
+    items: { type: EntryType; title: string; content: string }[],
+    save?: (ids: string[]) => void,
+  ): Promise<string[]> {
+    if (!this.db) throw new Error('Database not opened')
+    const existing = await this.listEntries(projectId)
+    this.db.run('BEGIN TRANSACTION')
+    try {
+      const ids: string[] = []
+      for (const item of items) {
+        const content = textToHtml(item.content)
+        let entry = existing.find(
+          (e) =>
+            e.status !== 'archived' &&
+            e.type === item.type &&
+            e.title === item.title &&
+            e.content === content,
+        )
+        if (!entry) {
+          entry = await this.createEntry(projectId, item.type, item.title, '', content)
+          await this.updateEntry(entry.id, { status: 'proposed' })
+          existing.push(entry)
+        }
+        ids.push(entry.id)
+      }
+      save?.(ids)
+      this.db.run('COMMIT')
+      return ids
+    } catch (error) {
+      this.db.run('ROLLBACK')
+      throw error
+    }
+  }
+
+  async confirmGeneratedSettings(projectId: string, ids: string[], save?: () => void) {
+    if (!this.db) throw new Error('Database not opened')
+    this.db.run('BEGIN TRANSACTION')
+    try {
+      for (const id of new Set(ids)) {
+        const entry = await this.getEntry(id)
+        if (entry?.projectId === projectId && entry.status === 'proposed')
+          await this.updateEntry(id, { status: 'active' })
+      }
+      save?.()
+      this.db.run('COMMIT')
+    } catch (error) {
+      this.db.run('ROLLBACK')
+      throw error
+    }
+  }
+
+  saveStudio(projectId: string, document: StudioDocument): void {
+    if (!this.db) throw new Error('Database not opened')
+    validateStudio(document)
+    this.db.run('INSERT OR REPLACE INTO studio_documents (project_id, document) VALUES (?, ?)', [
+      projectId,
+      JSON.stringify(document),
+    ])
+  }
+
+  async applyWorldImpact(
+    projectId: string,
+    simulationId: string,
+    impactId: string,
+    revert = false,
+  ): Promise<StudioDocument> {
+    if (!this.db) throw new Error('Database not opened')
+    const doc = this.getStudio(projectId)
+    const impact = doc.simulations.find((s) => s.id === simulationId)?.impacts.find((p) => p.id === impactId)
+    if (!impact || impact.status !== (revert ? 'accepted' : 'pending')) throw new Error('建议已处理或不存在')
+    const entry = await this.getEntry(impact.entryId)
+    if (!entry || entry.projectId !== projectId) throw new Error('目标条目不存在或不属于当前世界')
+    if (
+      entry.title !== impact.title ||
+      entry.content !== (revert ? impact.appliedContent : impact.before) ||
+      entry.updatedAt !== (revert ? impact.appliedUpdatedAt : impact.beforeUpdatedAt)
+    )
+      throw new Error('条目在推演或确认后已修改，请重新推演，避免覆盖最新设定')
+    if (!impact.content.trim()) throw new Error('建议正文不能为空')
+    this.db.run('BEGIN TRANSACTION')
+    try {
+      await this.updateEntry(entry.id, { content: revert ? impact.before : textToHtml(impact.content) })
+      if (!revert && impact.pendingEntryId && impact.pendingEntryId !== entry.id) {
+        const staged = await this.getEntry(impact.pendingEntryId)
+        if (staged?.projectId === projectId && staged.status === 'proposed')
+          await this.updateEntry(staged.id, { status: 'archived' })
+      }
+      const updated = await this.getEntry(entry.id)
+      impact.status = revert ? 'reverted' : 'accepted'
+      if (!revert) {
+        impact.appliedContent = updated!.content
+        impact.appliedUpdatedAt = updated!.updatedAt
+      }
+      this.saveStudio(projectId, doc)
+      this.db.run('COMMIT')
+      return doc
+    } catch (e) {
+      this.db.run('ROLLBACK')
+      throw e
+    }
+  }
+
+  getNovel(projectId: string, idea = ''): NovelDocument {
+    if (!this.db) throw new Error('Database not opened')
+    const rows = this.db.exec('SELECT document FROM novel_documents WHERE project_id = ?', [projectId])
+    return rows[0]?.values[0] ? JSON.parse(rows[0].values[0][0] as string) : emptyNovel(idea)
+  }
+
+  saveNovel(projectId: string, document: NovelDocument): void {
+    if (!this.db) throw new Error('Database not opened')
+    this.db.run('INSERT OR REPLACE INTO novel_documents (project_id, document) VALUES (?, ?)', [
+      projectId,
+      JSON.stringify(document),
+    ])
+  }
+
+  async confirmNovelProposal(
+    projectId: string,
+    document: NovelDocument,
+    proposalId: string,
+  ): Promise<NovelDocument> {
+    if (!this.db) throw new Error('Database not opened')
+    const proposal = document.proposals.find((p) => p.id === proposalId)
+    if (!proposal || proposal.status !== 'pending') throw new Error('建议已处理或不存在')
+    if (!proposal.title.trim() || !proposal.content.trim()) throw new Error('请填写名称与内容')
+    const previous = proposal.targetEntryId ? await this.getEntry(proposal.targetEntryId) : null
+    if (proposal.targetEntryId && (!previous || previous.projectId !== projectId))
+      throw new Error('目标设定不存在')
+    if (previous && proposal.baseContent !== previous.content)
+      throw new Error('原设定已修改，请重新检查后生成建议，避免覆盖最新内容')
+    const appliedContent = textToHtml(proposal.content)
+    const staged = proposal.pendingEntryId ? await this.getEntry(proposal.pendingEntryId) : null
+    if (staged && staged.projectId !== projectId) throw new Error('目标设定不存在')
+    if (
+      !previous &&
+      staged &&
+      (staged.content !== (proposal.pendingBaseContent ?? appliedContent) ||
+        (staged.status !== 'proposed' && staged.content !== appliedContent))
+    )
+      throw new Error('原设定已修改，请重新检查后生成建议，避免覆盖最新内容')
+    this.db.run('BEGIN TRANSACTION')
+    try {
+      let id = previous?.id
+      if (previous) await this.updateEntry(previous.id, { content: appliedContent })
+      else if (staged) {
+        id = staged.id
+        await this.updateEntry(id, { title: proposal.title, content: appliedContent, status: 'active' })
+      } else id = (await this.createEntry(projectId, proposal.type, proposal.title, '', appliedContent)).id
+      if (previous && staged && staged.id !== previous.id && staged.status === 'proposed')
+        await this.updateEntry(staged.id, { status: 'archived' })
+      const next = {
+        ...document,
+        proposals: document.proposals.map((p) =>
+          p.id === proposalId
+            ? {
+                ...p,
+                status: 'accepted' as const,
+                appliedEntryId: id,
+                previousContent: previous?.content,
+                appliedContent,
+              }
+            : p,
+        ),
+      }
+      this.saveNovel(projectId, next)
+      this.db.run('COMMIT')
+      return next
+    } catch (error) {
+      this.db.run('ROLLBACK')
+      throw error
+    }
+  }
+
+  async revertNovelProposal(
+    projectId: string,
+    document: NovelDocument,
+    proposalId: string,
+  ): Promise<NovelDocument> {
+    if (!this.db) throw new Error('Database not opened')
+    const proposal = document.proposals.find((p) => p.id === proposalId)
+    if (
+      !proposal ||
+      proposal.status !== 'accepted' ||
+      !proposal.targetEntryId ||
+      proposal.appliedEntryId !== proposal.targetEntryId ||
+      typeof proposal.previousContent !== 'string' ||
+      typeof proposal.appliedContent !== 'string'
+    )
+      throw new Error('只有已确认的现有设定更新可以撤销')
+    const entry = await this.getEntry(proposal.appliedEntryId)
+    if (!entry || entry.projectId !== projectId) throw new Error('目标设定不存在')
+    if (entry.content !== proposal.appliedContent)
+      throw new Error('设定在确认后已修改，无法直接撤销；请对照原设定手动编辑')
+    this.db.run('BEGIN TRANSACTION')
+    try {
+      await this.updateEntry(entry.id, { content: proposal.previousContent })
+      const next: NovelDocument = {
+        ...document,
+        proposals: document.proposals.map((p) => (p.id === proposalId ? { ...p, status: 'reverted' } : p)),
+      }
+      this.saveNovel(projectId, next)
+      this.db.run('COMMIT')
+      return next
+    } catch (error) {
+      this.db.run('ROLLBACK')
+      throw error
+    }
+  }
+
+  private captureAssetData(projectId: string): void {
+    if (!this.db) throw new Error('Database not opened')
+    const rows = this.db.exec('SELECT id, relative_path FROM assets WHERE project_id = ?', [projectId])
+    for (const [id, relativePath] of rows[0]?.values ?? []) {
+      const data =
+        cachedAssetData(String(relativePath)) ||
+        localStorage.getItem('wdworld_asset_' + relativePath) ||
+        localStorage.getItem('wdworld_asset_' + id)
+      if (data)
+        this.db.run('INSERT OR REPLACE INTO asset_data (asset_id, data_url) VALUES (?, ?)', [id, data])
+    }
+  }
+
   async exportDatabase(): Promise<Uint8Array> {
     if (!this.db) throw new Error('Database not opened')
+    const projects = this.db.exec('SELECT id FROM projects')
+    for (const [id] of projects[0]?.values ?? []) this.captureAssetData(String(id))
     return this.db.export()
   }
 
@@ -1646,6 +1937,7 @@ export class Database {
 
     const projectRow = projectResult[0].values[0]
     const project = {
+      mode: this.getProjectMode(projectId),
       id: projectRow[0] as string,
       name: projectRow[1] as string,
       slug: projectRow[2] as string,
@@ -1759,7 +2051,12 @@ export class Database {
       'SELECT te.* FROM timeline_events te JOIN entries e ON te.entry_id = e.id WHERE e.project_id = ?',
       [projectId],
     )
-    const assets = selectAll('SELECT * FROM assets WHERE project_id = ?', [projectId])
+    this.captureAssetData(projectId)
+    const assets = selectAll(
+      'SELECT a.*, d.data_url FROM assets a LEFT JOIN asset_data d ON d.asset_id = a.id WHERE a.project_id = ?',
+      [projectId],
+    )
+    const templates = selectAll('SELECT * FROM templates WHERE project_id = ?', [projectId])
 
     let customFieldSchemas: any[] = []
     try {
@@ -1780,6 +2077,9 @@ export class Database {
 
     const exportData = {
       _schemaVersion: SCHEMA_VERSION,
+      novel: this.getNovel(projectId),
+      studio: this.getStudio(projectId),
+      templates,
       _exportedAt: new Date().toISOString(),
       project,
       entries: entriesWithRelated,
@@ -1802,6 +2102,8 @@ export class Database {
     if (!this.db) throw new Error('Database not opened')
 
     const data = JSON.parse(jsonString)
+    if (!data || !data.project || typeof data.project.name !== 'string' || !Array.isArray(data.entries))
+      throw new Error('无效的项目备份')
 
     if (!data._schemaVersion || data._schemaVersion > SCHEMA_VERSION) {
       throw new Error(`不支持的备份版本：${data._schemaVersion}，当前支持最高版本：${SCHEMA_VERSION}`)
@@ -1812,7 +2114,7 @@ export class Database {
     const nameSuffix = options?.nameSuffix || ' (副本)'
     const originalProject = data.project
     const newProjectName = originalProject.name + nameSuffix
-    const newProjectSlug = generateSlug(newProjectName)
+    const newProjectSlug = generateSlug(newProjectName) + '-' + newProjectId
 
     const idMapping: Record<string, string> = {}
 
@@ -1823,127 +2125,135 @@ export class Database {
       return idMapping[oldId]
     }
 
-    const newProject: Project = {
-      id: newProjectId,
-      name: newProjectName,
-      slug: newProjectSlug,
-      description: originalProject.description || '',
-      schemaVersion: SCHEMA_VERSION,
-      createdAt: now,
-      updatedAt: now,
+    // Allocate IDs before resolving cross-references, including nested legacy records.
+    for (const key of [
+      'entries',
+      'tags',
+      'assets',
+      'anchors',
+      'timeline_events',
+      'custom_field_schemas',
+      'eras',
+      'templates',
+    ]) {
+      for (const row of data[key] || []) genNewId(row.id, key.slice(0, 3))
     }
-
-    this.db.run(
-      'INSERT INTO projects (id, name, slug, description, schema_version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [
-        newProjectId,
-        newProjectName,
-        newProjectSlug,
-        originalProject.description || '',
-        SCHEMA_VERSION,
-        now,
-        now,
-      ] as SqlValue[],
-    )
-
-    for (const tag of data.tags || []) {
-      const newTagId = genNewId(tag.id, 'tag')
-      this.db.run('INSERT INTO tags (id, project_id, name, color, created_at) VALUES (?, ?, ?, ?, ?)', [
-        newTagId,
-        newProjectId,
-        tag.name,
-        tag.color || null,
-        tag.created_at || now,
-      ] as SqlValue[])
+    for (const entry of data.entries) {
+      for (const row of entry.anchors || []) genNewId(row.id, 'anc')
+      for (const row of entry.timeline_events || []) genNewId(row.id, 'tim')
     }
+    this.db.run('BEGIN TRANSACTION')
+    this.db.run('PRAGMA defer_foreign_keys = ON')
+    try {
+      const newProject: Project = {
+        id: newProjectId,
+        name: newProjectName,
+        slug: newProjectSlug,
+        description: originalProject.description || '',
+        schemaVersion: SCHEMA_VERSION,
+        createdAt: now,
+        updatedAt: now,
+      }
 
-    for (const entry of data.entries || []) {
-      const newEntryId = genNewId(entry.id, (entry.type || 'ent').slice(0, 3))
       this.db.run(
-        `INSERT INTO entries (id, project_id, type, title, slug, summary, content, status, visibility, region,
-          condition, occupants, cover_asset_id, map_position_x, map_position_y, anchor_id, created_at, updated_at, archived_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        'INSERT INTO projects (id, name, slug, description, schema_version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [
-          newEntryId,
           newProjectId,
-          entry.type,
-          entry.title,
-          entry.slug || generateSlug(entry.title),
-          entry.summary || '',
-          entry.content || '',
-          entry.status || 'draft',
-          entry.visibility || 'private',
-          entry.region || '',
-          entry.condition || '',
-          entry.occupants || '',
-          entry.cover_asset_id ? idMapping[entry.cover_asset_id] || null : null,
-          entry.map_position_x,
-          entry.map_position_y,
-          entry.anchor_id ? idMapping[entry.anchor_id] || null : null,
-          entry.created_at || now,
-          entry.updated_at || now,
-          entry.archived_at || null,
+          newProjectName,
+          newProjectSlug,
+          originalProject.description || '',
+          SCHEMA_VERSION,
+          now,
+          now,
         ] as SqlValue[],
       )
 
-      for (const alias of entry.aliases || []) {
-        const newAliasId = generateId('als')
-        this.db.run('INSERT INTO entry_aliases (id, entry_id, value, normalized_value) VALUES (?, ?, ?, ?)', [
-          newAliasId,
-          newEntryId,
-          alias.value,
-          alias.normalized_value || (alias.value as string).toLowerCase().trim(),
+      this.db.run('INSERT INTO project_modes (project_id, mode) VALUES (?, ?)', [
+        newProjectId,
+        ['novel', 'oc', 'trpg', 'tavern'].includes(originalProject.mode) ? originalProject.mode : 'free',
+      ])
+      newProject.mode = this.getProjectMode(newProjectId)
+      for (const tag of data.tags || []) {
+        const newTagId = genNewId(tag.id, 'tag')
+        this.db.run('INSERT INTO tags (id, project_id, name, color, created_at) VALUES (?, ?, ?, ?, ?)', [
+          newTagId,
+          newProjectId,
+          tag.name,
+          tag.color || null,
+          tag.created_at || now,
         ] as SqlValue[])
       }
-    }
 
-    for (const entry of data.entries || []) {
-      const newEntryId = idMapping[entry.id]
-      for (const et of entry.tags || []) {
+      for (const entry of data.entries || []) {
+        const newEntryId = genNewId(entry.id, (entry.type || 'ent').slice(0, 3))
+        this.db.run(
+          `INSERT INTO entries (id, project_id, type, title, slug, summary, content, status, visibility, region,
+          condition, occupants, cover_asset_id, map_position_x, map_position_y, anchor_id, created_at, updated_at, archived_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            newEntryId,
+            newProjectId,
+            entry.type,
+            entry.title,
+            entry.slug || generateSlug(entry.title),
+            entry.summary || '',
+            entry.content || '',
+            entry.status || 'draft',
+            entry.visibility || 'private',
+            entry.region || '',
+            entry.condition || '',
+            entry.occupants || '',
+            entry.cover_asset_id ? idMapping[entry.cover_asset_id] || null : null,
+            entry.map_position_x,
+            entry.map_position_y,
+            entry.anchor_id ? idMapping[entry.anchor_id] || null : null,
+            entry.created_at || now,
+            entry.updated_at || now,
+            entry.archived_at || null,
+          ] as SqlValue[],
+        )
+
+        for (const alias of entry.aliases || []) {
+          const newAliasId = generateId('als')
+          this.db.run(
+            'INSERT INTO entry_aliases (id, entry_id, value, normalized_value) VALUES (?, ?, ?, ?)',
+            [
+              newAliasId,
+              newEntryId,
+              alias.value,
+              alias.normalized_value || (alias.value as string).toLowerCase().trim(),
+            ] as SqlValue[],
+          )
+        }
+      }
+
+      for (const entry of data.entries || []) {
+        const newEntryId = idMapping[entry.id]
+        for (const et of entry.tags || []) {
+          const newTagId = idMapping[et.tag_id]
+          if (newTagId) {
+            this.db.run('INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?, ?)', [
+              newEntryId,
+              newTagId,
+            ] as SqlValue[])
+          }
+        }
+      }
+
+      for (const et of data.entry_tags || []) {
+        const newEntryId = idMapping[et.entry_id]
         const newTagId = idMapping[et.tag_id]
-        if (newTagId) {
+        if (newEntryId && newTagId) {
           this.db.run('INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?, ?)', [
             newEntryId,
             newTagId,
           ] as SqlValue[])
         }
       }
-    }
 
-    for (const et of data.entry_tags || []) {
-      const newEntryId = idMapping[et.entry_id]
-      const newTagId = idMapping[et.tag_id]
-      if (newEntryId && newTagId) {
-        this.db.run('INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?, ?)', [
-          newEntryId,
-          newTagId,
-        ] as SqlValue[])
-      }
-    }
-
-    for (const entry of data.entries || []) {
-      const newEntryId = idMapping[entry.id]
-      for (const anchor of entry.anchors || []) {
-        const newAnchorId = genNewId(anchor.id, 'anc')
-        this.db.run(
-          'INSERT INTO anchors (id, entry_id, label, x, y, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [
-            newAnchorId,
-            newEntryId,
-            anchor.label,
-            anchor.x,
-            anchor.y,
-            anchor.notes || '',
-            anchor.created_at || now,
-          ] as SqlValue[],
-        )
-      }
-    }
-
-    for (const anchor of data.anchors || []) {
-      if (!idMapping[anchor.id]) {
-        const newEntryId = idMapping[anchor.entry_id]
-        if (newEntryId) {
+      for (const entry of data.entries || []) {
+        const newEntryId = idMapping[entry.id]
+        for (const anchor of entry.anchors || []) {
           const newAnchorId = genNewId(anchor.id, 'anc')
           this.db.run(
             'INSERT INTO anchors (id, entry_id, label, x, y, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -1959,31 +2269,31 @@ export class Database {
           )
         }
       }
-    }
 
-    for (const entry of data.entries || []) {
-      const newEntryId = idMapping[entry.id]
-      for (const te of entry.timeline_events || []) {
-        const newTeId = genNewId(te.id, 't')
-        this.db.run(
-          'INSERT INTO timeline_events (id, entry_id, point_label, title, sort_value, description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [
-            newTeId,
-            newEntryId,
-            te.point_label || '',
-            te.title,
-            te.sort_value,
-            te.description || '',
-            te.created_at || now,
-          ] as SqlValue[],
-        )
+      for (const anchor of data.anchors || []) {
+        if (!this.db.exec('SELECT id FROM anchors WHERE id = ?', [idMapping[anchor.id]])[0]?.values.length) {
+          const newEntryId = idMapping[anchor.entry_id]
+          if (newEntryId) {
+            const newAnchorId = genNewId(anchor.id, 'anc')
+            this.db.run(
+              'INSERT INTO anchors (id, entry_id, label, x, y, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+              [
+                newAnchorId,
+                newEntryId,
+                anchor.label,
+                anchor.x,
+                anchor.y,
+                anchor.notes || '',
+                anchor.created_at || now,
+              ] as SqlValue[],
+            )
+          }
+        }
       }
-    }
 
-    for (const te of data.timeline_events || []) {
-      if (!idMapping[te.id]) {
-        const newEntryId = idMapping[te.entry_id]
-        if (newEntryId) {
+      for (const entry of data.entries || []) {
+        const newEntryId = idMapping[entry.id]
+        for (const te of entry.timeline_events || []) {
           const newTeId = genNewId(te.id, 't')
           this.db.run(
             'INSERT INTO timeline_events (id, entry_id, point_label, title, sort_value, description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -1999,139 +2309,234 @@ export class Database {
           )
         }
       }
-    }
 
-    for (const entry of data.entries || []) {
-      const newEntryId = idMapping[entry.id]
-      for (const fv of entry.fieldValues || []) {
-        const newFieldId = idMapping[fv.field_id] || fv.field_id
-        this.db.run(
-          'INSERT OR IGNORE INTO custom_field_values (entry_id, field_id, value_text, updated_at) VALUES (?, ?, ?, ?)',
-          [newEntryId, newFieldId, fv.value_text || '', fv.updated_at || now] as SqlValue[],
-        )
+      for (const te of data.timeline_events || []) {
+        if (
+          !this.db.exec('SELECT id FROM timeline_events WHERE id = ?', [idMapping[te.id]])[0]?.values.length
+        ) {
+          const newEntryId = idMapping[te.entry_id]
+          if (newEntryId) {
+            const newTeId = genNewId(te.id, 't')
+            this.db.run(
+              'INSERT INTO timeline_events (id, entry_id, point_label, title, sort_value, description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+              [
+                newTeId,
+                newEntryId,
+                te.point_label || '',
+                te.title,
+                te.sort_value,
+                te.description || '',
+                te.created_at || now,
+              ] as SqlValue[],
+            )
+          }
+        }
       }
-    }
 
-    for (const fv of data.custom_field_values || []) {
-      const newEntryId = idMapping[fv.entry_id]
-      if (newEntryId) {
-        const newFieldId = idMapping[fv.field_id] || fv.field_id
-        this.db.run(
-          'INSERT OR IGNORE INTO custom_field_values (entry_id, field_id, value_text, updated_at) VALUES (?, ?, ?, ?)',
-          [newEntryId, newFieldId, fv.value_text || '', fv.updated_at || now] as SqlValue[],
-        )
+      for (const entry of data.entries || []) {
+        const newEntryId = idMapping[entry.id]
+        for (const fv of entry.fieldValues || []) {
+          const newFieldId = idMapping[fv.field_id] || fv.field_id
+          this.db.run(
+            'INSERT OR IGNORE INTO custom_field_values (entry_id, field_id, value_text, updated_at) VALUES (?, ?, ?, ?)',
+            [newEntryId, newFieldId, fv.value_text || '', fv.updated_at || now] as SqlValue[],
+          )
+        }
       }
-    }
 
-    for (const relation of data.relations || []) {
-      const newRelId = genNewId(relation.id, 'rel')
-      const newSourceId = idMapping[relation.source_entry_id]
-      const newTargetId = idMapping[relation.target_entry_id]
-      if (newSourceId && newTargetId) {
+      for (const fv of data.custom_field_values || []) {
+        const newEntryId = idMapping[fv.entry_id]
+        if (newEntryId) {
+          const newFieldId = idMapping[fv.field_id] || fv.field_id
+          this.db.run(
+            'INSERT OR IGNORE INTO custom_field_values (entry_id, field_id, value_text, updated_at) VALUES (?, ?, ?, ?)',
+            [newEntryId, newFieldId, fv.value_text || '', fv.updated_at || now] as SqlValue[],
+          )
+        }
+      }
+
+      for (const relation of data.relations || []) {
+        const newRelId = genNewId(relation.id, 'rel')
+        const newSourceId = idMapping[relation.source_entry_id]
+        const newTargetId = idMapping[relation.target_entry_id]
+        if (newSourceId && newTargetId) {
+          this.db.run(
+            'INSERT INTO relations (id, project_id, source_entry_id, target_entry_id, type, direction, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+              newRelId,
+              newProjectId,
+              newSourceId,
+              newTargetId,
+              relation.type,
+              relation.direction || 'directed',
+              relation.note || '',
+              relation.created_at || now,
+              relation.updated_at || now,
+            ] as SqlValue[],
+          )
+        }
+      }
+
+      for (const bl of data.backlinks || []) {
+        const newBlId = genNewId(bl.id, 'bl')
+        const newSourceId = idMapping[bl.source_entry_id]
+        const newTargetId = idMapping[bl.target_entry_id]
+        if (newSourceId && newTargetId) {
+          this.db.run(
+            'INSERT OR IGNORE INTO backlinks (id, project_id, source_entry_id, target_entry_id, link_text, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+            [
+              newBlId,
+              newProjectId,
+              newSourceId,
+              newTargetId,
+              bl.link_text || '',
+              bl.created_at || now,
+            ] as SqlValue[],
+          )
+        }
+      }
+
+      for (const asset of data.assets || []) {
+        const newAssetId = genNewId(asset.id, 'ast')
         this.db.run(
-          'INSERT INTO relations (id, project_id, source_entry_id, target_entry_id, type, direction, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO assets (id, project_id, kind, filename, relative_path, mime_type, size, checksum, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [
-            newRelId,
+            newAssetId,
             newProjectId,
-            newSourceId,
-            newTargetId,
-            relation.type,
-            relation.direction || 'directed',
-            relation.note || '',
-            relation.created_at || now,
-            relation.updated_at || now,
+            asset.kind,
+            asset.filename,
+            asset.relative_path,
+            asset.mime_type,
+            asset.size,
+            asset.checksum || null,
+            asset.created_at || now,
           ] as SqlValue[],
         )
       }
-    }
 
-    for (const bl of data.backlinks || []) {
-      const newBlId = genNewId(bl.id, 'bl')
-      const newSourceId = idMapping[bl.source_entry_id]
-      const newTargetId = idMapping[bl.target_entry_id]
-      if (newSourceId && newTargetId) {
-        this.db.run(
-          'INSERT OR IGNORE INTO backlinks (id, project_id, source_entry_id, target_entry_id, link_text, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-          [
-            newBlId,
-            newProjectId,
-            newSourceId,
-            newTargetId,
-            bl.link_text || '',
-            bl.created_at || now,
-          ] as SqlValue[],
-        )
+      for (const asset of data.assets || []) {
+        if (typeof asset.data_url === 'string')
+          this.db.run('INSERT INTO asset_data (asset_id, data_url) VALUES (?, ?)', [
+            idMapping[asset.id],
+            asset.data_url,
+          ])
       }
-    }
 
-    for (const asset of data.assets || []) {
-      const newAssetId = genNewId(asset.id, 'ast')
-      this.db.run(
-        'INSERT INTO assets (id, project_id, kind, filename, relative_path, mime_type, size, checksum, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          newAssetId,
-          newProjectId,
-          asset.kind,
-          asset.filename,
-          asset.relative_path,
-          asset.mime_type,
-          asset.size,
-          asset.checksum || null,
-          asset.created_at || now,
-        ] as SqlValue[],
-      )
-    }
-
-    for (const schema of data.custom_field_schemas || []) {
-      try {
-        const newSchemaId = genNewId(schema.id, 'cfs')
-        this.db.run(
-          `INSERT INTO custom_field_schemas (id, project_id, key, label, type, entry_type, required, options, placeholder, default_value, sort_order, group_label, is_builtin, created_at)
+      for (const schema of data.custom_field_schemas || []) {
+        try {
+          const newSchemaId = genNewId(schema.id, 'cfs')
+          this.db.run(
+            `INSERT INTO custom_field_schemas (id, project_id, key, label, type, entry_type, required, options, placeholder, default_value, sort_order, group_label, is_builtin, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            newSchemaId,
-            newProjectId,
-            schema.key,
-            schema.label,
-            schema.type,
-            schema.entry_type || null,
-            schema.required || 0,
-            schema.options || '[]',
-            schema.placeholder || '',
-            schema.default_value || null,
-            schema.sort_order || 0,
-            schema.group_label || '',
-            schema.is_builtin || 0,
-            schema.created_at || now,
-          ] as SqlValue[],
-        )
-      } catch {}
-    }
+            [
+              newSchemaId,
+              newProjectId,
+              schema.key,
+              schema.label,
+              schema.type,
+              schema.entry_type || null,
+              schema.required || 0,
+              schema.options || '[]',
+              schema.placeholder || '',
+              schema.default_value || null,
+              schema.sort_order || 0,
+              schema.group_label || '',
+              schema.is_builtin || 0,
+              schema.created_at || now,
+            ] as SqlValue[],
+          )
+        } catch (error) {
+          throw error
+        }
+      }
 
-    for (const era of data.eras || []) {
-      try {
-        const newEraId = genNewId(era.id, 'era')
-        const newParentId = era.parent_id ? idMapping[era.parent_id] || null : null
-        this.db.run(
-          `INSERT INTO eras (id, project_id, parent_id, name, short_name, start_sort_value, end_sort_value, description, color, created_at)
+      for (const era of data.eras || []) {
+        try {
+          const newEraId = genNewId(era.id, 'era')
+          const newParentId = era.parent_id ? idMapping[era.parent_id] || null : null
+          this.db.run(
+            `INSERT INTO eras (id, project_id, parent_id, name, short_name, start_sort_value, end_sort_value, description, color, created_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            newEraId,
-            newProjectId,
-            newParentId,
-            era.name,
-            era.short_name || '',
-            era.start_sort_value,
-            era.end_sort_value,
-            era.description || '',
-            era.color || '#6366f1',
-            era.created_at || now,
-          ] as SqlValue[],
-        )
-      } catch {}
-    }
+            [
+              newEraId,
+              newProjectId,
+              newParentId,
+              era.name,
+              era.short_name || '',
+              era.start_sort_value,
+              era.end_sort_value,
+              era.description || '',
+              era.color || '#6366f1',
+              era.created_at || now,
+            ] as SqlValue[],
+          )
+        } catch (error) {
+          throw error
+        }
+      }
 
-    return newProject
+      for (const template of data.templates || []) {
+        this.db.run(
+          'INSERT INTO templates (id, project_id, name, type, description, content, tags, aliases, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [
+            idMapping[template.id],
+            newProjectId,
+            template.name,
+            template.type,
+            template.description || '',
+            template.content || '',
+            template.tags || '[]',
+            template.aliases || '[]',
+            template.created_at || now,
+            template.updated_at || now,
+          ],
+        )
+      }
+      if (data.studio) {
+        validateStudio(data.studio)
+        this.saveStudio(newProjectId, remapStudio(data.studio, idMapping))
+      }
+      if (data.novel) {
+        const novel = data.novel as NovelDocument
+        validateNovel(novel)
+        if (
+          novel.version !== 1 ||
+          !Array.isArray(novel.chapters) ||
+          !Array.isArray(novel.snapshots) ||
+          !Array.isArray(novel.generations) ||
+          !Array.isArray(novel.proposals) ||
+          !Array.isArray(novel.issues)
+        )
+          throw new Error('小说备份格式无效')
+        const remap = (content: {
+          chapters: NovelDocument['chapters']
+          proposals: NovelDocument['proposals']
+        }) => {
+          content.chapters.forEach((c) => {
+            c.entryIds = c.entryIds.map((id) => idMapping[id]).filter(Boolean)
+          })
+          content.proposals.forEach((p) => {
+            if (p.pendingEntryId) p.pendingEntryId = idMapping[p.pendingEntryId]
+            if (p.targetEntryId) p.targetEntryId = idMapping[p.targetEntryId]
+            if (p.appliedEntryId) p.appliedEntryId = idMapping[p.appliedEntryId]
+          })
+        }
+        remap(novel)
+        novel.snapshots.forEach((s) => remap(s.data))
+        novel.generations = novel.generations.map((g) => ({
+          ...g,
+          status: g.status === 'ready' ? 'discarded' : g.status,
+          worldEntryIds: g.worldEntryIds?.map((id) => idMapping[id]).filter(Boolean),
+        }))
+        this.saveNovel(newProjectId, novel)
+      }
+      await this.ensureBuiltinFieldSchemas(newProjectId)
+      this.db.run('COMMIT')
+      return newProject
+    } catch (error) {
+      this.db.run('ROLLBACK')
+      throw error
+    }
   }
 }
 
@@ -2195,7 +2600,9 @@ function idbPut<T>(store: string, value: T, key?: IDBValidKey): Promise<void> {
         const tx = db.transaction(store, 'readwrite')
         const os = tx.objectStore(store)
         const req = key !== undefined ? os.put(value, key) : os.put(value)
-        req.onsuccess = () => resolve()
+        tx.oncomplete = () => resolve()
+        tx.onabort = () => reject(tx.error || new Error('Storage transaction aborted'))
+        tx.onerror = () => reject(tx.error)
         req.onerror = () => reject(req.error)
       }),
   )
@@ -2231,7 +2638,9 @@ function idbDelete(store: string, key: IDBValidKey): Promise<void> {
       new Promise((resolve, reject) => {
         const tx = db.transaction(store, 'readwrite')
         const req = tx.objectStore(store).delete(key)
-        req.onsuccess = () => resolve()
+        tx.oncomplete = () => resolve()
+        tx.onabort = () => reject(tx.error || new Error('Storage transaction aborted'))
+        tx.onerror = () => reject(tx.error)
         req.onerror = () => reject(req.error)
       }),
   )
