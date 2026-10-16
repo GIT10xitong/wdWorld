@@ -5,7 +5,7 @@ const os = require('node:os')
 const assert = require('node:assert/strict')
 const fixture = require('../tests/fixtures/legacy/project-1.7.0.json')
 const pkg = require('../package.json')
-/* global window */
+/* global window, document */
 
 async function main() {
   const executablePath = path.resolve(process.argv[2])
@@ -42,6 +42,9 @@ async function main() {
       .locator('.workspace-sidebar')
       .getByRole('button', { name: 'Legacy migration sentinel', exact: true })
       .click()
+    await page.waitForFunction(
+      () => document.querySelector('[aria-label="Entry title"]')?.value === 'Legacy migration sentinel',
+    )
     return page
   }
   try {

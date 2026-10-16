@@ -17,6 +17,9 @@ $taskRegistryRoots = @(
 $taskExisting = Get-ItemProperty $taskRegistryRoots -ErrorAction SilentlyContinue |
   Where-Object { $_.DisplayName -eq 'WD World' }
 if ($taskExisting) { throw 'An existing WD World installation was found. Use a clean Windows test account.' }
+if (Get-Process -Name 'WD World' -ErrorAction SilentlyContinue) {
+  throw 'A WD World process is running. Close it before installer acceptance.'
+}
 foreach ($taskSpecial in @('Desktop', 'CommonDesktopDirectory', 'Programs', 'CommonPrograms')) {
   $taskShortcut = Join-Path ([Environment]::GetFolderPath($taskSpecial)) 'WD World.lnk'
   if (Test-Path -LiteralPath $taskShortcut) { throw "Existing shortcut must be preserved: $taskShortcut" }
