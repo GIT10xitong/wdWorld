@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import uiCatalog from './locales/en.json'
 import errorCatalog from '../../electron/messages.en.json'
 import lanErrors from '../../electron/lan-client/errors.json'
+import pluginErrors from '../../electron/plugin-errors.json'
 import '@/features/lan/types'
 type Language = 'zh-CN' | 'en'
 const catalog = { ...uiCatalog, ...errorCatalog }
@@ -43,7 +44,13 @@ const messagePatterns = Object.entries(catalog)
     value,
   }))
 export function message(text: string): string {
-  if (language !== 'en') return (lanErrors as Record<string, string>)[text] || reverseMessages[text] || text
+  if (language !== 'en')
+    return (
+      (pluginErrors as Record<string, string>)[text] ||
+      (lanErrors as Record<string, string>)[text] ||
+      reverseMessages[text] ||
+      text
+    )
   const direct = t(text)
   if (language !== 'en' || direct !== text) return direct
   for (const item of messagePatterns) {

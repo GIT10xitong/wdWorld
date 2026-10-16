@@ -11,11 +11,22 @@ const requests = []
 const mock = http.createServer(async (req, res) => {
   let body = ''
   for await (const chunk of req) body += chunk
-  requests.push(JSON.parse(body))
+  const request = JSON.parse(body)
+  requests.push(request)
+  const immersive = request.messages.some((m) => m.content.includes('Return ONLY JSON:'))
+  const content = immersive
+    ? JSON.stringify({
+        reply: 'Welcome to the harbor.',
+        story: {
+          location: 'Harbor',
+          goal: 'Find a ship',
+          summary: 'The keeper greets the party.',
+          choices: ['Ask about the ship', 'Inspect the docks', 'Wait for dawn'],
+        },
+      })
+    : 'Welcome to the harbor.'
   res.writeHead(200, { 'Content-Type': 'application/json' })
-  res.end(
-    JSON.stringify({ choices: [{ message: { content: 'Welcome to the harbor.' }, finish_reason: 'stop' }] }),
-  )
+  res.end(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] }))
 })
 async function main() {
   await new Promise((resolve) => mock.listen(0, '127.0.0.1', resolve))
@@ -40,6 +51,7 @@ async function main() {
       fs.writeFileSync(path.join(root, 'test-results', name), Buffer.from(encoded, 'base64'))
     }
     const page = await app.firstWindow()
+    await require('./test-plugin-helper').installTestModes(page)
     page.setDefaultTimeout(15000)
     page.on('pageerror', (e) => errors.push(e.message))
     const mode = async (name) => {
@@ -64,6 +76,8 @@ async function main() {
             ),
           name,
         )
+      if (['OC creator', 'TRPG game master', 'Tavern creator'].includes(name))
+        await require('./test-plugin-helper').openStudioEditor(page)
     }
     const create = async (id, name) => {
       await page.locator(`[data-mode="${id}"]`).click()
@@ -163,6 +177,35 @@ async function main() {
     await page.getByLabel('Handout draft', { exact: true }).fill('The gate opens at dawn.')
     await page.getByRole('button', { name: 'Confirm and publish handout', exact: true }).click()
     await alice.locator('#handouts').getByText('The gate opens at dawn.').waitFor()
+    await page.getByRole('button', { name: 'Pause AI and take over', exact: true }).click()
+    await page.getByLabel('Wait for all players to submit actions', { exact: true }).click()
+    await alice
+      .locator('#roundStatus')
+      .getByText(/Round 1/)
+      .waitFor()
+    await alice.locator('#text').fill('Search the gate')
+    await alice.getByRole('button', { name: 'Send', exact: true }).click()
+    await alice.waitForFunction(() => document.getElementById('sendChat').disabled)
+    await bob.getByRole('button', { name: 'Step away', exact: true }).click()
+    await page.getByText('Waiting for GM response', { exact: false }).first().waitFor()
+    await page.getByLabel('Player to check', { exact: true }).selectOption({ label: 'Captain' })
+    await page.getByLabel('Check name', { exact: true }).fill('Search gate')
+    await page.getByRole('button', { name: 'Request check', exact: true }).click()
+    await alice.getByRole('button', { name: 'Roll check', exact: true }).click()
+    await bob
+      .locator('#checks')
+      .getByText(/Search gate.*(Success|Failure)/)
+      .waitFor()
+    const afterCheck = (await page.evaluate(() => window.lanRoom.state())).state
+    assert.equal(afterCheck.checks[0].status, 'resolved')
+    assert.equal(afterCheck.round.number, 1)
+    await page.getByRole('button', { name: 'End round as GM', exact: true }).click()
+    await alice
+      .locator('#roundStatus')
+      .getByText(/Round 2/)
+      .waitFor()
+    assert.equal(await alice.locator('#sendChat').isDisabled(), false)
+    await bob.getByRole('button', { name: 'Return to play', exact: true }).click()
     await capture('lan-host-en.png')
     await page.getByRole('button', { name: 'End room', exact: true }).click()
     await page.getByRole('button', { name: 'Create room', exact: true }).waitFor()
@@ -238,6 +281,30 @@ async function main() {
     const tavernRoom = (await page.evaluate(() => window.lanRoom.state())).state
     const carol = await guest('Carol', tavernRoom),
       dan = await guest('Dan', tavernRoom)
+    await page.getByLabel('Story tracking & suggested actions', { exact: false }).check()
+    await page.getByRole('button', { name: 'Apply automation settings', exact: true }).click()
+    await carol.locator('#text').fill('Where can I find a ship?')
+    await carol.getByRole('button', { name: 'Send', exact: true }).click()
+    await dan
+      .locator('#storyState')
+      .getByText(/Harbor/)
+      .waitFor()
+    await carol.getByRole('button', { name: 'Ask about the ship', exact: true }).click()
+    assert.equal(await carol.locator('#text').inputValue(), 'Ask about the ship')
+    assert.equal(
+      (await page.evaluate(() => window.lanRoom.state())).state.messages.filter(
+        (m) => m.text === 'Ask about the ship',
+      ).length,
+      0,
+    )
+    await page.getByRole('button', { name: 'Edit story state as host', exact: true }).click()
+    await page.getByLabel('Current location', { exact: true }).fill('Harbor office')
+    await page.getByRole('button', { name: 'Save story state', exact: true }).click()
+    await dan
+      .locator('#storyState')
+      .getByText(/Harbor office/)
+      .waitFor()
+    assert.equal(await dan.locator('#storyChoices button').count(), 0)
     await page
       .getByRole('button', { name: "Preview selected character's public profile", exact: true })
       .click()

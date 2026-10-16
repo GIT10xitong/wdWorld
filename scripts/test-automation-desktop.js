@@ -42,6 +42,7 @@ async function main() {
   const launch = async () => {
     app = await _electron.launch({ executablePath: require('electron'), args: [root], env })
     page = await app.firstWindow()
+    await require('./test-plugin-helper').installTestModes(page)
     page.setDefaultTimeout(20000)
     page.on('pageerror', (e) => errors.push(e.message))
     await page.locator('.language-picker').selectOption('zh-CN')
@@ -53,6 +54,8 @@ async function main() {
       (label) => document.querySelector('.mode-bar [aria-current="page"]')?.textContent === label,
       name,
     )
+    if (['OC 创作者', 'TRPG 主持人', '酒馆制作'].includes(name))
+      await require('./test-plugin-helper').openStudioEditor(page)
   }
   const button = (name) => page.getByRole('button', { name, exact: true })
   const value = (label, expected) =>

@@ -24,6 +24,8 @@ import { TavernWorkshop } from './TavernWorkshop'
 import { ScenarioWorkshop } from './ScenarioWorkshop'
 import { TrpgWorkshop } from './TrpgWorkshop'
 import { parseTavernWorld } from './tavernWorld'
+import { StudioHome, type StudioTarget, type StudioPage } from './StudioHome'
+import { st } from './homeModel'
 import '@/features/novel/novel.css'
 
 export function StudioWorkspace({
@@ -31,11 +33,15 @@ export function StudioWorkspace({
   database,
   project,
   onBusyChange,
+  onNavigate,
+  onLibrary,
 }: {
   mode: StudioMode
   database: Database
   project: Project
   onBusyChange: (busy: boolean) => void
+  onNavigate: (page: StudioPage) => void
+  onLibrary: () => void
 }) {
   const session = useStudioSession(database, project.id, mode)
   const { doc, change, dirty, error, setError, busy, stream, progress, flush } = session
@@ -47,6 +53,19 @@ export function StudioWorkspace({
   const [model, setModel] = useState('')
   const [notice, setNotice] = useState('')
   const [working, setWorking] = useState(false)
+  const [home, setHome] = useState(mode !== 'simulation')
+  const [target, setTarget] = useState<StudioTarget>('draft')
+  const workspace = useRef<HTMLElement>(null)
+  const edit = (next: StudioTarget) => {
+    setTarget(next)
+    setHome(false)
+  }
+  useEffect(() => {
+    if (!home)
+      workspace.current
+        ?.querySelector(`[data-studio-section="${target}"]`)
+        ?.scrollIntoView({ block: 'start' })
+  }, [home, target])
   const lock = useRef(false)
   const draft = doc.drafts[mode]
   const candidate = doc.candidates[mode]
@@ -140,7 +159,10 @@ export function StudioWorkspace({
       setNotice(revert ? t('已恢复变更前的正文') : t('已确认并更新世界设定'))
     })
   return (
-    <section className="studio-shell">
+    <section
+      ref={workspace}
+      className={`studio-shell ${mode !== 'simulation' ? `home-theme-${mode} studio-themed` : ''}`}
+    >
       <header className="studio-heading">
         <div>
           <small>
@@ -180,24 +202,68 @@ export function StudioWorkspace({
           {notice}
         </p>
       )}
-      <div className="studio-layout">
+      {mode !== 'simulation' && (
+        <nav className="studio-home-nav" aria-label={st('模式工作台导航', 'Mode workspace navigation')}>
+          <button disabled={busy || working} onClick={onLibrary}>
+            {st('返回项目库', 'Project library')}
+          </button>
+          <button
+            disabled={busy || working}
+            aria-current={home ? 'page' : undefined}
+            onClick={() => setHome(true)}
+          >
+            {st('创作主页', 'Creative home')}
+          </button>
+          <button
+            disabled={busy || working}
+            aria-current={!home ? 'page' : undefined}
+            onClick={() => edit('draft')}
+          >
+            {st('编辑工作台', 'Editing workbench')}
+          </button>
+          <button disabled={busy || working} onClick={() => onNavigate('world')}>
+            {st('查看世界观', 'Open worldbuilding')}
+          </button>
+        </nav>
+      )}
+      {home && mode !== 'simulation' && (
+        <StudioHome
+          mode={mode}
+          doc={doc}
+          project={project}
+          entries={entries}
+          relations={relations}
+          disabled={busy || working}
+          edit={edit}
+          navigate={onNavigate}
+          openEntry={(id) => {
+            useStore.getState().selectEntry(id)
+            onNavigate('world')
+          }}
+        />
+      )}
+      <div className="studio-layout" hidden={home}>
         <main className="studio-editor">
           {mode === 'trpg' && (
-            <TrpgWorkshop
-              doc={doc}
-              change={change}
-              disabled={busy || working}
-              database={database}
-              projectId={project.id}
-              onError={setError}
-              flush={flush}
-              random={() => void session.run('trpg-world')}
-            />
+            <div data-studio-section="modules">
+              <TrpgWorkshop
+                doc={doc}
+                change={change}
+                disabled={busy || working}
+                database={database}
+                projectId={project.id}
+                onError={setError}
+                flush={flush}
+                random={() => void session.run('trpg-world')}
+              />
+            </div>
           )}
           {mode === 'tavern' && (
-            <ScenarioWorkshop doc={doc} change={change} disabled={busy || working} onError={setError} />
+            <div data-studio-section="scenarios">
+              <ScenarioWorkshop doc={doc} change={change} disabled={busy || working} onError={setError} />
+            </div>
           )}
-          <section className="studio-card">
+          <section className="studio-card" data-studio-section="draft">
             <h2>{mode === 'simulation' ? t('变更条件') : t('创作草稿')}</h2>
             <div className="studio-fields">
               {Object.entries(FIELDS[mode]).map(([key, label]) => (
@@ -315,10 +381,12 @@ export function StudioWorkspace({
             )}
           </section>
           {mode === 'tavern' && (
-            <TavernWorkshop doc={doc} change={change} disabled={busy || working} onError={setError} />
+            <div data-studio-section="cards">
+              <TavernWorkshop doc={doc} change={change} disabled={busy || working} onError={setError} />
+            </div>
           )}
           {mode === 'tavern' && (
-            <section className="studio-card">
+            <section className="studio-card" data-studio-section="book">
               <h2>{t('世界书制作')}</h2>
               <p className="studio-muted">
                 {t('触发词用逗号分隔；常驻条目无需触发词。导出文件为明文，不包含 API 配置。')}
@@ -560,7 +628,7 @@ export function StudioWorkspace({
             </section>
           )}
         </main>
-        <aside className="studio-assistant">
+        <aside className="studio-assistant" data-studio-section="assistant">
           <h2>{t('AI 创作助手')}</h2>
           <p className="studio-muted">
             {t('当前模型：')}

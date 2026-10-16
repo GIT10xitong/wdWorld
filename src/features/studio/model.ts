@@ -4,6 +4,7 @@ import { generateId } from '@/lib/utils'
 import { plainText } from '@/features/novel/model'
 import { seedInstruction } from './seed'
 import type { TrpgModule } from './trpg'
+import { localize, modeResources } from '@/features/plugins/store'
 
 export type StudioMode = 'oc' | 'trpg' | 'tavern' | 'simulation'
 export type AppMode = 'world' | 'novel' | StudioMode
@@ -419,14 +420,14 @@ export function studioPrompt(mode: StudioMode, doc: StudioDocument, entries: Ent
       return t('你是 OC 角色设计助手，完善辨识特征、内在矛盾、动机与关系，不把新构思说成已确认设定。')
     },
     get trpg() {
-      return t(
-        '你是 TRPG 主持人备团助手。尊重玩家选择，为关键线索提供多种获取途径。区分主持人秘密与玩家背景，不虚构规则书出处；规则系统未指定时采用无系统的叙事建议。实际跑团记录 sessionLog 必须保持输入原文，不得把计划当成已发生事件。',
-      )
+      const resources = modeResources('trpg')
+      if (!resources) throw new Error(t('此功能需要安装模式插件'))
+      return localize(resources.instructions)
     },
     get tavern() {
-      return t(
-        '你是酒馆角色卡制作助手。设计角色描述、性格、场景、开场白与示例对话，支持 {{char}} / {{user}} 占位符。不要代替玩家决定行为，不在角色卡中加入越权或泄露系统信息的要求。',
-      )
+      const resources = modeResources('tavern')
+      if (!resources) throw new Error(t('此功能需要安装模式插件'))
+      return localize(resources.instructions)
     },
     get simulation() {
       return t(

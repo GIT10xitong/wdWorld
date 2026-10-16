@@ -31,6 +31,7 @@ import { useNovelSession } from './useNovelSession'
 import { STEPS, plainText, restoreSnapshot, snapshot, type AITask } from './model'
 import { buildPrompt } from './prompts'
 import { stageBlock } from './journey'
+import { nt } from './workbench'
 import limits from '../../../electron/ai-limits.json'
 import { SeedControls, seedInstruction } from '@/features/studio/seed'
 import './novel.css'
@@ -76,11 +77,13 @@ export function NovelWorkspace({
   project,
   onWorld,
   onBusyChange,
+  onDesk,
 }: {
   database: Database
   project: Project
   onWorld: () => void
   onBusyChange?: (busy: boolean) => void
+  onDesk?: () => void
 }) {
   const session = useNovelSession(database, project)
   const { doc, change, error, busy, stream, flush, updateChapter } = session
@@ -193,6 +196,17 @@ export function NovelWorkspace({
           {t('本地项目')}
         </div>
         <div className="novel-actions">
+          {onDesk && (
+            <button
+              disabled={busy}
+              onClick={async () => {
+                await flush()
+                if (useStore.getState().saveStatus !== 'error') onDesk()
+              }}
+            >
+              {nt('写作台', 'Writing desk')}
+            </button>
+          )}
           <span role="status" className={saveStatus === 'error' ? 'novel-error' : 'novel-muted'}>
             {saveStatus === 'saving'
               ? t('正在保存…')

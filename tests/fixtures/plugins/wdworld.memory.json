@@ -1,0 +1,22 @@
+{
+  "schema": "wdworld-plugin",
+  "apiVersion": 1,
+  "id": "wdworld.memory",
+  "version": "1.0.0",
+  "minAppVersion": "1.8.0",
+  "name": {
+    "zh": "记忆增强",
+    "en": "Memory notes"
+  },
+  "description": {
+    "zh": "按项目保存与检索记忆，AI 摘要由作者确认",
+    "en": "Per-project encrypted memory with author-approved summaries"
+  },
+  "author": "actrox",
+  "license": "MIT",
+  "kind": "extension",
+  "dependencies": ["wdworld.tavern"],
+  "permissions": ["room.read", "memory.write"],
+  "capability": "memory",
+  "protocol": "local-memory"
+}

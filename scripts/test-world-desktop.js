@@ -27,11 +27,15 @@ async function main() {
   const launch = async () => {
     app = await _electron.launch({ executablePath: require('electron'), args: [root], env })
     page = await app.firstWindow()
+    await require('./test-plugin-helper').installTestModes(page)
     page.setDefaultTimeout(15000)
     page.on('pageerror', (e) => errors.push(e.message))
     await page.locator('.language-picker').selectOption('zh-CN')
   }
-  const mode = async (name) => page.locator('.mode-bar').getByRole('button', { name, exact: true }).click()
+  const mode = async (name) => {
+    await page.locator('.mode-bar').getByRole('button', { name, exact: true }).click()
+    if (name === '酒馆制作') await require('./test-plugin-helper').openStudioEditor(page)
+  }
   const capture = async (name) => {
     const base64 = await app.evaluate(async ({ BrowserWindow }) => {
       const w = BrowserWindow.getAllWindows()[0]
@@ -51,6 +55,7 @@ async function main() {
     await page.getByPlaceholder('例如：雾海纪元').fill('整套世界验收')
     await page.getByRole('button', { name: '创建并进入', exact: true }).click()
     await page.getByRole('heading', { name: '酒馆制作', exact: true }).waitFor()
+    await require('./test-plugin-helper').openStudioEditor(page)
     assert.equal(
       await page.locator('.mode-bar').getByRole('button', { name: '切换创作模式', exact: true }).count(),
       0,
@@ -109,6 +114,7 @@ async function main() {
     await page.locator('[data-mode="tavern"]').click()
     await page.getByTitle('打开 整套世界验收', { exact: true }).click()
     await page.getByRole('heading', { name: '酒馆制作', exact: true }).waitFor()
+    await require('./test-plugin-helper').openStudioEditor(page)
     assert.equal(await page.getByLabel('角色卡名称', { exact: true }).inputValue(), '守灯人')
     assert.equal(await page.getByLabel('选择收藏角色卡').locator('option').count(), 3)
     assert.equal(await page.getByLabel('世界书标题 6', { exact: true }).inputValue(), '测绘师的愿望')

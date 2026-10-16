@@ -1,0 +1,22 @@
+{
+  "schema": "wdworld-plugin",
+  "apiVersion": 1,
+  "id": "wdworld.speech",
+  "version": "1.0.0",
+  "minAppVersion": "1.8.0",
+  "name": {
+    "zh": "文字转语音",
+    "en": "Text to speech"
+  },
+  "description": {
+    "zh": "连接 OpenAI 兼容语音服务，选择音色并播放生成音频",
+    "en": "Generate and play speech through an OpenAI-compatible service"
+  },
+  "author": "actrox",
+  "license": "MIT",
+  "kind": "extension",
+  "dependencies": ["wdworld.tavern"],
+  "permissions": ["network.request", "media.create"],
+  "capability": "speech",
+  "protocol": "openai-speech"
+}

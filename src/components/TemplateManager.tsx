@@ -229,20 +229,20 @@ export function TemplateManager() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-slate-900">
-      <div className="flex items-center justify-between p-6 border-b border-white/10">
+    <div className="h-full flex flex-col bg-ui-canvas">
+      <div className="flex items-center justify-between p-6 border-b border-ui-line">
         <div>
-          <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-            <Sparkles className="w-7 h-7 text-amber-400" />
+          <h2 className="text-2xl font-bold text-ui-text flex items-center gap-3">
+            <Sparkles className="w-7 h-7 text-ui-warning" />
             {t('模板管理')}
           </h2>
-          <p className="text-slate-400 mt-1">{t('创建和管理条目模板，快速生成标准化设定')}</p>
+          <p className="text-ui-muted mt-1">{t('创建和管理条目模板，快速生成标准化设定')}</p>
         </div>
         <div className="flex items-center gap-3">
           {templates.length === 0 && (
             <button
               onClick={handleCreateDefaultTemplates}
-              className="px-4 py-2 bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30 transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-ui-warning-soft text-ui-warning rounded-lg hover:bg-ui-warning-soft transition-colors flex items-center gap-2"
             >
               <Sparkles className="w-4 h-4" />
               {t('加载默认模板')}
@@ -250,7 +250,7 @@ export function TemplateManager() {
           )}
           <button
             onClick={() => handleOpenModal()}
-            className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-ui-accent text-ui-on-accent rounded-lg hover:bg-ui-accent-hover transition-colors flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
             {t('新建模板')}
@@ -260,7 +260,7 @@ export function TemplateManager() {
 
       <div className="flex-1 overflow-y-auto p-6">
         {templates.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-slate-500">
+          <div className="flex flex-col items-center justify-center h-full text-ui-muted">
             <FileText className="w-16 h-16 mb-4" />
             <h3 className="text-xl font-medium mb-2">{t('暂无模板')}</h3>
             <p className="text-center max-w-md mb-6">
@@ -268,7 +268,7 @@ export function TemplateManager() {
             </p>
             <button
               onClick={handleCreateDefaultTemplates}
-              className="px-6 py-3 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-2"
+              className="px-6 py-3 bg-ui-accent text-ui-on-accent rounded-lg hover:bg-ui-accent-hover transition-colors flex items-center gap-2"
             >
               <Sparkles className="w-5 h-5" />
               {t('加载默认模板')}
@@ -281,7 +281,7 @@ export function TemplateManager() {
               return (
                 <div
                   key={template.id}
-                  className="bg-slate-800/50 rounded-xl border border-white/10 p-5 hover:border-purple-500/50 transition-all hover:shadow-lg hover:shadow-purple-500/10"
+                  className="bg-ui-panel rounded-xl border border-ui-line p-5 hover:border-ui-accent transition-all hover:shadow-lg hover:shadow-purple-500/10"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -293,21 +293,21 @@ export function TemplateManager() {
                         />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-white">{template.name}</h3>
-                        <span className="text-xs text-slate-400">{ENTRY_TYPE_LABELS[template.type]}</span>
+                        <h3 className="font-semibold text-ui-text">{template.name}</h3>
+                        <span className="text-xs text-ui-muted">{ENTRY_TYPE_LABELS[template.type]}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleOpenModal(template)}
-                        className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                        className="p-2 text-ui-muted hover:text-ui-text hover:bg-ui-hover rounded-lg transition-colors"
                         title={t('编辑')}
                       >
                         <Edit3 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(template.id)}
-                        className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                        className="p-2 text-ui-muted hover:text-ui-danger hover:bg-ui-danger-soft rounded-lg transition-colors"
                         title={t('删除')}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -316,14 +316,14 @@ export function TemplateManager() {
                   </div>
 
                   {template.description && (
-                    <p className="text-slate-400 text-sm mb-4 line-clamp-2">{template.description}</p>
+                    <p className="text-ui-muted text-sm mb-4 line-clamp-2">{template.description}</p>
                   )}
 
                   <div className="flex flex-wrap gap-2 mb-4">
                     {template.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="px-2 py-1 bg-white/5 text-slate-400 text-xs rounded-full flex items-center gap-1"
+                        className="px-2 py-1 bg-ui-soft text-ui-muted text-xs rounded-full flex items-center gap-1"
                       >
                         <Tag className="w-3 h-3" />
                         {tag}
@@ -331,14 +331,14 @@ export function TemplateManager() {
                     ))}
                   </div>
 
-                  <div className="text-xs text-slate-500 mb-4 line-clamp-3 bg-black/20 p-3 rounded-lg">
+                  <div className="text-xs text-ui-muted mb-4 line-clamp-3 bg-ui-input p-3 rounded-lg">
                     {template.content.slice(0, 100)}
                     {template.content.length > 100 ? '...' : ''}
                   </div>
 
                   <button
                     onClick={() => handleApplyTemplate(template)}
-                    className="w-full py-2 bg-purple-500/20 text-purple-400 rounded-lg hover:bg-purple-500/30 transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-2 bg-ui-soft text-ui-accent rounded-lg hover:bg-ui-hover transition-colors flex items-center justify-center gap-2"
                   >
                     <Plus className="w-4 h-4" />
                     {t('使用模板创建条目')}
@@ -352,14 +352,19 @@ export function TemplateManager() {
 
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-2xl bg-slate-800 rounded-xl border border-white/10 shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-6 border-b border-white/10">
-              <h2 className="text-xl font-bold text-white">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={editingTemplate ? t('编辑模板') : t('新建模板')}
+            className="w-full max-w-2xl bg-ui-panel rounded-xl border border-ui-line shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
+          >
+            <div className="flex items-center justify-between p-6 border-b border-ui-line">
+              <h2 className="text-xl font-bold text-ui-text">
                 {editingTemplate ? t('编辑模板') : t('新建模板')}
               </h2>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="p-2 text-slate-400 hover:text-white"
+                className="p-2 text-ui-muted hover:text-ui-text"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -367,22 +372,22 @@ export function TemplateManager() {
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">{t('模板名称')}</label>
+                <label className="block text-sm font-medium text-ui-text mb-2">{t('模板名称')}</label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-700 border border-white/10 rounded-lg text-white focus:border-purple-500 focus:outline-none"
+                  className="w-full px-4 py-2 bg-ui-panel border border-ui-line rounded-lg text-ui-text focus:border-ui-accent focus:outline-none"
                   placeholder={t('输入模板名称')}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">{t('条目类型')}</label>
+                <label className="block text-sm font-medium text-ui-text mb-2">{t('条目类型')}</label>
                 <select
                   value={formData.type}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value as EntryType })}
-                  className="w-full px-4 py-2 bg-slate-700 border border-white/10 rounded-lg text-white focus:border-purple-500 focus:outline-none"
+                  className="w-full px-4 py-2 bg-ui-panel border border-ui-line rounded-lg text-ui-text focus:border-ui-accent focus:outline-none"
                 >
                   {(
                     [
@@ -404,65 +409,61 @@ export function TemplateManager() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">{t('描述')}</label>
+                <label className="block text-sm font-medium text-ui-text mb-2">{t('描述')}</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-700 border border-white/10 rounded-lg text-white focus:border-purple-500 focus:outline-none"
+                  className="w-full px-4 py-2 bg-ui-panel border border-ui-line rounded-lg text-ui-text focus:border-ui-accent focus:outline-none"
                   placeholder={t('简要描述这个模板的用途')}
                   rows={2}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  {t('标签（逗号分隔）')}
-                </label>
+                <label className="block text-sm font-medium text-ui-text mb-2">{t('标签（逗号分隔）')}</label>
                 <input
                   type="text"
                   value={formData.tags}
                   onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-700 border border-white/10 rounded-lg text-white focus:border-purple-500 focus:outline-none"
+                  className="w-full px-4 py-2 bg-ui-panel border border-ui-line rounded-lg text-ui-text focus:border-ui-accent focus:outline-none"
                   placeholder={t('例如：人物, 角色')}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  {t('别名（逗号分隔）')}
-                </label>
+                <label className="block text-sm font-medium text-ui-text mb-2">{t('别名（逗号分隔）')}</label>
                 <input
                   type="text"
                   value={formData.aliases}
                   onChange={(e) => setFormData({ ...formData, aliases: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-700 border border-white/10 rounded-lg text-white focus:border-purple-500 focus:outline-none"
+                  className="w-full px-4 py-2 bg-ui-panel border border-ui-line rounded-lg text-ui-text focus:border-ui-accent focus:outline-none"
                   placeholder={t('例如：昵称, 称号')}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">{t('模板内容')}</label>
+                <label className="block text-sm font-medium text-ui-text mb-2">{t('模板内容')}</label>
                 <textarea
                   value={formData.content}
                   onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  className="w-full px-4 py-2 bg-slate-700 border border-white/10 rounded-lg text-white focus:border-purple-500 focus:outline-none font-mono text-sm"
+                  className="w-full px-4 py-2 bg-ui-panel border border-ui-line rounded-lg text-ui-text focus:border-ui-accent focus:outline-none font-mono text-sm"
                   placeholder={t('输入模板的 Markdown 内容')}
                   rows={10}
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-white/10">
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-ui-line">
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
+                className="px-4 py-2 text-ui-muted hover:text-ui-text transition-colors"
               >
                 {t('取消')}
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={!formData.name}
-                className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-4 py-2 bg-ui-accent text-ui-on-accent rounded-lg hover:bg-ui-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <Check className="w-4 h-4" />
                 {editingTemplate ? t('保存修改') : t('创建模板')}

@@ -77,7 +77,7 @@ export function MapView() {
     ({
       character: 'bg-blue-500',
       location: 'bg-green-500',
-      faction: 'bg-purple-500',
+      faction: 'bg-ui-accent',
       item: 'bg-yellow-500',
       event: 'bg-red-500',
       lore: 'bg-cyan-500',
@@ -91,30 +91,30 @@ export function MapView() {
   )
 
   return (
-    <div className="h-full flex flex-col bg-slate-900">
-      <div className="flex items-center justify-between p-4 border-b border-white/10">
+    <div className="h-full flex flex-col bg-ui-canvas">
+      <div className="flex items-center justify-between p-4 border-b border-ui-line">
         <div className="flex items-center gap-3">
-          <MapPin className="w-5 h-5 text-purple-400" />
-          <h2 className="text-lg font-semibold text-white">{t('地图视图')}</h2>
+          <MapPin className="w-5 h-5 text-ui-accent" />
+          <h2 className="text-lg font-semibold text-ui-text">{t('地图视图')}</h2>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowImageSelectModal(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-ui-soft hover:bg-ui-hover text-ui-text transition-colors"
           >
             <Image className="w-4 h-4" />
             {mapImage ? t('更换底图') : t('设置底图')}
           </button>
           <button
             onClick={() => setScale((current) => Math.min(3, current + 0.2))}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300"
+            className="p-2 rounded-lg bg-ui-soft hover:bg-ui-hover text-ui-text"
             title={t('放大')}
           >
             <ZoomIn className="w-4 h-4" />
           </button>
           <button
             onClick={() => setScale((current) => Math.max(0.5, current - 0.2))}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300"
+            className="p-2 rounded-lg bg-ui-soft hover:bg-ui-hover text-ui-text"
             title={t('缩小')}
           >
             <ZoomOut className="w-4 h-4" />
@@ -124,7 +124,7 @@ export function MapView() {
               setScale(1)
               setOffset({ x: 0, y: 0 })
             }}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300"
+            className="p-2 rounded-lg bg-ui-soft hover:bg-ui-hover text-ui-text"
             title={t('重置视图')}
           >
             <Crosshair className="w-4 h-4" />
@@ -133,43 +133,43 @@ export function MapView() {
       </div>
 
       <div className="flex-1 flex min-h-0">
-        <aside className="w-64 border-r border-white/10 p-4 overflow-y-auto">
-          <h3 className="text-sm font-medium text-slate-300 mb-3">{t('待放置条目')}</h3>
+        <aside className="w-64 border-r border-ui-line p-4 overflow-y-auto">
+          <h3 className="text-sm font-medium text-ui-text mb-3">{t('待放置条目')}</h3>
           <div className="space-y-2">
             {unplacedEntries.map((entry) => (
               <button
                 key={entry.id}
                 type="button"
-                className={`w-full flex items-center justify-between p-2 rounded-lg cursor-pointer group transition-colors ${placingEntryId === entry.id ? 'bg-green-500/15 ring-1 ring-green-400/50' : 'bg-white/5 hover:bg-white/10'}`}
+                className={`w-full flex items-center justify-between p-2 rounded-lg cursor-pointer group transition-colors ${placingEntryId === entry.id ? 'bg-ui-success-soft ring-1 ring-green-400/50' : 'bg-ui-soft hover:bg-ui-hover'}`}
                 onClick={() => setPlacingEntryId(entry.id)}
               >
                 <span className="flex items-center gap-2 min-w-0">
                   <span className={`w-2 h-2 shrink-0 rounded-full ${getEntryTypeColor(entry.type)}`} />
-                  <span className="text-sm text-white truncate">{entry.title}</span>
+                  <span className="text-sm text-ui-text truncate">{entry.title}</span>
                 </span>
-                <Plus className="w-4 h-4 text-slate-500 group-hover:text-white" />
+                <Plus className="w-4 h-4 text-ui-muted group-hover:text-ui-text" />
               </button>
             ))}
-            {unplacedEntries.length === 0 && <p className="text-xs text-slate-500">{t('暂无待放置条目')}</p>}
+            {unplacedEntries.length === 0 && <p className="text-xs text-ui-muted">{t('暂无待放置条目')}</p>}
           </div>
 
-          <h3 className="text-sm font-medium text-slate-300 mt-6 mb-3">{t('已放置条目')}</h3>
+          <h3 className="text-sm font-medium text-ui-text mt-6 mb-3">{t('已放置条目')}</h3>
           <div className="space-y-2">
             {mapEntries.map((entry) => (
               <button
                 key={entry.id}
                 type="button"
-                className={`w-full flex items-center p-2 rounded-lg transition-colors ${selectedEntryId === entry.id ? 'bg-purple-500/20 border border-purple-500/50' : 'bg-white/5 hover:bg-white/10'}`}
+                className={`w-full flex items-center p-2 rounded-lg transition-colors ${selectedEntryId === entry.id ? 'bg-ui-soft border border-ui-accent' : 'bg-ui-soft hover:bg-ui-hover'}`}
                 onClick={() => selectEntry(entry.id)}
               >
                 <span className={`w-2 h-2 shrink-0 rounded-full mr-2 ${getEntryTypeColor(entry.type)}`} />
-                <span className="text-sm text-white truncate">{entry.title}</span>
+                <span className="text-sm text-ui-text truncate">{entry.title}</span>
               </button>
             ))}
           </div>
         </aside>
 
-        <div className="flex-1 relative overflow-hidden bg-slate-800">
+        <div className="flex-1 relative overflow-hidden bg-ui-panel">
           <div className="absolute inset-0 flex items-center justify-center">
             <div
               ref={mapRef}
@@ -205,23 +205,23 @@ export function MapView() {
                   title={entry.title}
                 >
                   <span
-                    className={`block w-4 h-4 rounded-full ${getEntryTypeColor(entry.type)} border-2 border-white shadow-lg`}
+                    className={`block w-4 h-4 rounded-full ${getEntryTypeColor(entry.type)} border-2 border-ui-line shadow-lg`}
                   />
-                  <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 rounded bg-slate-900/90 text-xs text-white whitespace-nowrap opacity-0 group-hover:opacity-100">
+                  <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 rounded bg-ui-canvas text-xs text-ui-text whitespace-nowrap opacity-0 group-hover:opacity-100">
                     {entry.title}
                   </span>
                 </button>
               ))}
 
               {isPlacingMode && (
-                <div className="absolute inset-0 pointer-events-none border-2 border-dashed border-green-500/60 rounded-lg">
-                  <div className="absolute top-4 left-4 px-3 py-1 rounded bg-green-950/80 text-green-300 text-sm flex items-center gap-2">
+                <div className="absolute inset-0 pointer-events-none border-2 border-dashed border-ui-success rounded-lg">
+                  <div className="absolute top-4 left-4 px-3 py-1 rounded bg-ui-soft text-ui-success text-sm flex items-center gap-2">
                     <Move className="w-4 h-4" />
                     {t('点击地图放置条目 · Esc 取消')}
                   </div>
                   <button
                     type="button"
-                    className="pointer-events-auto absolute right-4 top-4 flex items-center gap-1 rounded bg-slate-950/85 px-3 py-1 text-sm text-slate-200 hover:bg-slate-900"
+                    className="pointer-events-auto absolute right-4 top-4 flex items-center gap-1 rounded bg-ui-canvas px-3 py-1 text-sm text-ui-text hover:bg-ui-hover"
                     onClick={(event) => {
                       event.stopPropagation()
                       setPlacingEntryId(null)
@@ -239,12 +239,12 @@ export function MapView() {
 
       {showImageSelectModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-md bg-slate-800 rounded-xl border border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between p-6 border-b border-white/10">
-              <h2 className="text-xl font-bold text-white">{t('选择地图底图')}</h2>
+          <div className="w-full max-w-md bg-ui-panel rounded-xl border border-ui-line shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b border-ui-line">
+              <h2 className="text-xl font-bold text-ui-text">{t('选择地图底图')}</h2>
               <button
                 onClick={() => setShowImageSelectModal(false)}
-                className="p-2 rounded-lg hover:bg-white/10 text-slate-400"
+                className="p-2 rounded-lg hover:bg-ui-hover text-ui-muted"
                 aria-label={t('关闭')}
               >
                 ×
@@ -257,7 +257,7 @@ export function MapView() {
                     <button
                       key={asset.id}
                       type="button"
-                      className={`relative aspect-video rounded-lg overflow-hidden border-2 ${mapImage?.id === asset.id ? 'border-purple-500' : 'border-transparent hover:border-white/20'}`}
+                      className={`relative aspect-video rounded-lg overflow-hidden border-2 ${mapImage?.id === asset.id ? 'border-ui-accent' : 'border-transparent hover:border-ui-line'}`}
                       onClick={() => {
                         setMapImageAssetId(asset.id)
                         setShowImageSelectModal(false)
@@ -275,7 +275,7 @@ export function MapView() {
                   ))}
                 </div>
               ) : (
-                <p className="text-slate-400 text-center">
+                <p className="text-ui-muted text-center">
                   {t('当前使用内置默认底图。上传图片后可在这里替换。')}
                 </p>
               )}

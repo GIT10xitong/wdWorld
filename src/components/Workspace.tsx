@@ -79,7 +79,7 @@ const STATUS_COLORS: Record<EntryStatus, string> = {
   proposed: 'bg-amber-400',
   active: 'bg-green-500',
   complete: 'bg-blue-500',
-  archived: 'bg-purple-500',
+  archived: 'bg-ui-accent',
 }
 
 const VIEW_LABELS = {
@@ -497,7 +497,7 @@ export function Workspace({
   const renderFieldControl = (schema: CustomFieldSchema) => {
     const value = getFieldValue(schema.id)
     const commonInputClass =
-      'w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500/50 transition-colors'
+      'w-full px-3 py-2 rounded-lg bg-ui-soft border border-ui-line text-ui-text text-sm focus:outline-none focus:border-ui-accent transition-colors'
 
     switch (schema.type) {
       case 'text':
@@ -548,11 +548,11 @@ export function Workspace({
             onChange={(e) => handleFieldChange(schema.id, e.target.value)}
             className={commonInputClass}
           >
-            <option value="" className="bg-slate-800">
+            <option value="" className="bg-ui-panel">
               {t('请选择...')}
             </option>
             {schema.options?.map((opt) => (
-              <option key={opt} value={opt} className="bg-slate-800">
+              <option key={opt} value={opt} className="bg-ui-panel">
                 {BUILTIN_FIELD_SCHEMAS.some((s) => s.id === schema.id) ? t(opt) : opt}
               </option>
             ))}
@@ -576,8 +576,8 @@ export function Workspace({
                   }}
                   className={`px-3 py-1.5 rounded-full text-xs transition-colors border ${
                     checked
-                      ? 'bg-purple-500/20 border-purple-500/50 text-purple-300'
-                      : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                      ? 'bg-ui-soft border-ui-accent text-ui-accent'
+                      : 'bg-ui-soft border-ui-line text-ui-muted hover:bg-ui-hover'
                   }`}
                 >
                   {BUILTIN_FIELD_SCHEMAS.some((s) => s.id === schema.id) ? t(opt) : opt}
@@ -594,9 +594,9 @@ export function Workspace({
               type="checkbox"
               checked={Boolean(value)}
               onChange={(e) => handleFieldChange(schema.id, e.target.checked)}
-              className="w-4 h-4 rounded border-white/20 bg-white/5 text-purple-500 focus:ring-purple-500/50"
+              className="w-4 h-4 rounded border-ui-line bg-ui-soft text-ui-accent focus:ring-ui-accent"
             />
-            <span className="text-sm text-slate-300">{Boolean(value) ? t('是') : t('否')}</span>
+            <span className="text-sm text-ui-text">{Boolean(value) ? t('是') : t('否')}</span>
           </label>
         )
       case 'color':
@@ -606,7 +606,7 @@ export function Workspace({
               type="color"
               value={(value as string) || '#6366f1'}
               onChange={(e) => handleFieldChange(schema.id, e.target.value)}
-              className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 cursor-pointer p-1"
+              className="w-10 h-10 rounded-lg bg-ui-soft border border-ui-line cursor-pointer p-1"
             />
             <input
               type="text"
@@ -621,7 +621,7 @@ export function Workspace({
         return (
           <div className="space-y-2">
             {typeof value === 'string' && value && (
-              <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-white/10">
+              <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-ui-line">
                 <img src={value} alt="" className="w-full h-full object-cover" />
                 <button
                   type="button"
@@ -656,17 +656,17 @@ export function Workspace({
   const customFieldsSection =
     applicableSchemas.length > 0
       ? Object.entries(groupedSchemas).map(([groupName, groupSchemas]) => (
-          <div key={groupName} className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
-            <h3 className="text-white font-medium mb-4 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-purple-400" />
+          <div key={groupName} className="bg-ui-panel rounded-xl border border-ui-line p-6">
+            <h3 className="text-ui-text font-medium mb-4 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-ui-accent" />
               {groupName}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {groupSchemas.map((schema) => (
                 <div key={schema.id} className="space-y-1.5">
-                  <label className="block text-sm font-medium text-slate-400">
+                  <label className="block text-sm font-medium text-ui-muted">
                     {BUILTIN_FIELD_SCHEMAS.find((s) => s.id === schema.id)?.label || schema.label}
-                    {schema.required && <span className="text-red-400 ml-1">*</span>}
+                    {schema.required && <span className="text-ui-danger ml-1">*</span>}
                   </label>
                   {renderFieldControl(schema)}
                 </div>
@@ -679,37 +679,37 @@ export function Workspace({
   return (
     <div
       data-profile={profile}
-      className="workspace-shell grid h-screen grid-cols-[auto_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] bg-slate-900"
+      className="workspace-shell grid h-screen grid-cols-[auto_minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] bg-ui-canvas"
     >
       {(activeView === 'editor' || activeView === 'card') && (
         <aside
           className={`workspace-sidebar col-start-1 row-start-2 min-h-0 ${
             sidebarCollapsed ? 'w-[72px] is-collapsed' : activeView === 'editor' ? 'w-72' : 'w-80'
-          } flex flex-col bg-gradient-to-b from-slate-800 to-slate-900 border-r border-white/10 transition-all duration-300`}
+          } flex flex-col bg-gradient-to-b from-ui-panel to-ui-panel border-r border-ui-line transition-all duration-300`}
         >
-          <div className="p-4 border-b border-white/10">
+          <div className="p-4 border-b border-ui-line">
             <div className="flex items-center justify-between">
               {!sidebarCollapsed && (
                 <div className="flex-1 min-w-0">
                   <span className="workspace-kicker">
                     {activeView === 'editor' ? 'EDITOR INDEX' : 'CARD ARCHIVE'}
                   </span>
-                  <h1 className="truncate font-bold text-white">
+                  <h1 className="truncate font-bold text-ui-text">
                     {activeView === 'editor' ? t('编辑目录') : t('条目卡片库')}
                   </h1>
-                  <p className="truncate text-xs text-slate-500">
+                  <p className="truncate text-xs text-ui-muted">
                     {activeView === 'editor' ? t('按类型展开并选择条目') : t('通过封面、摘要和状态浏览条目')}
                   </p>
                 </div>
               )}
               <button
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                className="p-2 rounded-lg hover:bg-ui-hover transition-colors"
               >
                 {sidebarCollapsed ? (
-                  <ChevronRight className="w-5 h-5 text-slate-400" />
+                  <ChevronRight className="w-5 h-5 text-ui-muted" />
                 ) : (
-                  <ChevronLeft className="w-5 h-5 text-slate-400" />
+                  <ChevronLeft className="w-5 h-5 text-ui-muted" />
                 )}
               </button>
             </div>
@@ -721,7 +721,7 @@ export function Workspace({
                 <div className="flex gap-2">
                   <button
                     onClick={toggleCreateEntryModal}
-                    className="flex flex-1 items-center gap-3 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-3 font-medium text-white transition-opacity hover:opacity-90"
+                    className="flex flex-1 items-center gap-3 rounded-lg bg-ui-accent px-4 py-3 font-medium text-ui-on-accent transition-opacity hover:opacity-90"
                   >
                     <Plus className="h-5 w-5" />
                     <span>{t('新建条目')}</span>
@@ -733,7 +733,7 @@ export function Workspace({
                       title={
                         selectedEntry ? t('删除“{0}”', { 0: selectedEntry.title }) : t('请先选择要删除的条目')
                       }
-                      className="flex w-12 shrink-0 items-center justify-center rounded-lg border border-red-400/20 bg-red-500/10 text-red-400 transition-colors hover:border-red-400/40 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-white/[0.03] disabled:text-slate-700"
+                      className="flex w-12 shrink-0 items-center justify-center rounded-lg border border-ui-danger bg-ui-danger-soft text-ui-danger transition-colors hover:border-ui-danger hover:bg-ui-danger-soft disabled:cursor-not-allowed disabled:border-ui-line disabled:bg-ui-soft disabled:text-ui-muted"
                     >
                       <Trash2 className="h-5 w-5" />
                     </button>
@@ -743,18 +743,18 @@ export function Workspace({
 
               <div className="px-3 pb-3">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ui-muted" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder={t('搜索条目...')}
-                    className="w-full pl-10 pr-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-purple-500/50 transition-colors"
+                    className="w-full pl-10 pr-4 py-2 rounded-lg bg-ui-soft border border-ui-line text-ui-text placeholder-ui-muted text-sm focus:outline-none focus:border-ui-accent transition-colors"
                   />
                 </div>
               </div>
 
-              <label className="flex items-center gap-2 px-3 pb-3 text-xs text-slate-400">
+              <label className="flex items-center gap-2 px-3 pb-3 text-xs text-ui-muted">
                 <input
                   type="checkbox"
                   checked={showArchived}
@@ -769,8 +769,8 @@ export function Workspace({
                       onClick={() => setSelectedType('all')}
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                         selectedType === 'all'
-                          ? 'bg-purple-500 text-white'
-                          : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                          ? 'bg-ui-accent text-ui-on-accent'
+                          : 'bg-ui-soft text-ui-muted hover:bg-ui-hover'
                       }`}
                     >
                       {t('全部')}
@@ -781,8 +781,8 @@ export function Workspace({
                         onClick={() => setSelectedType(type)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                           selectedType === type
-                            ? 'bg-purple-500 text-white'
-                            : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                            ? 'bg-ui-accent text-ui-on-accent'
+                            : 'bg-ui-soft text-ui-muted hover:bg-ui-hover'
                         }`}
                       >
                         {label}
@@ -794,13 +794,13 @@ export function Workspace({
 
               {tags.length > 0 && (
                 <div className="px-3 pb-3">
-                  <p className="text-xs text-slate-500 mb-2">{t('标签')}</p>
+                  <p className="text-xs text-ui-muted mb-2">{t('标签')}</p>
                   <div className="flex flex-wrap gap-1">
                     {tags.slice(0, 8).map((tag) => (
                       <button
                         key={tag.id}
                         onClick={() => setSearchQuery(tag.name)}
-                        className="px-2 py-1 rounded text-xs text-slate-400 bg-white/5 hover:bg-white/10 transition-colors"
+                        className="px-2 py-1 rounded text-xs text-ui-muted bg-ui-soft hover:bg-ui-hover transition-colors"
                         style={{
                           backgroundColor: tag.color ? `${tag.color}20` : undefined,
                           color: tag.color || undefined,
@@ -818,10 +818,10 @@ export function Workspace({
           <div className="flex-1 overflow-y-auto px-3 pb-3">
             {!sidebarCollapsed && (
               <div className="flex items-center justify-between px-1 pb-2">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ui-muted">
                   {t('条目导航')}
                 </span>
-                <span className="rounded-full bg-white/5 px-2 py-0.5 text-[11px] text-slate-500">
+                <span className="rounded-full bg-ui-soft px-2 py-0.5 text-[11px] text-ui-muted">
                   {activeView === 'editor' ? searchFilteredEntries.length : filteredEntries.length}/
                   {entries.length}
                 </span>
@@ -837,25 +837,25 @@ export function Workspace({
                       <div key={type}>
                         <button
                           onClick={() => toggleEditorType(type)}
-                          className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-white/5"
+                          className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-ui-hover"
                         >
                           <div className="flex min-w-0 items-center gap-2">
-                            <TypeIcon className="h-4 w-4 shrink-0 text-slate-400" />
+                            <TypeIcon className="h-4 w-4 shrink-0 text-ui-muted" />
                             {!sidebarCollapsed && (
                               <>
-                                <span className="text-sm text-slate-300">{ENTRY_TYPE_LABELS[type]}</span>
-                                <span className="text-xs text-slate-600">({typeEntries.length})</span>
+                                <span className="text-sm text-ui-text">{ENTRY_TYPE_LABELS[type]}</span>
+                                <span className="text-xs text-ui-muted">({typeEntries.length})</span>
                               </>
                             )}
                           </div>
                           {!sidebarCollapsed && (
                             <ChevronRight
-                              className={`h-4 w-4 text-slate-600 transition-transform ${expanded ? 'rotate-90' : ''}`}
+                              className={`h-4 w-4 text-ui-muted transition-transform ${expanded ? 'rotate-90' : ''}`}
                             />
                           )}
                         </button>
                         {expanded && !sidebarCollapsed && (
-                          <div className="ml-4 border-l border-white/5 pl-2">
+                          <div className="ml-4 border-l border-ui-line pl-2">
                             {typeEntries.map((entry) => {
                               const isSelected = entry.id === selectedEntryId
                               return (
@@ -865,8 +865,8 @@ export function Workspace({
                                   onClick={() => void handleSelectEntry(entry.id)}
                                   className={`mb-0.5 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
                                     isSelected
-                                      ? 'bg-amber-400/10 text-amber-100'
-                                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                                      ? 'bg-ui-warning-soft text-ui-warning'
+                                      : 'text-ui-muted hover:bg-ui-hover hover:text-ui-text'
                                   }`}
                                 >
                                   <span
@@ -884,7 +884,7 @@ export function Workspace({
                   },
                 )}
                 {searchFilteredEntries.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+                  <div className="flex flex-col items-center justify-center py-12 text-ui-muted">
                     <FileText className="mb-2 h-8 w-8" />
                     {!sidebarCollapsed && <p className="text-sm">{t('暂无条目')}</p>}
                   </div>
@@ -901,36 +901,34 @@ export function Workspace({
                       onClick={() => void handleSelectEntry(entry.id)}
                       className={`group mb-1.5 flex w-full items-center gap-3 rounded-xl border p-2 text-left transition-all ${
                         isSelected
-                          ? 'border-amber-400/50 bg-amber-400/10 shadow-[0_8px_24px_rgba(245,158,11,0.08)]'
-                          : 'border-transparent hover:border-white/10 hover:bg-white/5'
+                          ? 'border-ui-warning bg-ui-warning-soft shadow-[0_8px_24px_rgba(245,158,11,0.08)]'
+                          : 'border-transparent hover:border-ui-line hover:bg-ui-hover'
                       }`}
                     >
-                      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-slate-700">
+                      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-ui-panel">
                         <img
                           src={getEntryCoverSource(entry)}
                           alt=""
                           className="h-full w-full object-cover opacity-75 transition duration-300 group-hover:scale-105 group-hover:opacity-100"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 to-transparent" />
-                        <Icon className="absolute bottom-1.5 left-1.5 h-3.5 w-3.5 text-white/90" />
+                        <Icon className="absolute bottom-1.5 left-1.5 h-3.5 w-3.5 text-ui-muted" />
                         <div
-                          className={`absolute right-1.5 top-1.5 h-2 w-2 rounded-full ${STATUS_COLORS[entry.status]} ring-2 ring-slate-900/80`}
+                          className={`absolute right-1.5 top-1.5 h-2 w-2 rounded-full ${STATUS_COLORS[entry.status]} ring-2 ring-ui-line`}
                         />
                       </div>
                       {!sidebarCollapsed && (
                         <div className="flex-1 min-w-0">
                           <p
-                            className={`truncate text-sm font-semibold ${isSelected ? 'text-amber-50' : 'text-slate-100'}`}
+                            className={`truncate text-sm font-semibold ${isSelected ? 'text-ui-text' : 'text-ui-text'}`}
                           >
                             {entry.title.trim() || t('未命名条目')}
                           </p>
                           <div className="mt-1 flex items-center gap-1.5">
-                            <span className="text-[11px] text-slate-500">
-                              {ENTRY_TYPE_LABELS[entry.type]}
-                            </span>
-                            {entry.summary && <span className="text-slate-700">·</span>}
+                            <span className="text-[11px] text-ui-muted">{ENTRY_TYPE_LABELS[entry.type]}</span>
+                            {entry.summary && <span className="text-ui-muted">·</span>}
                             {entry.summary && (
-                              <span className="min-w-0 truncate text-[11px] text-slate-500">
+                              <span className="min-w-0 truncate text-[11px] text-ui-muted">
                                 {entry.summary}
                               </span>
                             )}
@@ -938,14 +936,14 @@ export function Workspace({
                         </div>
                       )}
                       {!sidebarCollapsed && (
-                        <ChevronRight className="h-4 w-4 text-slate-600 group-hover:text-slate-400" />
+                        <ChevronRight className="h-4 w-4 text-ui-muted group-hover:text-ui-muted" />
                       )}
                     </button>
                   )
                 })}
 
                 {filteredEntries.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+                  <div className="flex flex-col items-center justify-center py-12 text-ui-muted">
                     <FileText className="w-8 h-8 mb-2" />
                     {!sidebarCollapsed && <p className="text-sm">{t('暂无条目')}</p>}
                   </div>
@@ -957,20 +955,18 @@ export function Workspace({
       )}
 
       <main className="contents">
-        <header className="workspace-topbar col-span-2 row-start-1 flex items-center justify-between px-6 bg-slate-800/50 border-b border-white/10">
+        <header className="workspace-topbar col-span-2 row-start-1 flex items-center justify-between px-6 bg-ui-panel border-b border-ui-line">
           <div className="flex w-56 shrink-0 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-400/20 bg-amber-400/10">
-              <BookOpen className="h-4 w-4 text-amber-400" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-ui-warning bg-ui-warning-soft">
+              <BookOpen className="h-4 w-4 text-ui-warning" />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-ui-muted">
                 <span className="max-w-32 truncate">{currentProject?.name}</span>
                 <ChevronRight className="h-3 w-3" />
-                <span className="shrink-0 whitespace-nowrap text-amber-400/80">
-                  {VIEW_LABELS[activeView]}
-                </span>
+                <span className="shrink-0 whitespace-nowrap text-ui-warning">{VIEW_LABELS[activeView]}</span>
               </div>
-              <h2 className="truncate text-sm font-semibold text-white">
+              <h2 className="truncate text-sm font-semibold text-ui-text">
                 {selectedEntry ? selectedEntry.title : PROFILES[profile].label}
               </h2>
             </div>
@@ -979,7 +975,7 @@ export function Workspace({
           <div className="flex items-center gap-3">
             {onOpenNovel && (
               <button
-                className="rounded-lg bg-amber-400/15 px-3 py-2 text-sm text-amber-200"
+                className="rounded-lg bg-ui-warning-soft px-3 py-2 text-sm text-ui-warning"
                 onClick={async () => {
                   await flushDraft()
                   onOpenNovel()
@@ -990,13 +986,15 @@ export function Workspace({
             )}
             <div
               title={PROFILES[profile].description}
-              className="view-switcher flex items-center bg-white/10 rounded-lg p-1"
+              className="view-switcher flex items-center bg-ui-soft rounded-lg p-1"
             >
               {PROFILES[profile].views.includes('editor') && (
                 <button
                   onClick={() => void handleViewChange('editor')}
                   className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
-                    activeView === 'editor' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
+                    activeView === 'editor'
+                      ? 'bg-ui-accent text-ui-on-accent'
+                      : 'text-ui-text hover:text-ui-text'
                   }`}
                 >
                   <Edit3 className="w-4 h-4" />
@@ -1008,7 +1006,9 @@ export function Workspace({
                 <button
                   onClick={() => void handleViewChange('wiki')}
                   className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
-                    activeView === 'wiki' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
+                    activeView === 'wiki'
+                      ? 'bg-ui-accent text-ui-on-accent'
+                      : 'text-ui-text hover:text-ui-text'
                   }`}
                 >
                   <BookOpen className="w-4 h-4" />
@@ -1020,7 +1020,9 @@ export function Workspace({
                 <button
                   onClick={() => void handleViewChange('map')}
                   className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
-                    activeView === 'map' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
+                    activeView === 'map'
+                      ? 'bg-ui-accent text-ui-on-accent'
+                      : 'text-ui-text hover:text-ui-text'
                   }`}
                 >
                   <Map className="w-4 h-4" />
@@ -1032,7 +1034,9 @@ export function Workspace({
                 <button
                   onClick={() => void handleViewChange('graph')}
                   className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
-                    activeView === 'graph' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
+                    activeView === 'graph'
+                      ? 'bg-ui-accent text-ui-on-accent'
+                      : 'text-ui-text hover:text-ui-text'
                   }`}
                 >
                   <GitBranch className="w-4 h-4" />
@@ -1044,7 +1048,9 @@ export function Workspace({
                 <button
                   onClick={() => void handleViewChange('timeline')}
                   className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
-                    activeView === 'timeline' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
+                    activeView === 'timeline'
+                      ? 'bg-ui-accent text-ui-on-accent'
+                      : 'text-ui-text hover:text-ui-text'
                   }`}
                 >
                   <ClockIcon className="w-4 h-4" />
@@ -1056,7 +1062,9 @@ export function Workspace({
                 <button
                   onClick={() => void handleViewChange('template')}
                   className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
-                    activeView === 'template' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
+                    activeView === 'template'
+                      ? 'bg-ui-accent text-ui-on-accent'
+                      : 'text-ui-text hover:text-ui-text'
                   }`}
                 >
                   <Sparkles className="w-4 h-4" />
@@ -1068,7 +1076,9 @@ export function Workspace({
                 <button
                   onClick={() => void handleViewChange('export')}
                   className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
-                    activeView === 'export' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
+                    activeView === 'export'
+                      ? 'bg-ui-accent text-ui-on-accent'
+                      : 'text-ui-text hover:text-ui-text'
                   }`}
                 >
                   <Download className="w-4 h-4" />
@@ -1080,7 +1090,9 @@ export function Workspace({
                 <button
                   onClick={() => void handleViewChange('collab')}
                   className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
-                    activeView === 'collab' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
+                    activeView === 'collab'
+                      ? 'bg-ui-accent text-ui-on-accent'
+                      : 'text-ui-text hover:text-ui-text'
                   }`}
                 >
                   <Users className="w-4 h-4" />
@@ -1092,7 +1104,9 @@ export function Workspace({
                 <button
                   onClick={() => void handleViewChange('card')}
                   className={`px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors ${
-                    activeView === 'card' ? 'bg-purple-500 text-white' : 'text-slate-300 hover:text-white'
+                    activeView === 'card'
+                      ? 'bg-ui-accent text-ui-on-accent'
+                      : 'text-ui-text hover:text-ui-text'
                   }`}
                 >
                   <CreditCard className="w-4 h-4" />
@@ -1102,7 +1116,7 @@ export function Workspace({
             </div>
 
             <div
-              className={`flex items-center gap-2 text-sm ${saveStatus === 'error' ? 'text-red-400' : 'text-slate-500'}`}
+              className={`flex items-center gap-2 text-sm ${saveStatus === 'error' ? 'text-ui-danger' : 'text-ui-muted'}`}
               title={saveStatus === 'error' ? message(saveError || t('保存失败')) : undefined}
               role="status"
             >
@@ -1126,7 +1140,7 @@ export function Workspace({
             <button
               onClick={() => void handleSave()}
               disabled={saveStatus === 'saving'}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-ui-success-soft text-ui-success hover:bg-ui-success-soft transition-colors"
             >
               <Save className="w-4 h-4" />
               <span>{t('保存')}</span>
@@ -1134,7 +1148,7 @@ export function Workspace({
             <button
               onClick={() => void handleCloseProject()}
               title={t('关闭项目')}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-slate-500 transition-colors hover:border-red-400/30 hover:bg-red-500/10 hover:text-red-400"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-ui-line text-ui-muted transition-colors hover:border-ui-danger hover:bg-ui-danger-soft hover:text-ui-danger"
             >
               <X className="h-4 w-4" />
             </button>
@@ -1165,12 +1179,12 @@ export function Workspace({
               )}
               {selectedEntry ? (
                 <div className="editor-canvas max-w-4xl mx-auto space-y-6">
-                  {selectedCoverSource && (
-                    <div className="relative overflow-hidden rounded-xl border border-white/10 bg-slate-950/60">
+                  {selectedCoverAssetId && selectedCoverSource && (
+                    <div className="relative overflow-hidden rounded-xl border border-ui-line bg-ui-canvas">
                       <img
                         src={selectedCoverSource}
                         alt={t('封面图')}
-                        className="h-[clamp(320px,38vw,520px)] w-full object-contain"
+                        className="h-[clamp(160px,20vw,260px)] w-full object-contain"
                       />
                       {selectedCoverAssetId && (
                         <button
@@ -1183,31 +1197,31 @@ export function Workspace({
                     </div>
                   )}
 
-                  <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
-                    <label className="block text-sm font-medium text-slate-400 mb-2">{t('标题')}</label>
+                  <div className="bg-ui-panel rounded-xl border border-ui-line p-6">
+                    <label className="block text-sm font-medium text-ui-muted mb-2">{t('标题')}</label>
                     <input
                       type="text"
                       value={entryTitle}
                       aria-label={t('条目标题')}
                       onChange={(e) => editDraft('title', e.target.value)}
-                      className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white text-lg font-semibold focus:outline-none focus:border-purple-500/50 transition-colors"
+                      className="w-full px-4 py-3 rounded-lg bg-ui-soft border border-ui-line text-ui-text text-lg font-semibold focus:outline-none focus:border-ui-accent transition-colors"
                     />
                   </div>
 
-                  <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
-                    <label className="block text-sm font-medium text-slate-400 mb-2">{t('摘要')}</label>
+                  <div className="bg-ui-panel rounded-xl border border-ui-line p-6">
+                    <label className="block text-sm font-medium text-ui-muted mb-2">{t('摘要')}</label>
                     <textarea
                       value={entrySummary}
                       aria-label={t('条目摘要')}
                       onChange={(e) => editDraft('summary', e.target.value)}
                       placeholder={t('输入条目摘要...')}
                       rows={2}
-                      className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors resize-none"
+                      className="w-full px-4 py-3 rounded-lg bg-ui-soft border border-ui-line text-ui-text placeholder-ui-muted focus:outline-none focus:border-ui-accent transition-colors resize-none"
                     />
                   </div>
 
-                  <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
-                    <label className="block text-sm font-medium text-slate-400 mb-2">{t('内容')}</label>
+                  <div className="bg-ui-panel rounded-xl border border-ui-line p-6">
+                    <label className="block text-sm font-medium text-ui-muted mb-2">{t('内容')}</label>
                     <MarkdownEditor
                       content={entryContent}
                       onChange={(value) => editDraft('content', value)}
@@ -1216,42 +1230,42 @@ export function Workspace({
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
-                      <p className="text-slate-500 text-sm mb-1">{t('状态')}</p>
+                    <div className="bg-ui-panel rounded-xl border border-ui-line p-4">
+                      <p className="text-ui-muted text-sm mb-1">{t('状态')}</p>
                       <select
                         value={selectedEntry.status}
                         onChange={(e) =>
                           updateEntry(selectedEntry.id, { status: e.target.value as EntryStatus })
                         }
-                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:border-purple-500/50 text-sm"
+                        className="w-full px-3 py-2 rounded-lg bg-ui-soft border border-ui-line text-ui-text focus:outline-none focus:border-ui-accent text-sm"
                       >
-                        <option value="draft" className="bg-slate-800">
+                        <option value="draft" className="bg-ui-panel">
                           {t('草稿')}
                         </option>
-                        <option value="proposed" className="bg-slate-800">
+                        <option value="proposed" className="bg-ui-panel">
                           {t('AI 待确认')}
                         </option>
-                        <option value="active" className="bg-slate-800">
+                        <option value="active" className="bg-ui-panel">
                           {t('活跃')}
                         </option>
-                        <option value="complete" className="bg-slate-800">
+                        <option value="complete" className="bg-ui-panel">
                           {t('完成')}
                         </option>
-                        <option value="archived" className="bg-slate-800">
+                        <option value="archived" className="bg-ui-panel">
                           {t('已归档')}
                         </option>
                       </select>
                     </div>
 
-                    <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
-                      <p className="text-slate-500 text-sm mb-1">{t('可见性')}</p>
+                    <div className="bg-ui-panel rounded-xl border border-ui-line p-4">
+                      <p className="text-ui-muted text-sm mb-1">{t('可见性')}</p>
                       <button
                         onClick={() =>
                           updateEntry(selectedEntry.id, {
                             visibility: selectedEntry.visibility === 'private' ? 'internal' : 'private',
                           })
                         }
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-ui-soft border border-ui-line text-ui-text hover:bg-ui-hover transition-colors"
                       >
                         {selectedEntry.visibility === 'private' ? (
                           <>
@@ -1267,11 +1281,11 @@ export function Workspace({
                       </button>
                     </div>
 
-                    <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
-                      <p className="text-slate-500 text-sm mb-1">{t('封面图')}</p>
+                    <div className="bg-ui-panel rounded-xl border border-ui-line p-4">
+                      <p className="text-ui-muted text-sm mb-1">{t('封面图')}</p>
                       <button
                         onClick={() => setShowImageUploadModal(true)}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-ui-soft border border-ui-line text-ui-muted hover:bg-ui-hover hover:text-ui-text transition-colors"
                       >
                         <Image className="w-4 h-4" />
                         <span>{selectedCoverAssetId ? t('更换') : t('设置')}</span>
@@ -1279,15 +1293,15 @@ export function Workspace({
                     </div>
                   </div>
 
-                  <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
+                  <div className="bg-ui-panel rounded-xl border border-ui-line p-6">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
-                        <TagIcon className="w-5 h-5 text-purple-400" />
-                        <h3 className="text-white font-medium">{t('标签')}</h3>
+                        <TagIcon className="w-5 h-5 text-ui-accent" />
+                        <h3 className="text-ui-text font-medium">{t('标签')}</h3>
                       </div>
                       <button
                         onClick={() => setShowTagModal(true)}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 text-sm transition-colors"
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-ui-soft text-ui-accent hover:bg-ui-hover text-sm transition-colors"
                       >
                         <Plus className="w-4 h-4" />
                         <span>{t('添加标签')}</span>
@@ -1301,8 +1315,8 @@ export function Workspace({
                             key={tag.id}
                             className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-colors cursor-pointer"
                             style={{
-                              backgroundColor: tag.color ? `${tag.color}20` : 'bg-white/10',
-                              color: tag.color || 'text-slate-300',
+                              backgroundColor: tag.color ? `${tag.color}20` : 'var(--ui-soft)',
+                              color: tag.color || 'var(--ui-text)',
                             }}
                             onClick={() => handleRemoveTagFromEntry(tag.id)}
                           >
@@ -1312,26 +1326,26 @@ export function Workspace({
                         ))}
                       </div>
                     ) : (
-                      <p className="text-slate-500 text-sm">{t('暂无标签，点击上方按钮添加')}</p>
+                      <p className="text-ui-muted text-sm">{t('暂无标签，点击上方按钮添加')}</p>
                     )}
                   </div>
 
-                  <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
+                  <div className="bg-ui-panel rounded-xl border border-ui-line p-6">
                     <div className="flex items-center gap-2 mb-4">
-                      <Star className="w-5 h-5 text-yellow-400" />
-                      <h3 className="text-white font-medium">{t('别名')}</h3>
+                      <Star className="w-5 h-5 text-ui-warning" />
+                      <h3 className="text-ui-text font-medium">{t('别名')}</h3>
                     </div>
 
                     <div className="space-y-2">
                       {entryAliases.map((alias) => (
                         <div
                           key={alias.id}
-                          className="flex items-center justify-between p-2 rounded-lg bg-white/5"
+                          className="flex items-center justify-between p-2 rounded-lg bg-ui-soft"
                         >
-                          <span className="text-white text-sm">{alias.value}</span>
+                          <span className="text-ui-text text-sm">{alias.value}</span>
                           <button
                             onClick={() => handleDeleteAlias(alias.id)}
-                            className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-red-400 transition-colors"
+                            className="p-1 rounded hover:bg-ui-hover text-ui-muted hover:text-ui-danger transition-colors"
                           >
                             <XCircle className="w-4 h-4" />
                           </button>
@@ -1344,13 +1358,13 @@ export function Workspace({
                           value={newAliasInput}
                           onChange={(e) => setNewAliasInput(e.target.value)}
                           placeholder={t('输入别名...')}
-                          className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors"
+                          className="flex-1 px-3 py-2 rounded-lg bg-ui-soft border border-ui-line text-ui-text text-sm placeholder-ui-muted focus:outline-none focus:border-ui-accent transition-colors"
                           onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleCreateAlias())}
                         />
                         <button
                           onClick={handleCreateAlias}
                           disabled={!newAliasInput.trim()}
-                          className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          className="px-4 py-2 rounded-lg bg-ui-soft border border-ui-line text-ui-muted hover:bg-ui-hover hover:text-ui-text disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                           <Plus className="w-4 h-4" />
                         </button>
@@ -1360,15 +1374,15 @@ export function Workspace({
 
                   {customFieldsSection}
 
-                  <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
+                  <div className="bg-ui-panel rounded-xl border border-ui-line p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                      <h4 className="text-sm font-medium text-ui-text flex items-center gap-2">
                         <GitBranch className="w-4 h-4" />
                         {t('关系')}
                       </h4>
                       <button
                         onClick={() => setShowRelationModal(true)}
-                        className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+                        className="p-1 rounded hover:bg-ui-hover text-ui-muted hover:text-ui-text transition-colors"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -1379,13 +1393,13 @@ export function Workspace({
                         return (
                           <div
                             key={relation.id}
-                            className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors group cursor-pointer"
+                            className="flex items-center justify-between p-2 rounded-lg bg-ui-soft hover:bg-ui-hover transition-colors group cursor-pointer"
                             onClick={() => targetEntry && void handleSelectEntry(targetEntry.id)}
                           >
                             <div className="flex items-center gap-2">
-                              <ArrowRightLeft className="w-3 h-3 text-purple-400" />
-                              <span className="text-sm text-white">{targetEntry?.title || t('未知')}</span>
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">
+                              <ArrowRightLeft className="w-3 h-3 text-ui-accent" />
+                              <span className="text-sm text-ui-text">{targetEntry?.title || t('未知')}</span>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-ui-soft text-ui-accent">
                                 {RELATION_TYPE_LABELS[relation.type] || relation.type}
                               </span>
                             </div>
@@ -1394,7 +1408,7 @@ export function Workspace({
                                 e.stopPropagation()
                                 deleteRelation(relation.id)
                               }}
-                              className="p-1 rounded hover:bg-red-500/20 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                              className="p-1 rounded hover:bg-ui-danger-soft text-ui-muted hover:text-ui-danger opacity-0 group-hover:opacity-100 transition-all"
                             >
                               <XCircle className="w-3 h-3" />
                             </button>
@@ -1402,13 +1416,13 @@ export function Workspace({
                         )
                       })}
                       {entryRelations.length === 0 && (
-                        <p className="text-xs text-slate-500 py-2">{t('暂无关系，点击 + 添加')}</p>
+                        <p className="text-xs text-ui-muted py-2">{t('暂无关系，点击 + 添加')}</p>
                       )}
                     </div>
                   </div>
 
-                  <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
-                    <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2 mb-3">
+                  <div className="bg-ui-panel rounded-xl border border-ui-line p-4">
+                    <h4 className="text-sm font-medium text-ui-text flex items-center gap-2 mb-3">
                       <Link className="w-4 h-4" />
                       {t('反向引用')}
                     </h4>
@@ -1417,13 +1431,13 @@ export function Workspace({
                         return (
                           <div
                             key={`${backlink.entry.id}-${index}`}
-                            className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                            className="flex items-center gap-2 p-2 rounded-lg bg-ui-soft hover:bg-ui-hover transition-colors cursor-pointer"
                             onClick={() => void handleSelectEntry(backlink.entry.id)}
                           >
                             <ExternalLink className="w-3 h-3 text-blue-400" />
-                            <span className="text-sm text-white">{backlink.entry.title}</span>
+                            <span className="text-sm text-ui-text">{backlink.entry.title}</span>
                             {backlink.linkText && (
-                              <span className="text-xs text-slate-400 truncate">
+                              <span className="text-xs text-ui-muted truncate">
                                 {t('引用: ')}
                                 {backlink.linkText}
                               </span>
@@ -1432,20 +1446,20 @@ export function Workspace({
                         )
                       })}
                       {backlinks.length === 0 && (
-                        <p className="text-xs text-slate-500 py-2">{t('暂无反向引用')}</p>
+                        <p className="text-xs text-ui-muted py-2">{t('暂无反向引用')}</p>
                       )}
                     </div>
                   </div>
 
-                  <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
-                    <p className="text-slate-500 text-sm">
+                  <div className="bg-ui-panel rounded-xl border border-ui-line p-4">
+                    <p className="text-ui-muted text-sm">
                       {t('创建时间：')}
                       {formatDate(selectedEntry.createdAt)}
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-slate-500">
+                <div className="flex flex-col items-center justify-center h-full text-ui-muted">
                   <FileText className="w-16 h-16 mb-4" />
                   <h3 className="text-xl font-medium mb-2">{PROFILES[profile].label}</h3>
                   <p className="text-center max-w-xl mb-6">{PROFILES[profile].description}</p>
@@ -1491,19 +1505,19 @@ export function Workspace({
 
       {showCreateEntryModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-md bg-slate-800 rounded-xl border border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between p-6 border-b border-white/10">
-              <h2 className="text-xl font-bold text-white">{t('新建条目')}</h2>
+          <div className="w-full max-w-md bg-ui-panel rounded-xl border border-ui-line shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b border-ui-line">
+              <h2 className="text-xl font-bold text-ui-text">{t('新建条目')}</h2>
               <button
                 onClick={toggleCreateEntryModal}
-                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                className="p-2 rounded-lg hover:bg-ui-hover transition-colors"
               >
-                <X className="w-5 h-5 text-slate-400" />
+                <X className="w-5 h-5 text-ui-muted" />
               </button>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">{t('条目类型')}</label>
+                <label className="block text-sm font-medium text-ui-text mb-2">{t('条目类型')}</label>
                 <div className="grid grid-cols-4 gap-2">
                   {(Object.entries(ENTRY_TYPE_LABELS) as [EntryType, string][]).map(([type, label]) => {
                     const Icon = ENTRY_TYPE_ICONS[type]
@@ -1513,8 +1527,8 @@ export function Workspace({
                         onClick={() => setNewEntryType(type)}
                         className={`flex flex-col items-center gap-2 p-3 rounded-lg border transition-colors ${
                           newEntryType === type
-                            ? 'bg-purple-500/20 border-purple-500/50 text-white'
-                            : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                            ? 'bg-ui-soft border-ui-accent text-ui-text'
+                            : 'bg-ui-soft border-ui-line text-ui-muted hover:bg-ui-hover'
                         }`}
                       >
                         <Icon className="w-5 h-5" />
@@ -1526,13 +1540,13 @@ export function Workspace({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">{t('标题')}</label>
+                <label className="block text-sm font-medium text-ui-text mb-2">{t('标题')}</label>
                 <input
                   type="text"
                   value={newEntryTitle}
                   onChange={(e) => setNewEntryTitle(e.target.value)}
                   placeholder={t('输入条目标题...')}
-                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors"
+                  className="w-full px-4 py-3 rounded-lg bg-ui-soft border border-ui-line text-ui-text placeholder-ui-muted focus:outline-none focus:border-ui-accent transition-colors"
                   autoFocus
                 />
               </div>
@@ -1540,14 +1554,14 @@ export function Workspace({
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={toggleCreateEntryModal}
-                  className="flex-1 px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-colors"
+                  className="flex-1 px-4 py-3 rounded-lg bg-ui-soft border border-ui-line text-ui-text hover:bg-ui-hover transition-colors"
                 >
                   {t('取消')}
                 </button>
                 <button
                   onClick={handleCreateEntry}
                   disabled={!newEntryTitle.trim()}
-                  className="flex-1 px-4 py-3 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                  className="flex-1 px-4 py-3 rounded-lg bg-ui-accent text-ui-on-accent font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
                 >
                   {t('创建')}
                 </button>
@@ -1559,44 +1573,44 @@ export function Workspace({
 
       {showTagModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-md bg-slate-800 rounded-xl border border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between p-6 border-b border-white/10">
-              <h2 className="text-xl font-bold text-white">{t('添加标签')}</h2>
+          <div className="w-full max-w-md bg-ui-panel rounded-xl border border-ui-line shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b border-ui-line">
+              <h2 className="text-xl font-bold text-ui-text">{t('添加标签')}</h2>
               <button
                 onClick={() => setShowTagModal(false)}
-                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                className="p-2 rounded-lg hover:bg-ui-hover transition-colors"
               >
-                <X className="w-5 h-5 text-slate-400" />
+                <X className="w-5 h-5 text-ui-muted" />
               </button>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">{t('创建新标签')}</label>
+                <label className="block text-sm font-medium text-ui-text mb-2">{t('创建新标签')}</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={newTagInput}
                     onChange={(e) => setNewTagInput(e.target.value)}
                     placeholder={t('标签名称...')}
-                    className="flex-1 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors"
+                    className="flex-1 px-4 py-2 rounded-lg bg-ui-soft border border-ui-line text-ui-text placeholder-ui-muted focus:outline-none focus:border-ui-accent transition-colors"
                   />
                   <button
                     onClick={handleCreateTag}
                     disabled={!newTagInput.trim()}
-                    className="px-4 py-2 rounded-lg bg-purple-500 text-white hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="px-4 py-2 rounded-lg bg-ui-accent text-ui-on-accent hover:bg-ui-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     <Plus className="w-5 h-5" />
                   </button>
                 </div>
                 {newTagInput && (
                   <div className="mt-2">
-                    <p className="text-xs text-slate-500 mb-2">{t('选择颜色')}</p>
+                    <p className="text-xs text-ui-muted mb-2">{t('选择颜色')}</p>
                     <div className="flex flex-wrap gap-2">
                       {COLOR_PALETTE.map((color) => (
                         <button
                           key={color}
                           onClick={() => setNewTagColor(color)}
-                          className={`w-6 h-6 rounded-full transition-transform ${newTagColor === color ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-800 scale-110' : 'hover:scale-110'}`}
+                          className={`w-6 h-6 rounded-full transition-transform ${newTagColor === color ? 'ring-2 ring-ui-line ring-offset-2 ring-offset-slate-800 scale-110' : 'hover:scale-110'}`}
                           style={{ backgroundColor: color }}
                         />
                       ))}
@@ -1607,7 +1621,7 @@ export function Workspace({
 
               {availableTags.length > 0 && (
                 <div>
-                  <p className="text-sm font-medium text-slate-300 mb-2">{t('添加已有标签')}</p>
+                  <p className="text-sm font-medium text-ui-text mb-2">{t('添加已有标签')}</p>
                   <div className="flex flex-wrap gap-2">
                     {availableTags.map((tag) => (
                       <button
@@ -1618,8 +1632,8 @@ export function Workspace({
                         }}
                         className="px-3 py-1.5 rounded-full text-sm transition-colors"
                         style={{
-                          backgroundColor: tag.color ? `${tag.color}20` : 'bg-white/10',
-                          color: tag.color || 'text-slate-300',
+                          backgroundColor: tag.color ? `${tag.color}20` : 'var(--ui-soft)',
+                          color: tag.color || 'var(--ui-text)',
                         }}
                       >
                         {tag.name}
@@ -1635,14 +1649,14 @@ export function Workspace({
 
       {showImageUploadModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-md bg-slate-800 rounded-xl border border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between p-6 border-b border-white/10">
-              <h2 className="text-xl font-bold text-white">{t('选择图片')}</h2>
+          <div className="w-full max-w-md bg-ui-panel rounded-xl border border-ui-line shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b border-ui-line">
+              <h2 className="text-xl font-bold text-ui-text">{t('选择图片')}</h2>
               <button
                 onClick={() => setShowImageUploadModal(false)}
-                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                className="p-2 rounded-lg hover:bg-ui-hover transition-colors"
               >
-                <X className="w-5 h-5 text-slate-400" />
+                <X className="w-5 h-5 text-ui-muted" />
               </button>
             </div>
             <div className="p-6 space-y-4">
@@ -1655,16 +1669,16 @@ export function Workspace({
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full flex flex-col items-center justify-center gap-3 p-8 rounded-lg border-2 border-dashed border-white/20 hover:border-purple-500/50 transition-colors"
+                className="w-full flex flex-col items-center justify-center gap-3 p-8 rounded-lg border-2 border-dashed border-ui-line hover:border-ui-accent transition-colors"
               >
-                <Upload className="w-10 h-10 text-slate-400" />
-                <span className="text-slate-300">{t('点击上传图片')}</span>
-                <span className="text-slate-500 text-sm">{t('支持 JPG, PNG, GIF')}</span>
+                <Upload className="w-10 h-10 text-ui-muted" />
+                <span className="text-ui-text">{t('点击上传图片')}</span>
+                <span className="text-ui-muted text-sm">{t('支持 JPG, PNG, GIF')}</span>
               </button>
 
               {projectAssets.filter((a) => a.kind === 'image' || a.kind === 'cover').length > 0 && (
                 <div>
-                  <p className="text-sm font-medium text-slate-300 mb-2">{t('已上传的图片')}</p>
+                  <p className="text-sm font-medium text-ui-text mb-2">{t('已上传的图片')}</p>
                   <div className="grid grid-cols-3 gap-2">
                     {projectAssets
                       .filter((a) => a.kind === 'image' || a.kind === 'cover')
@@ -1673,8 +1687,8 @@ export function Workspace({
                           key={asset.id}
                           className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-colors ${
                             selectedCoverAssetId === asset.id
-                              ? 'border-purple-500'
-                              : 'border-transparent hover:border-white/20'
+                              ? 'border-ui-accent'
+                              : 'border-transparent hover:border-ui-line'
                           }`}
                           onClick={() => handleSetCoverImage(asset.id)}
                         >
@@ -1684,11 +1698,11 @@ export function Workspace({
                             className="w-full h-full object-cover"
                           />
                           <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <span className="text-white text-xs">{formatFileSize(asset.size)}</span>
+                            <span className="text-ui-text text-xs">{formatFileSize(asset.size)}</span>
                           </div>
                           {selectedCoverAssetId === asset.id && (
-                            <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center">
-                              <X className="w-3 h-3 text-white" />
+                            <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-ui-accent flex items-center justify-center">
+                              <X className="w-3 h-3 text-ui-text" />
                             </div>
                           )}
                         </div>
@@ -1703,23 +1717,23 @@ export function Workspace({
 
       {showRelationModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-md bg-slate-800 rounded-xl border border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between p-6 border-b border-white/10">
-              <h2 className="text-xl font-bold text-white">{t('添加关系')}</h2>
+          <div className="w-full max-w-md bg-ui-panel rounded-xl border border-ui-line shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b border-ui-line">
+              <h2 className="text-xl font-bold text-ui-text">{t('添加关系')}</h2>
               <button
                 onClick={() => setShowRelationModal(false)}
-                className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                className="p-2 rounded-lg hover:bg-ui-hover transition-colors"
               >
-                <X className="w-5 h-5 text-slate-400" />
+                <X className="w-5 h-5 text-ui-muted" />
               </button>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">{t('选择目标条目')}</label>
+                <label className="block text-sm font-medium text-ui-text mb-2">{t('选择目标条目')}</label>
                 <select
                   value={newRelationTargetId}
                   onChange={(e) => setNewRelationTargetId(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white focus:outline-none focus:border-purple-500/50 transition-colors"
+                  className="w-full px-4 py-3 rounded-lg bg-ui-soft border border-ui-line text-ui-text focus:outline-none focus:border-ui-accent transition-colors"
                 >
                   <option value="">{t('请选择条目...')}</option>
                   {entries
@@ -1733,7 +1747,7 @@ export function Workspace({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">{t('关系类型')}</label>
+                <label className="block text-sm font-medium text-ui-text mb-2">{t('关系类型')}</label>
                 <div className="grid grid-cols-3 gap-2">
                   {RELATION_TYPE_KEYS.map((type) => (
                     <button
@@ -1741,8 +1755,8 @@ export function Workspace({
                       onClick={() => setNewRelationType(type)}
                       className={`px-3 py-2 rounded-lg text-sm transition-colors ${
                         newRelationType === type
-                          ? 'bg-purple-500/20 border border-purple-500/50 text-white'
-                          : 'bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10'
+                          ? 'bg-ui-soft border border-ui-accent text-ui-text'
+                          : 'bg-ui-soft border border-ui-line text-ui-muted hover:bg-ui-hover'
                       }`}
                     >
                       {RELATION_TYPE_LABELS[type]}
@@ -1752,27 +1766,27 @@ export function Workspace({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">{t('备注')}</label>
+                <label className="block text-sm font-medium text-ui-text mb-2">{t('备注')}</label>
                 <input
                   type="text"
                   value={newRelationNote}
                   onChange={(e) => setNewRelationNote(e.target.value)}
                   placeholder={t('添加备注（可选）...')}
-                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors"
+                  className="w-full px-4 py-3 rounded-lg bg-ui-soft border border-ui-line text-ui-text placeholder-ui-muted focus:outline-none focus:border-ui-accent transition-colors"
                 />
               </div>
 
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setShowRelationModal(false)}
-                  className="flex-1 px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 transition-colors"
+                  className="flex-1 px-4 py-3 rounded-lg bg-ui-soft border border-ui-line text-ui-text hover:bg-ui-hover transition-colors"
                 >
                   {t('取消')}
                 </button>
                 <button
                   onClick={handleCreateRelation}
                   disabled={!newRelationTargetId || !newRelationType}
-                  className="flex-1 px-4 py-3 rounded-lg bg-purple-500 text-white hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="flex-1 px-4 py-3 rounded-lg bg-ui-accent text-ui-on-accent hover:bg-ui-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {t('添加关系')}
                 </button>

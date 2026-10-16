@@ -20,6 +20,7 @@ import {
 import { buildPrompt } from './prompts'
 import { createDraftSaver } from './autoSave'
 import type { AIProgress, AISettings } from './desktop'
+import { recordWriting } from './activity'
 
 export function useNovelSession(database: Database, project: Project) {
   const [doc, setDoc] = useState(() => database.getNovel(project.id, project.description))
@@ -47,9 +48,10 @@ export function useNovelSession(database: Database, project: Project) {
       if (alive.current) setError(e instanceof Error ? e.message : '读取 AI 配置失败')
     }
   }
-  const change = (update: (doc: NovelDocument) => NovelDocument) => {
+  const change = (update: (doc: NovelDocument) => NovelDocument, origin?: 'manual' | 'ai') => {
     try {
-      const next = update(current.current)
+      const updated = update(current.current)
+      const next = origin ? recordWriting(current.current, updated, origin) : updated
       database.saveNovel(project.id, next)
       current.current = next
       setDoc(next)
@@ -92,7 +94,10 @@ export function useNovelSession(database: Database, project: Project) {
     return () => clearInterval(tick)
   }, [busy])
   const updateChapter = (id: string, updates: Partial<Chapter>) =>
-    change((d) => ({ ...d, chapters: d.chapters.map((c) => (c.id === id ? { ...c, ...updates } : c)) }))
+    change(
+      (d) => ({ ...d, chapters: d.chapters.map((c) => (c.id === id ? { ...c, ...updates } : c)) }),
+      'manual',
+    )
   const addChapter = () => {
     const chapter = newChapter(t('第 {0} 章', { 0: current.current.chapters.length + 1 }))
     change((d) => ({ ...d, chapters: [...d.chapters, chapter], selectedChapterId: chapter.id }))
@@ -185,7 +190,7 @@ export function useNovelSession(database: Database, project: Project) {
   }
   const acceptGeneration = (generation: Generation) => {
     try {
-      change((d) => applyGeneration(d, generation, useStore.getState().entries))
+      change((d) => applyGeneration(d, generation, useStore.getState().entries), 'ai')
       setError('')
     } catch (e) {
       setError(e instanceof Error ? e.message : '无法采纳结果')

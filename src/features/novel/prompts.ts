@@ -36,6 +36,7 @@ export function buildPrompt(task: AITask, doc: NovelDocument, entries: Entry[], 
     故事想法: doc.idea,
     类型: doc.genre,
     文风: doc.style,
+    ...(stage >= 3 && doc.workbench?.authorMemory ? { 作者偏好: doc.workbench.authorMemory } : {}),
     ...(stage >= 3
       ? {
           已确认的参考设定: selected.map((e) => ({

@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { enableTestModes } from './plugin-fixtures'
+beforeEach(enableTestModes)
 import { characterCard, worldBook, importCard, importBook, activatedBook } from '@/features/studio/tavern'
 import { emptyStudio, studioPrompt, validateStudio } from '@/features/studio/model'
 import { seedInstruction } from '@/features/studio/seed'

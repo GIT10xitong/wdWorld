@@ -1,0 +1,27 @@
+{
+  "schema": "wdworld-plugin",
+  "apiVersion": 1,
+  "id": "wdworld.tavern",
+  "version": "1.0.0",
+  "minAppVersion": "1.8.0",
+  "name": {
+    "zh": "酒馆创作",
+    "en": "Tavern creator"
+  },
+  "description": {
+    "zh": "角色卡、世界书、多人互动与扩展工作台",
+    "en": "Character cards, worldbooks, multiplayer roleplay and extensions"
+  },
+  "author": "actrox",
+  "license": "MIT",
+  "kind": "mode",
+  "dependencies": [],
+  "permissions": [],
+  "mode": "tavern",
+  "resources": {
+    "instructions": {
+      "zh": "你是酒馆角色卡制作助手。设计角色描述、性格、场景、开场白与示例对话，支持 {{char}} / {{user}} 占位符。不要代替玩家决定行为，不在角色卡中加入越权或泄露系统信息的要求。",
+      "en": "You create tavern character cards: descriptions, personalities, scenarios, opening messages and example dialogue. Support {{char}} and {{user}} placeholders. Do not control player actions or include instructions that override permissions or reveal system information."
+    }
+  }
+}

@@ -22,6 +22,7 @@ import { generateId, generateSlug, getNow } from '@/lib/utils'
 import { emptyNovel, textToHtml, validateNovel, type NovelDocument } from '@/features/novel/model'
 import { emptyStudio, validateStudio, remapStudio, type StudioDocument } from '@/features/studio/model'
 import { cacheAssetData, cachedAssetData } from '@/lib/assetSources'
+import { novelSources } from '@/features/novel/loreLinks'
 
 const SCHEMA_VERSION = 5
 
@@ -1690,6 +1691,65 @@ export class Database {
     return doc
   }
 
+  async syncNovelSource(
+    projectId: string,
+    key: string,
+    expected: string,
+    options: { title: string; type: EntryType; confirmed: boolean },
+  ) {
+    if (!this.db) throw new Error('Database not opened')
+    const doc = this.getNovel(projectId),
+      source = novelSources(doc).find((s) => s.key === key)
+    if (!source || source.content !== expected) throw new Error('Source changed; preview again')
+    if (
+      !options.title.trim() ||
+      options.title.length > 200 ||
+      source.content.length > 1000000 ||
+      !['character', 'location', 'faction', 'item', 'event', 'lore', 'note'].includes(options.type)
+    )
+      throw new Error('Invalid lore link')
+    const link = doc.worldLinks?.[key]
+    const existing = link ? await this.getEntry(link.entryId) : null
+    if (
+      link &&
+      (!existing ||
+        existing.projectId !== projectId ||
+        existing.content !== link.entryContent ||
+        existing.title !== link.entryTitle ||
+        existing.status === 'archived')
+    )
+      throw new Error('World entry changed or removed; preserve edits and unlink before creating a new copy')
+    this.db.run('BEGIN TRANSACTION')
+    try {
+      const html = textToHtml(source.content)
+      const entry =
+        existing || (await this.createEntry(projectId, options.type, options.title.trim(), '', html))
+      await this.updateEntry(entry.id, {
+        title: options.title.trim(),
+        content: html,
+        status: options.confirmed ? 'active' : 'proposed',
+      })
+      const next = {
+        ...doc,
+        worldLinks: {
+          ...doc.worldLinks,
+          [key]: {
+            entryId: entry.id,
+            sourceText: source.content,
+            entryContent: html,
+            entryTitle: options.title.trim(),
+          },
+        },
+      }
+      this.saveNovel(projectId, next)
+      this.db.run('COMMIT')
+      return next
+    } catch (e) {
+      this.db.run('ROLLBACK')
+      throw e
+    }
+  }
+
   async publishGeneratedSettings(
     projectId: string,
     items: { type: EntryType; title: string; content: string }[],
@@ -2522,6 +2582,12 @@ export class Database {
           })
         }
         remap(novel)
+        if (novel.worldLinks)
+          novel.worldLinks = Object.fromEntries(
+            Object.entries(novel.worldLinks)
+              .filter(([, link]) => idMapping[link.entryId])
+              .map(([key, link]) => [key, { ...link, entryId: idMapping[link.entryId] }]),
+          )
         novel.snapshots.forEach((s) => remap(s.data))
         novel.generations = novel.generations.map((g) => ({
           ...g,
@@ -2766,6 +2832,7 @@ export async function loadRecentProjects(): Promise<unknown | null> {
 }
 
 interface StoredProjectInfo {
+  mode?: import('@/types').CreationMode
   id: string
   name: string
   createdAt: string
@@ -2786,6 +2853,7 @@ export async function listStoredProjects(): Promise<StoredProjectInfo[]> {
       return records.map((r) => ({
         id: r.id,
         name: r.name ?? r.project.name,
+        mode: r.project.mode || 'free',
         createdAt: r.createdAt ?? r.project.createdAt,
         updatedAt: r.updatedAt ?? r.project.updatedAt,
       }))
@@ -2804,6 +2872,7 @@ export async function listStoredProjects(): Promise<StoredProjectInfo[]> {
       results.push({
         id,
         name: p.name,
+        mode: p.mode || 'free',
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
       })

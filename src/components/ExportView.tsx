@@ -469,34 +469,34 @@ export function ExportView() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-slate-900">
+    <div className="h-full flex flex-col bg-ui-canvas">
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
+        <div className="bg-ui-panel rounded-xl border border-ui-line p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+              <h2 className="text-2xl font-bold text-ui-text flex items-center gap-3">
                 <Database className="w-7 h-7 text-indigo-400" />
                 {t('JSON 完整备份')}
               </h2>
-              <p className="text-slate-400 mt-1">{t('导出/导入项目的完整 JSON 备份，包含所有数据')}</p>
+              <p className="text-ui-muted mt-1">{t('导出/导入项目的完整 JSON 备份，包含所有数据')}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-black/20 rounded-lg p-6 border border-indigo-500/20">
+            <div className="bg-ui-input rounded-lg p-6 border border-indigo-500/20">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 rounded-lg bg-indigo-500/20 flex items-center justify-center">
                   <Download className="w-6 h-6 text-indigo-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-white">{t('导出完整备份 JSON')}</h3>
-                  <p className="text-sm text-slate-400">{t('导出为明文 JSON，便于跨电脑恢复，请妥善保管')}</p>
+                  <h3 className="text-lg font-semibold text-ui-text">{t('导出完整备份 JSON')}</h3>
+                  <p className="text-sm text-ui-muted">{t('导出为明文 JSON，便于跨电脑恢复，请妥善保管')}</p>
                 </div>
               </div>
               <button
                 onClick={handleBackupExport}
                 disabled={isBackupExporting || !currentProject}
-                className="w-full px-4 py-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full px-4 py-3 bg-ui-accent text-ui-on-accent rounded-lg hover:bg-ui-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isBackupExporting ? (
                   <>
@@ -512,16 +512,14 @@ export function ExportView() {
               </button>
             </div>
 
-            <div className="bg-black/20 rounded-lg p-6 border border-purple-500/20">
+            <div className="bg-ui-input rounded-lg p-6 border border-ui-accent">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                  <Upload className="w-6 h-6 text-purple-400" />
+                <div className="w-12 h-12 rounded-lg bg-ui-soft flex items-center justify-center">
+                  <Upload className="w-6 h-6 text-ui-accent" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-white">{t('导入 JSON 备份')}</h3>
-                  <p className="text-sm text-slate-400">
-                    {t('从备份文件恢复项目（生成新副本，不覆盖现有）')}
-                  </p>
+                  <h3 className="text-lg font-semibold text-ui-text">{t('导入 JSON 备份')}</h3>
+                  <p className="text-sm text-ui-muted">{t('从备份文件恢复项目（生成新副本，不覆盖现有）')}</p>
                 </div>
               </div>
               <input
@@ -534,7 +532,7 @@ export function ExportView() {
               <button
                 onClick={handleBackupImportClick}
                 disabled={isBackupImporting}
-                className="w-full px-4 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full px-4 py-3 bg-ui-accent text-ui-on-accent rounded-lg hover:bg-ui-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isBackupImporting ? (
                   <>
@@ -551,11 +549,11 @@ export function ExportView() {
             </div>
           </div>
 
-          <div className="mt-6 bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-amber-200">
+          <div className="mt-6 bg-ui-warning-soft border border-ui-warning rounded-lg p-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-ui-warning flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-ui-warning">
               <p className="font-medium mb-1">{t('导入说明')}</p>
-              <ul className="space-y-1 text-amber-200/80">
+              <ul className="space-y-1 text-ui-warning">
                 <li>{t('• 导入不会覆盖现有项目，会生成一个带有「(副本)」后缀的新项目')}</li>
                 <li>{t('• 导入完成后会自动打开新项目')}</li>
                 <li>{t('• 支持的备份版本：当前软件支持的版本及以下')}</li>
@@ -564,19 +562,19 @@ export function ExportView() {
           </div>
         </div>
 
-        <div className="bg-slate-800/50 rounded-xl border border-white/10 p-6">
+        <div className="bg-ui-panel rounded-xl border border-ui-line p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                <Download className="w-7 h-7 text-green-400" />
+              <h2 className="text-2xl font-bold text-ui-text flex items-center gap-3">
+                <Download className="w-7 h-7 text-ui-success" />
                 {t('静态 Wiki 导出')}
               </h2>
-              <p className="text-slate-400 mt-1">{t('将项目导出为静态 HTML 文件，可在任何浏览器中查看')}</p>
+              <p className="text-ui-muted mt-1">{t('将项目导出为静态 HTML 文件，可在任何浏览器中查看')}</p>
             </div>
             <button
               onClick={handleExport}
               disabled={isExporting || entries.length === 0}
-              className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-6 py-3 bg-ui-accent text-ui-on-accent rounded-lg hover:bg-ui-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {isExporting ? (
                 <>
@@ -594,7 +592,7 @@ export function ExportView() {
           </div>
 
           {entries.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+            <div className="flex flex-col items-center justify-center py-12 text-ui-muted">
               <FileText className="w-16 h-16 mb-4" />
               <h3 className="text-xl font-medium mb-2">{t('暂无条目')}</h3>
               <p className="text-center max-w-md">{t('创建条目后可以导出为静态 Wiki。')}</p>
@@ -602,23 +600,23 @@ export function ExportView() {
           ) : (
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-semibold text-white mb-4">{t('导出预览')}</h3>
+                <h3 className="text-lg font-semibold text-ui-text mb-4">{t('导出预览')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {entries.slice(0, 9).map((entry) => {
                     const IconComponent = ENTRY_TYPE_ICONS[entry.type]
                     return (
-                      <div key={entry.id} className="bg-black/20 rounded-lg p-4">
+                      <div key={entry.id} className="bg-ui-input rounded-lg p-4">
                         <div className="flex items-center gap-3 mb-2">
-                          <IconComponent className="w-5 h-5 text-purple-400" />
-                          <span className="text-white font-medium truncate">{entry.title}</span>
+                          <IconComponent className="w-5 h-5 text-ui-accent" />
+                          <span className="text-ui-text font-medium truncate">{entry.title}</span>
                         </div>
-                        <span className="text-xs text-slate-400">{entry.slug}.html</span>
+                        <span className="text-xs text-ui-muted">{entry.slug}.html</span>
                       </div>
                     )
                   })}
                 </div>
                 {entries.length > 9 && (
-                  <p className="text-slate-500 text-sm mt-4">
+                  <p className="text-ui-muted text-sm mt-4">
                     {t('还有')}
                     {entries.length - 9}
                     {t(' 条条目...')}
@@ -627,26 +625,26 @@ export function ExportView() {
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-white mb-4">{t('导出说明')}</h3>
-                <ul className="space-y-2 text-slate-400">
+                <h3 className="text-lg font-semibold text-ui-text mb-4">{t('导出说明')}</h3>
+                <ul className="space-y-2 text-ui-muted">
                   <li className="flex items-start gap-2">
-                    <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                    <Check className="w-5 h-5 text-ui-success flex-shrink-0 mt-0.5" />
                     <span>{t('导出为 ZIP 压缩包，包含所有条目页面和样式文件')}</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                    <Check className="w-5 h-5 text-ui-success flex-shrink-0 mt-0.5" />
                     <span>{t('每个条目生成独立的 HTML 文件，通过目录页索引')}</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                    <Check className="w-5 h-5 text-ui-success flex-shrink-0 mt-0.5" />
                     <span>{t('支持相关条目链接，点击可跳转到对应页面')}</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                    <Check className="w-5 h-5 text-ui-success flex-shrink-0 mt-0.5" />
                     <span>{t('Markdown 内容自动转换为 HTML，保留基本格式')}</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                    <Check className="w-5 h-5 text-ui-success flex-shrink-0 mt-0.5" />
                     <span>{t('无需服务器，直接在浏览器中打开 index.html 即可浏览')}</span>
                   </li>
                 </ul>
@@ -655,10 +653,10 @@ export function ExportView() {
               {isExporting && (
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-slate-400">{t('导出进度')}</span>
-                    <span className="text-white">{Math.round(exportProgress)}%</span>
+                    <span className="text-ui-muted">{t('导出进度')}</span>
+                    <span className="text-ui-text">{Math.round(exportProgress)}%</span>
                   </div>
-                  <div className="w-full bg-slate-700 rounded-full h-2">
+                  <div className="w-full bg-ui-panel rounded-full h-2">
                     <div
                       className="bg-green-500 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${exportProgress}%` }}

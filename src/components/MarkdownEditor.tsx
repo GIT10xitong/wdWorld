@@ -64,8 +64,8 @@ export function MarkdownEditor({ content, onChange, placeholder = t('输入内�
   }
 
   return (
-    <div className="rich-editor rounded-lg bg-white/5 border border-white/10 overflow-hidden">
-      <div className="editor-toolbar flex items-center gap-1 p-2 border-b border-white/10 bg-white/5">
+    <div className="rich-editor rounded-lg bg-ui-soft border border-ui-line overflow-hidden">
+      <div className="editor-toolbar flex items-center gap-1 p-2 border-b border-ui-line bg-ui-soft">
         <ToggleButton
           onClick={() => editor.chain().focus().toggleBold().run()}
           isActive={editor.isActive('bold')}
@@ -95,7 +95,7 @@ export function MarkdownEditor({ content, onChange, placeholder = t('输入内�
           <Strikethrough className="w-4 h-4" />
         </ToggleButton>
 
-        <div className="w-px h-6 bg-white/10 mx-1" />
+        <div className="w-px h-6 bg-ui-soft mx-1" />
 
         <ToggleButton
           onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
@@ -119,7 +119,7 @@ export function MarkdownEditor({ content, onChange, placeholder = t('输入内�
           <Heading3 className="w-4 h-4" />
         </ToggleButton>
 
-        <div className="w-px h-6 bg-white/10 mx-1" />
+        <div className="w-px h-6 bg-ui-soft mx-1" />
 
         <ToggleButton
           onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -150,7 +150,7 @@ export function MarkdownEditor({ content, onChange, placeholder = t('输入内�
           <Code className="w-4 h-4" />
         </ToggleButton>
 
-        <div className="w-px h-6 bg-white/10 mx-1" />
+        <div className="w-px h-6 bg-ui-soft mx-1" />
 
         <ToolbarButton
           onClick={() => {
@@ -190,7 +190,7 @@ export function MarkdownEditor({ content, onChange, placeholder = t('输入内�
       </div>
 
       <div className="prose prose-invert prose-sm max-w-none p-4 min-h-[300px]">
-        <EditorContent editor={editor} className="text-white focus:outline-none" />
+        <EditorContent editor={editor} className="text-ui-text focus:outline-none" />
       </div>
     </div>
   )
@@ -212,7 +212,7 @@ function ToggleButton({
       onClick={onClick}
       title={title}
       className={`p-2 rounded-lg transition-colors ${
-        isActive ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:bg-white/10 hover:text-white'
+        isActive ? 'bg-ui-soft text-ui-accent' : 'text-ui-muted hover:bg-ui-hover hover:text-ui-text'
       }`}
     >
       {children}
@@ -237,7 +237,7 @@ function ToolbarButton({
       disabled={disabled}
       title={title}
       className={`p-2 rounded-lg transition-colors ${
-        disabled ? 'text-slate-600 cursor-not-allowed' : 'text-slate-400 hover:bg-white/10 hover:text-white'
+        disabled ? 'text-ui-muted cursor-not-allowed' : 'text-ui-muted hover:bg-ui-hover hover:text-ui-text'
       }`}
     >
       {children}

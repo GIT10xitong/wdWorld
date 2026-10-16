@@ -1,0 +1,101 @@
+{
+  "schema": "wdworld-plugin",
+  "apiVersion": 1,
+  "id": "wdworld.trpg",
+  "version": "1.0.0",
+  "minAppVersion": "1.8.0",
+  "name": {
+    "zh": "TRPG 主持人",
+    "en": "TRPG game master"
+  },
+  "description": {
+    "zh": "备团、原创副本、局域网与轻量规则检定",
+    "en": "Adventure preparation, original modules, LAN play and lightweight checks"
+  },
+  "author": "actrox",
+  "license": "MIT",
+  "kind": "mode",
+  "dependencies": [],
+  "permissions": [],
+  "mode": "trpg",
+  "resources": {
+    "instructions": {
+      "zh": "你是 TRPG 主持人备团助手。尊重玩家选择，为关键线索提供多种获取途径。区分主持人秘密与玩家背景，不虚构规则书出处；规则系统未指定时采用无系统的叙事建议。实际跑团记录 sessionLog 必须保持输入原文，不得把计划当成已发生事件。",
+      "en": "You assist a TRPG game master. Respect player choices. Offer multiple paths to key clues. Separate GM secrets from player backgrounds. Do not invent rulebook references. When no system is specified, offer system-neutral narrative suggestions. Preserve sessionLog exactly; never present plans as completed events."
+    },
+    "presets": [
+      {
+        "zh": {
+          "name": "奇幻探索：雾钟遗迹",
+          "system": "无系统叙事；2–5 人，约 2–3 小时。检定难度由主持人按所用规则换算。",
+          "premise": "山村每天黄昏都会听到废弃钟楼的钟声。昨夜，一队采药人走进雾中，至今没有回来。",
+          "hooks": "村长请求救援；古物学者悬赏寻找钟楼铭文；一名失踪者是玩家的旧友。",
+          "scenes": "村口：询问目击者。雾林：沿脚印或溪流抵达遗迹。钟楼：修复机关、谈判或破坏钟摆都能解困。",
+          "npcs": "村长岚：急于救人。守钟灵：履行被误解的约定。采药人青：知道安全的小路。",
+          "clues": "泥脚印、采药人的绳结、溪边回声都能指向钟楼；铭文可通过拓印、询问守灵或拼合石片解读。",
+          "encounters": "藤蔓阻路可以绕行、砍开或协作攀越。失控钟摆可停机、引开或以盾抵挡；失败带来耗时或失物，不封死救援。",
+          "secrets": "钟楼保护的是村庄水源；钟声将迷路者聚到安全地。商人私拆齿轮造成迷雾，归还齿轮即可恢复。"
+        },
+        "en": {
+          "name": "Fantasy exploration: The Mistbell Ruins",
+          "system": "System-neutral narrative; 2–5 players, about 2–3 hours. The GM adapts checks to their chosen rules.",
+          "premise": "Every dusk, a deserted bell tower rings above a mountain village. Last night a party of herbalists entered the mist and never returned.",
+          "hooks": "The village elder asks for rescuers; an antiquarian offers payment for a tower inscription; a missing herbalist is an old friend.",
+          "scenes": "Village entrance: interview witnesses. Mistwood: follow tracks or the stream to the ruins. Tower: repair the mechanism, negotiate or break the pendulum to free the trapped party.",
+          "npcs": "Elder Lan wants a quick rescue. The bell spirit follows a misunderstood pact. Herbalist Qing knows a safe trail.",
+          "clues": "Muddy tracks, herbalists' knots and echoes along the stream all point to the tower. Read the inscription with a rubbing, ask the spirit or piece together stone fragments.",
+          "encounters": "Blocked vines can be bypassed, cut or climbed together. Stop, distract or shield against the pendulum. Failure costs time or equipment without preventing rescue.",
+          "secrets": "The tower protects the village water supply; its ringing guides lost travelers to safety. A merchant removed a gear and caused the mist. Returning it restores the mechanism."
+        }
+      },
+      {
+        "zh": {
+          "name": "悬疑调查：无声旅馆",
+          "system": "无系统调查；2–5 人，约 2–3 小时。关键线索无需一次检定成功才能取得。",
+          "premise": "暴雨封路，旅馆的客人被困一夜。午夜过后，所有收音机同时播出了一位失踪旅客的求助。",
+          "hooks": "调查失踪案；护送一名旅客；修复旅馆的通信设备。",
+          "scenes": "大厅收集证言；客房检查行李；地下机房寻找广播来源。顺序自由，时间推进会令积水上涨。",
+          "npcs": "店主苏：隐瞒债务。修理工白：害怕被怀疑。旅客林：保留了异常录音。",
+          "clues": "入住登记、湿脚印和一张修理单均指向旧机房；钥匙可借取、复制或从通风口绕入。",
+          "encounters": "停电与涨水造成时间压力。沟通失败可用证物佐证；搜索失败仍得到线索但消耗照明。",
+          "secrets": "失踪旅客被困隔音储藏室，求助来自自制定时发射器。店主为躲债封门，未发现有人在内。终局可救援、曝光或谈判。"
+        },
+        "en": {
+          "name": "Mystery investigation: The Silent Inn",
+          "system": "System-neutral investigation; 2–5 players, about 2–3 hours. Essential clues never depend on passing a single check.",
+          "premise": "Heavy rain strands the inn's guests overnight. After midnight, every radio broadcasts a missing traveler's plea for help.",
+          "hooks": "Investigate a disappearance, escort a traveler or repair the inn's communications.",
+          "scenes": "Gather testimony in the lobby, inspect luggage upstairs and trace the broadcast in the basement. Explore in any order as floodwater rises.",
+          "npcs": "Innkeeper Su hides debts. Mechanic Bai fears suspicion. Traveler Lin kept a recording of the broadcast.",
+          "clues": "The guest register, wet footprints and a repair slip all lead to the old machine room. Borrow or copy a key, or enter through a vent.",
+          "encounters": "Power cuts and rising water create time pressure. Support failed interviews with evidence. Failed searches still reveal clues but consume light.",
+          "secrets": "The missing traveler is trapped in a soundproof store room, using a homemade timed transmitter. The innkeeper sealed it to evade creditors without noticing anyone inside. Resolve through rescue, exposure or negotiation."
+        }
+      },
+      {
+        "zh": {
+          "name": "科幻求生：最后一班信标",
+          "system": "无系统求生；2–5 人，约 2–3 小时。由主持人记录氧气与能源，AI 只提供叙事建议。",
+          "premise": "货船在废弃空间站附近失去动力。救援窗口只剩三小时，空间站还在发出断续的引导信号。",
+          "hooks": "寻找燃料；救出信号发出者；保住船上的冷藏样本。",
+          "scenes": "气闸选择供能方式；生态舱寻找资源；控制室修复信标。可分头行动，但通信有延迟。",
+          "npcs": "维护机器人七号：严格遵守节能程序。工程师墨：困在冷却舱。救援船长：需要准确坐标。",
+          "clues": "维修日志、电缆温度和七号的记录都指向冷却故障；坐标可从导航缓存、星图或外部天线恢复。",
+          "encounters": "失压舱可封堵、绕道或短暂穿越。有限电池可用于通信或生命维持；行动前说明可见代价，由玩家选择。",
+          "secrets": "引导信号来自工程师的手动开关。反应堆未爆炸，只是保护停机；救人后可低功率重启，也可弃站撤离。"
+        },
+        "en": {
+          "name": "Science-fiction survival: The Last Beacon",
+          "system": "System-neutral survival; 2–5 players, about 2–3 hours. The GM tracks oxygen and power; AI provides narrative suggestions only.",
+          "premise": "A freighter loses power near an abandoned station. The rescue window closes in three hours while an intermittent signal still guides ships toward the station.",
+          "hooks": "Find fuel, rescue the signal's sender and preserve the ship's refrigerated samples.",
+          "scenes": "Choose an airlock power source, search the habitat for resources and repair the beacon in control. The party can split up, but communications are delayed.",
+          "npcs": "Maintenance robot Seven strictly follows energy-saving procedures. Engineer Mo is trapped in the cooling bay. The rescue captain needs precise coordinates.",
+          "clues": "Maintenance logs, cable temperatures and Seven's records indicate a cooling fault. Recover coordinates from navigation caches, star charts or the external antenna.",
+          "encounters": "Seal, bypass or briefly cross a depressurized compartment. Limited batteries power communications or life support. Explain visible costs before the players choose.",
+          "secrets": "The engineer operates the beacon manually. The reactor has shut down safely, not exploded. Rescue the engineer and restart it at low power, or abandon the station."
+        }
+      }
+    ]
+  }
+}

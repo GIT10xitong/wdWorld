@@ -1,17 +1,41 @@
 export interface Player {
+  away?: boolean
   roleId?: string
   id: string
   name: string
   character: { name: string; description: string; hp: number; maxHp: number }
 }
+export interface StoryState {
+  location: string
+  goal: string
+  summary: string
+  choices: string[]
+}
+export interface TrpgCheck {
+  id: string
+  playerId: string
+  playerName: string
+  label: string
+  rule: 'd20' | 'd100'
+  target: number
+  modifier: number
+  advantage: 'normal' | 'advantage' | 'disadvantage'
+  round: number
+  status: 'pending' | 'resolved' | 'cancelled'
+  result?: { rolls: number[]; total: number; success: boolean }
+}
 export interface Room {
+  round?: { enabled: boolean; number: number; phase: 'collecting' | 'ready'; submitted: string[] }
+  checks?: TrpgCheck[]
+  story?: StoryState | null
   automation?: {
     enabled: boolean
     greet: boolean
     busy: boolean
+    immersive?: boolean
     error?: string
     config?: AutomationConfig
-    preview?: { speaker: string; text: string; roleId: string } | null
+    preview?: { speaker: string; text: string; roleId: string; story?: StoryState } | null
   }
   roles?: { id: string; name: string; description: string }[]
   paused?: boolean
@@ -38,6 +62,7 @@ export interface Room {
   }[]
 }
 export interface AutomationConfig {
+  immersive?: boolean
   enabled: boolean
   greet: boolean
   roleId: string
@@ -71,6 +96,7 @@ declare global {
       history(projectId: string): Promise<Room[]>
     }
     appPreferences?: {
+      onPlugins(callback: () => void): () => void
       onSwitchMode(callback: () => void): () => void
       getLanguage(): Promise<string>
       setLanguage(value: string): Promise<string>

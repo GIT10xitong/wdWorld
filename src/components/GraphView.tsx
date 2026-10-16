@@ -234,12 +234,12 @@ export function GraphView() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-slate-900">
-      <div className="flex items-center justify-between p-4 border-b border-white/10">
+    <div className="h-full flex flex-col bg-ui-canvas">
+      <div className="flex items-center justify-between p-4 border-b border-ui-line">
         <div className="flex items-center gap-3">
-          <GitBranch className="w-5 h-5 text-purple-400" />
-          <h2 className="text-lg font-semibold text-white">{t('关系图谱')}</h2>
-          <span className="text-xs text-slate-500">
+          <GitBranch className="w-5 h-5 text-ui-accent" />
+          <h2 className="text-lg font-semibold text-ui-text">{t('关系图谱')}</h2>
+          <span className="text-xs text-ui-muted">
             {visibleEntries.length}
             {t(' 个节点 ·')}
             {visibleRelations.length}
@@ -249,21 +249,21 @@ export function GraphView() {
         <div className="flex items-center gap-2">
           <button
             onClick={handleRelayout}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 transition-colors"
+            className="p-2 rounded-lg bg-ui-soft hover:bg-ui-hover text-ui-text transition-colors"
             title={t('重新布局')}
           >
             <RefreshCw className="w-4 h-4" />
           </button>
           <button
             onClick={() => setScale((prev) => Math.min(3, prev + 0.2))}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 transition-colors"
+            className="p-2 rounded-lg bg-ui-soft hover:bg-ui-hover text-ui-text transition-colors"
             title={t('放大')}
           >
             <ZoomIn className="w-4 h-4" />
           </button>
           <button
             onClick={() => setScale((prev) => Math.max(0.3, prev - 0.2))}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 transition-colors"
+            className="p-2 rounded-lg bg-ui-soft hover:bg-ui-hover text-ui-text transition-colors"
             title={t('缩小')}
           >
             <ZoomOut className="w-4 h-4" />
@@ -273,7 +273,7 @@ export function GraphView() {
               setScale(1)
               setOffset({ x: 0, y: 0 })
             }}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 transition-colors"
+            className="p-2 rounded-lg bg-ui-soft hover:bg-ui-hover text-ui-text transition-colors"
             title={t('重置视图')}
           >
             <Crosshair className="w-4 h-4" />
@@ -282,22 +282,22 @@ export function GraphView() {
       </div>
 
       <div className="flex-1 flex">
-        <div className="w-56 border-r border-white/10 p-4 overflow-y-auto">
+        <div className="w-56 border-r border-ui-line p-4 overflow-y-auto">
           <div className="mb-4">
-            <h3 className="text-sm font-medium text-slate-300 mb-2">{t('图例')}</h3>
+            <h3 className="text-sm font-medium text-ui-text mb-2">{t('图例')}</h3>
             <div className="space-y-2">
               {Object.entries(ENTRY_TYPE_COLORS).map(([type, color]) => (
                 <div key={type} className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-                  <span className="text-xs text-slate-400">{ENTRY_TYPE_LABELS[type as EntryType]}</span>
+                  <span className="text-xs text-ui-muted">{ENTRY_TYPE_LABELS[type as EntryType]}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="mb-4 pt-4 border-t border-white/10">
-            <h3 className="text-sm font-medium text-slate-300 mb-2">{t('操作')}</h3>
-            <div className="space-y-1 text-xs text-slate-400">
+          <div className="mb-4 pt-4 border-t border-ui-line">
+            <h3 className="text-sm font-medium text-ui-text mb-2">{t('操作')}</h3>
+            <div className="space-y-1 text-xs text-ui-muted">
               <div className="flex items-center gap-2">
                 <RefreshCw className="w-3 h-3" />
                 <span>{t('重新布局按钮重置模拟')}</span>
@@ -311,7 +311,7 @@ export function GraphView() {
 
           {selectedEntryId && (
             <div>
-              <h3 className="text-sm font-medium text-slate-300 mb-2">{t('相关关系')}</h3>
+              <h3 className="text-sm font-medium text-ui-text mb-2">{t('相关关系')}</h3>
               <div className="space-y-2">
                 {visibleRelations.map((relation) => {
                   const targetEntry = entries.find(
@@ -328,9 +328,9 @@ export function GraphView() {
                         targetEntry &&
                         handleNodeClick({ stopPropagation: () => {} } as React.MouseEvent, targetEntry.id)
                       }
-                      className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer"
+                      className="flex items-center justify-between p-2 rounded-lg bg-ui-soft hover:bg-ui-hover cursor-pointer"
                     >
-                      <span className="text-sm text-white">{targetEntry?.title}</span>
+                      <span className="text-sm text-ui-text">{targetEntry?.title}</span>
                       <span
                         className="text-xs px-2 py-0.5 rounded-full"
                         style={{
@@ -472,7 +472,7 @@ export function GraphView() {
                     y1={sy}
                     x2={tx}
                     y2={ty}
-                    stroke={isHighlighted ? color : '#374151'}
+                    stroke={isHighlighted ? color : 'var(--ui-muted)'}
                     strokeWidth={isHighlighted || isSelected ? 2.5 : 1.5}
                     strokeDasharray={isSymmetric ? 'none' : 'none'}
                     markerEnd={isSymmetric ? undefined : `url(#${markerId})`}
@@ -486,7 +486,7 @@ export function GraphView() {
                         width={80}
                         height={18}
                         rx={4}
-                        fill="#1f2937"
+                        fill="var(--ui-panel)"
                         stroke={color}
                         strokeWidth={0.5}
                         opacity={0.95}
@@ -494,7 +494,7 @@ export function GraphView() {
                       <text
                         x={midX}
                         y={midY + 1}
-                        className="text-[10px] fill-slate-200 font-medium"
+                        className="text-[10px] fill-ui-text font-medium"
                         textAnchor="middle"
                       >
                         {RELATION_TYPE_LABELS[relation.type] || relation.type}
@@ -592,7 +592,7 @@ export function GraphView() {
                         width={200}
                         height={70}
                         rx={8}
-                        fill="#1f2937"
+                        fill="var(--ui-panel)"
                         stroke={color}
                         strokeWidth={1.5}
                         opacity={0.98}
@@ -600,7 +600,7 @@ export function GraphView() {
                       <text
                         x={pos.x}
                         y={pos.y - displayR - 65}
-                        className="text-sm fill-white font-semibold"
+                        className="text-sm fill-ui-text font-semibold"
                         textAnchor="middle"
                       >
                         {entry.title}
@@ -608,7 +608,7 @@ export function GraphView() {
                       <text
                         x={pos.x}
                         y={pos.y - displayR - 50}
-                        className="text-[11px] fill-slate-400"
+                        className="text-[11px] fill-ui-muted"
                         textAnchor="middle"
                       >
                         {ENTRY_TYPE_LABELS[entry.type]} · {isPinned ? t('已固定') : t('未固定')}
@@ -617,7 +617,7 @@ export function GraphView() {
                         <text
                           x={pos.x}
                           y={pos.y - displayR - 32}
-                          className="text-[10px] fill-slate-300"
+                          className="text-[10px] fill-ui-text"
                           textAnchor="middle"
                         >
                           {entry.summary.length > 24
@@ -633,28 +633,28 @@ export function GraphView() {
           </svg>
 
           {visibleEntries.length === 0 && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-ui-muted">
               <GitBranch className="w-16 h-16 mb-4 opacity-50" />
               <p className="text-lg">{t('暂无数据')}</p>
               <p className="text-sm mt-2">{t('创建条目和关系后可在此查看图谱')}</p>
             </div>
           )}
 
-          <div className="absolute bottom-4 left-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 bg-slate-900/70 px-3 py-2 rounded-lg backdrop-blur-sm">
+          <div className="absolute bottom-4 left-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ui-muted bg-ui-canvas px-3 py-2 rounded-lg backdrop-blur-sm">
             <div className="flex items-center gap-1">
               <MousePointer className="w-3 h-3" />
               <span>{t('点击选中 · 双击跳转')}</span>
             </div>
-            <span className="text-slate-700">|</span>
+            <span className="text-ui-muted">|</span>
             <span>{t('拖拽节点移动')}</span>
-            <span className="text-slate-700">|</span>
+            <span className="text-ui-muted">|</span>
             <span>{t('右键固定/解除')}</span>
-            <span className="text-slate-700">|</span>
+            <span className="text-ui-muted">|</span>
             <span>{t('滚轮缩放')}</span>
           </div>
 
           {pinnedNodes.size > 0 && (
-            <div className="absolute bottom-4 right-4 flex items-center gap-2 text-xs text-amber-400 bg-amber-950/50 px-3 py-1.5 rounded-lg border border-amber-900/50">
+            <div className="absolute bottom-4 right-4 flex items-center gap-2 text-xs text-ui-warning bg-ui-soft px-3 py-1.5 rounded-lg border border-ui-line">
               <Pin className="w-3 h-3" />
               <span>
                 {pinnedNodes.size}

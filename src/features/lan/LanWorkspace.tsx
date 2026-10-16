@@ -11,6 +11,8 @@ import './lan.css'
 import { saveAs } from 'file-saver'
 import { activatedBook } from '@/features/studio/tavern'
 import { scenarioFromStudio } from '@/features/studio/scenario'
+import { TrpgControls, TavernControls, StoryView } from './PlayControls'
+import { modeAvailable } from '@/features/plugins/store'
 
 export function LanWorkspace({
   database,
@@ -22,7 +24,9 @@ export function LanWorkspace({
   onBusyChange: (busy: boolean) => void
 }) {
   const [room, setRoom] = useState<Room | null>(null)
-  const [mode, setMode] = useState<'trpg' | 'tavern'>(project.mode === 'tavern' ? 'tavern' : 'trpg')
+  const [mode, setMode] = useState<'trpg' | 'tavern'>(
+    project.mode === 'tavern' || !modeAvailable('trpg') ? 'tavern' : 'trpg',
+  )
   const [title, setTitle] = useState(project.name)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -37,6 +41,7 @@ export function LanWorkspace({
   const [greeting, setGreeting] = useState(0)
   const [autoReply, setAutoReply] = useState(true)
   const [autoGreet, setAutoGreet] = useState(true)
+  const [immersive, setImmersive] = useState(false)
   const [guidance, setGuidance] = useState('')
   const [autoPreview, setAutoPreview] = useState('')
   const [rolePreview, setRolePreview] = useState<{ id: string; name: string; description: string } | null>(
@@ -52,6 +57,7 @@ export function LanWorkspace({
   const selectedCard = cards.find((c) => c.id === cardId) || cards[0]
   const automationConfig = () => ({
     enabled: autoReply,
+    immersive,
     greet: autoGreet,
     roleId: mode === 'tavern' ? selectedCard.id : '',
     character: mode === 'tavern' ? selectedCard.draft : {},
@@ -72,7 +78,11 @@ export function LanWorkspace({
   const update = (result: LanResult) => {
     if (!result.ok) throw new Error(result.error || t('操作失败'))
     if (result.state && result.state.projectId !== project.id) throw new Error(t('请先关闭其他项目的房间'))
-    setRoom(result.state || null)
+    setRoom((current) =>
+      current && result.state?.id === current.id && result.state.revision < current.revision
+        ? current
+        : result.state || null,
+    )
     return result.state
   }
   const perform = async (work: () => Promise<unknown>) => {
@@ -123,6 +133,7 @@ export function LanWorkspace({
     if (room.automation?.config) {
       setAutoReply(room.automation.enabled)
       setAutoGreet(room.automation.greet)
+      setImmersive(room.automation.config.immersive === true)
       setGuidance(room.automation.config.instructions)
       if (room.automation.config.roleId) setCardId(room.automation.config.roleId)
     }
@@ -281,6 +292,13 @@ export function LanWorkspace({
           {t('主持人引导')}
           <textarea value={guidance} maxLength={4000} onChange={(e) => setGuidance(e.target.value)} />
         </label>
+        {mode === 'tavern' && (
+          <label>
+            <input type="checkbox" checked={immersive} onChange={(e) => setImmersive(e.target.checked)} />
+            {t('剧情状态追踪与行动建议')}
+            <p>{t('需要模型返回结构化 JSON；不支持时可关闭，继续使用普通自动回复。')}</p>
+          </label>
+        )}
         {room && (
           <>
             <p role="status">
@@ -331,6 +349,7 @@ export function LanWorkspace({
             </button>
             {room.automation?.preview && (
               <>
+                {room.automation.preview.story && <StoryView story={room.automation.preview.story} />}
                 <textarea
                   aria-label={t('主持回复预览')}
                   value={autoPreview}
@@ -367,8 +386,8 @@ export function LanWorkspace({
                 value={mode}
                 onChange={(e) => setMode(e.target.value as typeof mode)}
               >
-                <option value="trpg">TRPG</option>
-                <option value="tavern">{t('酒馆')}</option>
+                {modeAvailable('trpg') && <option value="trpg">TRPG</option>}
+                {modeAvailable('tavern') && <option value="tavern">{t('酒馆')}</option>}
               </select>
             </label>
           )}
@@ -433,6 +452,11 @@ export function LanWorkspace({
               {t('结束房间')}
             </button>
           </section>
+          {room.mode === 'trpg' ? (
+            <TrpgControls room={room} act={(name, input) => void perform(() => action(name, input))} />
+          ) : (
+            <TavernControls room={room} act={(name, input) => void perform(() => action(name, input))} />
+          )}
           <div className="lan-grid">
             <section>
               <h2>{t('对话与掷骰')}</h2>

@@ -1,6 +1,6 @@
 {
   "name": "wdworld",
-  "version": "1.7.0",
+  "version": "1.10.0",
   "description": "本地优先的世界观、小说、OC、TRPG 与酒馆创作工作台",
   "engines": {
     "node": ">=22.12.0"
@@ -20,30 +20,53 @@
     "test:studio": "npm run build && node scripts/test-studio-desktop.js",
     "test:world": "npm run build && node scripts/test-world-desktop.js",
     "test:automation": "npm run build && node scripts/test-automation-desktop.js",
+    "test:plugins": "npm run build && node scripts/test-plugins-desktop.js",
     "preview": "vite preview",
     "desktop": "npm run build && node scripts/desktop.js",
     "electron:dev": "electron .",
     "electron:build": "npm run build && electron-builder",
     "package": "npm run build && node scripts/package.js",
-    "test:lan": "npm run build && node scripts/test-lan-desktop.js"
+    "test:lan": "npm run build && node scripts/test-lan-desktop.js",
+    "test:novel-desk": "npm run build && node scripts/test-novel-desk.js",
+    "test:mode-homes": "npm run build && node scripts/test-mode-homes.js",
+    "test:theme": "npm run build && node scripts/test-theme-desktop.js"
   },
   "build": {
     "appId": "com.wdworld.app",
     "productName": "WD World",
     "directories": {
-      "output": "release"
+      "output": "release/installer"
     },
     "files": [
       "dist/**/*",
       "electron/**/*"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "artifactName": "WDWorld-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    }
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "actrox",
+        "repo": "wdWorld",
+        "releaseType": "release"
+      }
+    ],
+    "extraFiles": [
+      {
+        "from": "docs",
+        "to": "docs",
+        "filter": [
+          "*.md"
+        ]
+      }
+    ]
   },
   "dependencies": {
     "@tiptap/core": "^3.27.1",
@@ -55,6 +78,7 @@
     "@tiptap/react": "^3.27.1",
     "@tiptap/starter-kit": "^3.27.1",
     "dompurify": "^3.4.13",
+    "electron-updater": "^6.6.2",
     "file-saver": "^2.0.5",
     "jszip": "^3.10.1",
     "lucide-react": "^0.378.0",

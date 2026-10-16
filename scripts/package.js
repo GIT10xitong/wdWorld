@@ -27,5 +27,7 @@ fs.writeFileSync(
     2,
   ),
 )
-fs.copyFileSync(path.join(root, 'docs', 'NOVEL-STUDIO.md'), path.join(output, '使用说明.md'))
+fs.cpSync(path.join(root, 'docs'), path.join(output, 'docs'), { recursive: true })
+for (const name of ['README.md', 'README.en.md', 'QUICKSTART.md', 'CHANGELOG.md'])
+  fs.copyFileSync(path.join(root, name), path.join(output, name))
 console.log('Desktop build ready: ' + path.join(output, 'WD World.exe'))

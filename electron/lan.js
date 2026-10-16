@@ -4,6 +4,7 @@ const os = require('node:os')
 const fs = require('node:fs')
 const path = require('node:path')
 const { createAutomation, normalizeAutomation } = require('./lan-automation')
+const { createTrpg } = require('./lan-trpg')
 
 function localAddress(address = '') {
   const ip = address.replace(/^::ffff:/, '')
@@ -44,6 +45,7 @@ function createLanServer({
   clientDir = path.join(__dirname, 'lan-client'),
   generate,
   automationDelay,
+  getMemory,
 } = {}) {
   let server = null,
     room = null,
@@ -67,7 +69,10 @@ function createLanServer({
     message,
     generate,
     delay: automationDelay,
+    onReply: () => trpg.replied(),
+    getMemory,
   })
+  const trpg = createTrpg({ room: () => room, changed, message, automation })
   const publicState = () =>
     room
       ? {
@@ -84,6 +89,9 @@ function createLanServer({
           roles: room.roles,
           paused: room.paused,
           automation: automation.status(),
+          round: room.mode === 'trpg' ? room.round : undefined,
+          checks: room.mode === 'trpg' ? room.checks : undefined,
+          story: room.mode === 'tavern' ? room.story : undefined,
         }
       : null
   const hostState = () =>
@@ -106,10 +114,33 @@ function createLanServer({
   const hostAction = (action, input = {}) => {
     assertRoom()
     switch (action) {
+      case 'round-config':
+      case 'round-force':
+      case 'round-next':
+      case 'check-request':
+      case 'check-cancel':
+        trpg.host(action, input)
+        break
+      case 'story': {
+        if (room.mode !== 'tavern') throw new Error('Tavern room required')
+        const story = {
+          location: clean(input.location, 200),
+          goal: clean(input.goal, 400),
+          summary: clean(input.summary, 2000),
+          choices: [],
+        }
+        automation.invalidate()
+        room.story = story
+        changed()
+        break
+      }
       case 'automation':
         automation.configure(input.config)
         break
       case 'ai-request':
+        if (room.mode === 'trpg' && room.checks.some((c) => c.status === 'pending'))
+          throw new Error('Resolve or cancel pending checks first')
+        if (room.mode === 'trpg' && room.round.enabled) room.round.phase = 'ready'
         automation.request()
         break
       case 'ai-publish':
@@ -174,6 +205,7 @@ function createLanServer({
       case 'scene':
         automation.invalidate()
         room.scene = clean(input.text, 12000)
+        room.story = null
         changed()
         break
       case 'handout': {
@@ -198,6 +230,7 @@ function createLanServer({
         for (const [key, id] of sessions) if (id === input.id) sessions.delete(key)
         room.players = room.players.filter((p) => p.id !== input.id)
         room.initiative = room.initiative.filter((p) => p.playerId !== input.id)
+        if (room.mode === 'trpg') trpg.removed(input.id)
         changed()
         break
       case 'lock':
@@ -332,12 +365,14 @@ function createLanServer({
             name: clean(body.name, 80, true),
             character: { name: '', description: '', hp: 0, maxHp: 0 },
             roleId: '',
+            away: room.mode === 'trpg' && room.round.enabled && room.round.phase === 'ready',
           }
           room.players.push(player)
           const accessToken = token()
           sessions.set(accessToken, player.id)
           changed()
           automation.joined(player)
+          if (room.mode === 'trpg') trpg.ready()
           return respond(res, 200, { token: accessToken, playerId: player.id, state: publicState() })
         }
         const accessToken = req.headers.authorization?.replace(/^Bearer /, '')
@@ -354,6 +389,7 @@ function createLanServer({
           const body = await readBody(req)
           if (body.action === 'chat') {
             if (room.paused && !body.ooc) throw new Error('Roleplay is paused; use OOC chat')
+            if (room.mode === 'trpg' && !body.ooc) trpg.beforeChat(player)
             const role = room.roles.find((r) => r.id === player.roleId)
             message(
               body.ooc ? player.name : role?.name || player.character.name || player.name,
@@ -361,7 +397,12 @@ function createLanServer({
               body.ooc ? 'ooc' : 'chat',
               { playerId, roleId: body.ooc ? '' : player.roleId },
             )
-            if (!body.ooc) automation.playerMessage()
+            if (!body.ooc) {
+              if (room.mode === 'trpg') trpg.chatted(player)
+              else automation.playerMessage()
+            }
+          } else if (body.action === 'check-roll' || body.action === 'away') {
+            trpg.player(body.action, body, player)
           } else if (body.action === 'roll') {
             if (room.paused) throw new Error('Roleplay is paused; use OOC chat')
             const result = rollDice(body.expression)
@@ -369,7 +410,12 @@ function createLanServer({
               playerId,
               roll: result,
             })
-            if (room.mode === 'trpg') automation.playerMessage()
+            if (
+              room.mode === 'trpg' &&
+              !room.round.enabled &&
+              !room.checks.some((c) => c.status === 'pending')
+            )
+              automation.playerMessage()
           } else if (body.action === 'character') {
             if (player.roleId) throw new Error('Release your claimed character before editing')
             const hp = Number(body.hp),
@@ -404,6 +450,7 @@ function createLanServer({
             sessions.delete(accessToken)
             room.players = room.players.filter((p) => p.id !== playerId)
             room.initiative = room.initiative.filter((p) => p.playerId !== playerId)
+            if (room.mode === 'trpg') trpg.removed(playerId)
             changed()
           } else return respond(res, 403, { error: 'This action is host-only' })
           return respond(res, 200, publicState())
@@ -444,6 +491,9 @@ function createLanServer({
       locked: false,
       paused: false,
       roles: [],
+      round: { enabled: false, number: 1, phase: 'collecting', submitted: [] },
+      checks: [],
+      story: null,
     }
     sessions.clear()
     rates.clear()
@@ -468,11 +518,12 @@ function createLanServer({
   return { start, stop, state: hostState, hostAction, archive }
 }
 
-function registerLan({ ipcMain, app, safeStorage, generate }) {
+function registerLan({ ipcMain, app, safeStorage, generate, requireMode = () => {}, getMemory }) {
   const { createProtectedStorage } = require('./protected-storage')
   const vault = createProtectedStorage(safeStorage)
   const lan = createLanServer({
     generate,
+    getMemory,
     onArchive: (data) =>
       vault.write(
         path.join(app.getPath('userData'), 'lan-sessions', data.id + '.wdw'),
@@ -491,6 +542,7 @@ function registerLan({ ipcMain, app, safeStorage, generate }) {
     'lan:start',
     invoke((input) => {
       if (!vault.available()) throw new Error('System encryption is unavailable')
+      requireMode(input.mode)
       return lan.start(input)
     }),
   )

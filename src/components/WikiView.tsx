@@ -144,36 +144,38 @@ export function WikiView() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-slate-900">
-      <div className="flex items-center justify-between p-4 border-b border-white/10">
+    <div className="h-full flex flex-col bg-ui-canvas">
+      <div className="flex items-center justify-between p-4 border-b border-ui-line">
         <div className="flex items-center gap-3">
-          <BookOpen className="w-5 h-5 text-purple-400" />
-          <h2 className="text-lg font-semibold text-white">{t('百科视图')}</h2>
+          <BookOpen className="w-5 h-5 text-ui-accent" />
+          <h2 className="text-lg font-semibold text-ui-text">{t('百科视图')}</h2>
         </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="w-72 border-r border-white/10 flex flex-col">
-          <div className="p-4 border-b border-white/10">
+        <div className="w-72 border-r border-ui-line flex flex-col">
+          <div className="p-4 border-b border-ui-line">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ui-muted" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t('搜索条目...')}
-                className="w-full pl-10 pr-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-purple-500/50 transition-colors"
+                className="w-full pl-10 pr-4 py-2 rounded-lg bg-ui-soft border border-ui-line text-ui-text placeholder-ui-muted text-sm focus:outline-none focus:border-ui-accent transition-colors"
               />
             </div>
           </div>
 
-          <div className="p-4 border-b border-white/10">
-            <p className="text-xs text-slate-500 mb-2">{t('按标签筛选')}</p>
+          <div className="p-4 border-b border-ui-line">
+            <p className="text-xs text-ui-muted mb-2">{t('按标签筛选')}</p>
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setSelectedTagId(null)}
                 className={`px-2 py-1 rounded-full text-xs transition-colors ${
-                  !selectedTagId ? 'bg-purple-500 text-white' : 'bg-white/10 text-slate-400 hover:bg-white/20'
+                  !selectedTagId
+                    ? 'bg-ui-accent text-ui-on-accent'
+                    : 'bg-ui-soft text-ui-muted hover:bg-ui-hover'
                 }`}
               >
                 {t('全部')}
@@ -184,8 +186,8 @@ export function WikiView() {
                   onClick={() => setSelectedTagId(tag.id)}
                   className={`px-2 py-1 rounded-full text-xs transition-colors ${
                     selectedTagId === tag.id
-                      ? 'bg-purple-500 text-white'
-                      : 'bg-white/10 text-slate-400 hover:bg-white/20'
+                      ? 'bg-ui-accent text-ui-on-accent'
+                      : 'bg-ui-soft text-ui-muted hover:bg-ui-hover'
                   }`}
                   style={tag.color ? { backgroundColor: `${tag.color}20`, color: tag.color } : {}}
                 >
@@ -202,15 +204,15 @@ export function WikiView() {
                 <div key={type} className="mb-2">
                   <button
                     onClick={() => handleTypeToggle(type)}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/5 transition-colors"
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-ui-hover transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      <Icon className="w-4 h-4 text-slate-400" />
-                      <span className="text-sm text-slate-300">{ENTRY_TYPE_LABELS[type]}</span>
-                      <span className="text-xs text-slate-500">({typeEntries.length})</span>
+                      <Icon className="w-4 h-4 text-ui-muted" />
+                      <span className="text-sm text-ui-text">{ENTRY_TYPE_LABELS[type]}</span>
+                      <span className="text-xs text-ui-muted">({typeEntries.length})</span>
                     </div>
                     <ChevronRight
-                      className={`w-4 h-4 text-slate-500 transition-transform ${expandedTypes.has(type) ? 'rotate-90' : ''}`}
+                      className={`w-4 h-4 text-ui-muted transition-transform ${expandedTypes.has(type) ? 'rotate-90' : ''}`}
                     />
                   </button>
 
@@ -222,8 +224,8 @@ export function WikiView() {
                           onClick={() => selectEntry(entry.id)}
                           className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${
                             selectedEntryId === entry.id
-                              ? 'bg-purple-500/20 text-white'
-                              : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                              ? 'bg-ui-soft text-ui-text'
+                              : 'text-ui-muted hover:bg-ui-hover hover:text-ui-text'
                           }`}
                         >
                           <img
@@ -241,7 +243,7 @@ export function WikiView() {
             })}
 
             {filteredEntries.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-8 text-slate-500">
+              <div className="flex flex-col items-center justify-center py-8 text-ui-muted">
                 <FileText className="w-8 h-8 mb-2" />
                 <p className="text-sm">{t('暂无条目')}</p>
               </div>
@@ -252,29 +254,29 @@ export function WikiView() {
         <div className="flex-1 overflow-y-auto">
           {selectedEntry ? (
             <div className="max-w-3xl mx-auto p-8">
-              <div className="relative mb-7 h-56 overflow-hidden rounded-2xl border border-white/10">
+              <div className="relative mb-7 h-56 overflow-hidden rounded-2xl border border-ui-line">
                 <img
                   src={getEntryCoverSource(selectedEntry)}
                   alt={t('{0}封面', { 0: ENTRY_TYPE_LABELS[selectedEntry.type] })}
                   className="h-full w-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-ui-panel via-slate-950/20 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-6">
-                  <span className="rounded-full bg-black/35 px-2.5 py-1 text-xs text-slate-200 backdrop-blur">
+                  <span className="rounded-full bg-black/35 px-2.5 py-1 text-xs text-white backdrop-blur">
                     {ENTRY_TYPE_LABELS[selectedEntry.type]}
                   </span>
-                  <h1 className="mt-2 text-3xl font-bold text-white">{selectedEntry.title}</h1>
+                  <h1 className="mt-2 text-3xl font-bold text-ui-text">{selectedEntry.title}</h1>
                 </div>
               </div>
               <div className="mb-6">
                 <div className="flex items-center gap-2 mb-2">
                   {(() => {
                     const Icon = ENTRY_TYPE_ICONS[selectedEntry.type]
-                    return <Icon className="w-5 h-5 text-slate-400" />
+                    return <Icon className="w-5 h-5 text-ui-muted" />
                   })()}
-                  <span className="text-sm text-slate-400">{ENTRY_TYPE_LABELS[selectedEntry.type]}</span>
+                  <span className="text-sm text-ui-muted">{ENTRY_TYPE_LABELS[selectedEntry.type]}</span>
                 </div>
-                {selectedEntry.summary && <p className="text-slate-400 mt-2">{selectedEntry.summary}</p>}
+                {selectedEntry.summary && <p className="text-ui-muted mt-2">{selectedEntry.summary}</p>}
               </div>
 
               {selectedEntry.content && (
@@ -288,82 +290,82 @@ export function WikiView() {
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
-                  <h3 className="text-sm font-medium text-slate-300 mb-3">{t('相关条目')}</h3>
+                <div className="bg-ui-panel rounded-xl border border-ui-line p-4">
+                  <h3 className="text-sm font-medium text-ui-text mb-3">{t('相关条目')}</h3>
                   <div className="space-y-2">
                     {getRelatedEntries(selectedEntry.id).map((entry) => (
                       <div
                         key={entry.id}
                         onClick={() => selectEntry(entry.id)}
-                        className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition-colors"
+                        className="flex items-center gap-2 p-2 rounded-lg bg-ui-soft hover:bg-ui-hover cursor-pointer transition-colors"
                       >
                         {(() => {
                           const Icon = ENTRY_TYPE_ICONS[entry.type]
-                          return <Icon className="w-4 h-4 text-slate-400" />
+                          return <Icon className="w-4 h-4 text-ui-muted" />
                         })()}
-                        <span className="text-sm text-white">{entry.title}</span>
+                        <span className="text-sm text-ui-text">{entry.title}</span>
                       </div>
                     ))}
                     {getRelatedEntries(selectedEntry.id).length === 0 && (
-                      <p className="text-xs text-slate-500">{t('暂无相关条目')}</p>
+                      <p className="text-xs text-ui-muted">{t('暂无相关条目')}</p>
                     )}
                   </div>
                 </div>
 
-                <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
-                  <h3 className="text-sm font-medium text-slate-300 mb-3">{t('同类型条目')}</h3>
+                <div className="bg-ui-panel rounded-xl border border-ui-line p-4">
+                  <h3 className="text-sm font-medium text-ui-text mb-3">{t('同类型条目')}</h3>
                   <div className="space-y-2">
                     {getSameTypeEntries(selectedEntry).map((entry) => (
                       <div
                         key={entry.id}
                         onClick={() => selectEntry(entry.id)}
-                        className="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition-colors"
+                        className="flex items-center gap-2 p-2 rounded-lg bg-ui-soft hover:bg-ui-hover cursor-pointer transition-colors"
                       >
                         {(() => {
                           const Icon = ENTRY_TYPE_ICONS[entry.type]
-                          return <Icon className="w-4 h-4 text-slate-400" />
+                          return <Icon className="w-4 h-4 text-ui-muted" />
                         })()}
-                        <span className="text-sm text-white">{entry.title}</span>
+                        <span className="text-sm text-ui-text">{entry.title}</span>
                       </div>
                     ))}
                     {getSameTypeEntries(selectedEntry).length === 0 && (
-                      <p className="text-xs text-slate-500">{t('暂无同类型条目')}</p>
+                      <p className="text-xs text-ui-muted">{t('暂无同类型条目')}</p>
                     )}
                   </div>
                 </div>
 
-                <div className="bg-slate-800/50 rounded-xl border border-white/10 p-4">
-                  <h3 className="text-sm font-medium text-slate-300 mb-3">{t('关系')}</h3>
+                <div className="bg-ui-panel rounded-xl border border-ui-line p-4">
+                  <h3 className="text-sm font-medium text-ui-text mb-3">{t('关系')}</h3>
                   <div className="space-y-2">
                     {getEntryRelations(selectedEntry.id).map(({ targetEntry, relation }) => (
                       <div
                         key={relation.id}
                         onClick={() => targetEntry && selectEntry(targetEntry.id)}
-                        className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition-colors"
+                        className="flex items-center justify-between p-2 rounded-lg bg-ui-soft hover:bg-ui-hover cursor-pointer transition-colors"
                       >
                         <div className="flex items-center gap-2">
-                          <ExternalLink className="w-4 h-4 text-purple-400" />
-                          <span className="text-sm text-white">{targetEntry?.title}</span>
+                          <ExternalLink className="w-4 h-4 text-ui-accent" />
+                          <span className="text-sm text-ui-text">{targetEntry?.title}</span>
                         </div>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-ui-soft text-ui-accent">
                           {relation.type}
                         </span>
                       </div>
                     ))}
                     {getEntryRelations(selectedEntry.id).length === 0 && (
-                      <p className="text-xs text-slate-500">{t('暂无关系')}</p>
+                      <p className="text-xs text-ui-muted">{t('暂无关系')}</p>
                     )}
                   </div>
                 </div>
               </div>
 
-              <div className="mt-8 text-xs text-slate-500">
+              <div className="mt-8 text-xs text-ui-muted">
                 {t('更新于')}
                 {formatDate(selectedEntry.updatedAt)}
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-slate-500">
+            <div className="flex flex-col items-center justify-center h-full text-ui-muted">
               <BookOpen className="w-16 h-16 mb-4 opacity-50" />
               <p className="text-lg">{t('选择一个条目开始阅读')}</p>
               <p className="text-sm mt-2">{t('在左侧目录中选择条目，或使用搜索功能')}</p>

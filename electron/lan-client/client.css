@@ -44,6 +44,27 @@ button {
   color: white;
   margin: 6px 0;
 }
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+#trpgPanel,
+#storyPanel {
+  background: #182530;
+  border: 1px solid #455564;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 16px 0;
+}
+#storyChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+#checks > div {
+  border-top: 1px solid #455564;
+  padding: 8px 0;
+}
 label {
   display: block;
   margin: 12px 0;

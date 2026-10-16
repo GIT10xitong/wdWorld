@@ -164,6 +164,9 @@ async function main() {
     await page.getByRole('button', { name: /新建世界/ }).waitFor()
   }
   const step = async (name) => {
+    await page.locator('.desk-rail, .novel-sidebar').first().waitFor()
+    const desk = page.getByRole('button', { name: '创作旅程 · 从想法到定稿', exact: true })
+    if (await desk.isVisible()) await desk.click()
     await page
       .getByRole('navigation', { name: '创作步骤' })
       .getByRole('button', { name: new RegExp(name) })
@@ -207,6 +210,7 @@ async function main() {
       .getByRole('navigation', { name: '创作模式' })
       .getByRole('button', { name: '小说 AI 辅助', exact: true })
       .click()
+    await page.getByRole('button', { name: '创作旅程 · 从想法到定稿', exact: true }).click()
     await page.getByRole('heading', { name: '故事想法', exact: true }).waitFor()
     await page.getByLabel('故事想法', { exact: true }).fill('一个只能记住昨天的调查员，收到来自明天的证词。')
     await page.getByLabel('故事类型', { exact: true }).fill('悬疑')

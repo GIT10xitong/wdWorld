@@ -1,0 +1,568 @@
+/* Shared workspace surfaces. Feature styles own layout and semantic state colors. */
+:root[data-theme] {
+  --ui-radius: 10px;
+  --home-accent: var(--ui-accent);
+  --home-tint: var(--ui-soft);
+  --home-ink: var(--ui-text);
+  --gold: var(--ui-accent);
+  --gold-light: var(--ui-accent);
+}
+:root[data-theme='day'] {
+  color-scheme: light;
+}
+:root[data-theme='night'] {
+  color-scheme: dark;
+}
+:root[data-theme] :is(.home-theme-oc, .home-theme-trpg, .home-theme-tavern) {
+  --home-accent: var(--ui-accent);
+  --home-tint: var(--ui-soft);
+  --home-ink: var(--ui-text);
+}
+:root[data-theme] :is(button, input, textarea, select, summary):focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 3px;
+}
+:root[data-theme] ::selection {
+  background: var(--ui-soft);
+  color: var(--ui-text);
+}
+:root[data-theme]
+  :is(
+    .app-modes,
+    .mode-picker,
+    .mode-landing-shell,
+    .studio-shell,
+    .studio-home,
+    .studio-editor,
+    .lan-workspace,
+    .welcome-shell
+  ) {
+  background: var(--ui-bg);
+  color: var(--ui-text);
+}
+:root[data-theme]
+  :is(
+    .studio-heading,
+    .studio-home-nav,
+    .studio-assistant,
+    .home-panel,
+    .home-stat-grid article,
+    .home-project,
+    .studio-card,
+    .home-tool-grid button,
+    .home-entry-grid button,
+    .mode-picker button,
+    .lan-workspace section,
+    .welcome-panel,
+    .project-action,
+    .recent-project-item
+  ) {
+  background: var(--ui-panel);
+  color: var(--ui-text);
+  border-color: var(--ui-line);
+  box-shadow: none;
+  border-radius: var(--ui-radius);
+}
+:root[data-theme] :is(.studio-heading, .studio-home-nav, .studio-assistant) {
+  border-radius: 0;
+}
+:root[data-theme]
+  :is(.studio-shell, .mode-landing, .mode-picker, .lan-workspace, .plugins-panel)
+  :is(h1, h2, h3, strong, label, summary, pre, dt, dd, button) {
+  color: var(--ui-text);
+}
+:root[data-theme]
+  :is(.studio-shell, .mode-landing, .mode-picker, .lan-workspace, .plugins-panel)
+  :is(p, small, .home-eyebrow, .home-footnote, .studio-muted) {
+  color: var(--ui-muted);
+}
+:root[data-theme]
+  :is(.studio-shell, .mode-landing, .lan-workspace, .plugins-panel)
+  :is(input:not([type='checkbox']), textarea, select) {
+  background: var(--ui-input);
+  color: var(--ui-text);
+  border-color: var(--ui-line);
+}
+:root[data-theme]
+  :is(.studio-shell, .mode-landing, .lan-workspace, .plugins-panel)
+  :is(button, fieldset, details, article, .home-search, .home-library-heading label) {
+  border-color: var(--ui-line);
+}
+:root[data-theme] :is(.lan-workspace, .plugins-panel) button {
+  background: var(--ui-input);
+  border: 1px solid var(--ui-line);
+}
+:root[data-theme]
+  :is(.studio-shell, .mode-landing, .mode-picker, .lan-workspace, .plugins-panel)
+  button:hover:not(:disabled) {
+  background: var(--ui-hover);
+  border-color: var(--ui-accent);
+}
+:root[data-theme]
+  :is(
+    .studio-shell .studio-primary,
+    .novel-modal .novel-primary,
+    .home-actions .home-primary,
+    .studio-shell .home-primary,
+    .button-primary
+  ) {
+  background: var(--ui-accent);
+  color: var(--ui-on-accent);
+  border-color: var(--ui-accent);
+}
+:root[data-theme]
+  :is(
+    .studio-shell .studio-primary,
+    .novel-modal .novel-primary,
+    .home-actions .home-primary,
+    .studio-shell .home-primary
+  ):hover:not(:disabled) {
+  background: var(--ui-accent-hover);
+  color: var(--ui-on-accent);
+}
+:root[data-theme] :is(.home-banner, .home-project-symbol) {
+  background: transparent;
+  border: 0;
+}
+.home-banner {
+  padding: 12px 0 24px;
+  border-radius: 0;
+}
+.home-banner-icon {
+  width: 52px;
+  height: 52px;
+  opacity: 0.45;
+}
+.home-actions {
+  margin-top: 18px;
+}
+.home-feature-strip {
+  margin: 0 0 24px;
+  gap: 20px;
+}
+.home-feature-strip > div {
+  padding: 12px 0;
+  border-color: var(--ui-line);
+}
+:root[data-theme] .home-feature-strip strong {
+  color: var(--ui-muted);
+}
+.home-feature-strip span {
+  font-size: 18px;
+}
+.home-stat-grid {
+  gap: 12px;
+}
+.home-stat-grid article {
+  padding: 14px 18px;
+}
+.home-stat-grid strong {
+  font-size: 24px;
+}
+.home-panel {
+  padding: 20px;
+}
+:root[data-theme] :is(.home-quote, .home-initial, .lan-messages) {
+  background: var(--ui-input);
+  color: var(--ui-text);
+}
+:root[data-theme] .studio-home-nav button[aria-current] {
+  background: var(--ui-soft);
+  color: var(--ui-accent);
+  border-color: transparent;
+}
+.studio-home-nav {
+  padding: 8px 28px;
+}
+.studio-heading {
+  align-items: center;
+}
+.studio-heading h1,
+.mode-picker h1,
+.lan-workspace h1,
+.plugins-panel h1 {
+  font-family: Georgia, 'Songti SC', SimSun, serif;
+  font-weight: 400;
+}
+.studio-card {
+  padding: 22px;
+  margin-bottom: 18px;
+}
+.studio-fields {
+  gap: 20px;
+}
+.studio-editor > .studio-card,
+.studio-editor > [data-studio-section] {
+  max-width: 1100px;
+  margin-inline: auto;
+}
+.lan-workspace {
+  width: 100%;
+  padding: 28px 32px 48px;
+}
+.lan-workspace section {
+  margin-block: 14px;
+}
+.lan-workspace header {
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.plugins-panel {
+  padding: 28px;
+}
+.plugins-panel header {
+  align-items: center;
+}
+.plugins-panel h2 {
+  font-size: 17px;
+}
+.plugins-grid {
+  gap: 16px;
+}
+:root[data-theme] .plugins-panel [role='alert'] {
+  color: var(--ui-danger);
+}
+.mode-picker {
+  max-width: 1080px;
+}
+.mode-picker button {
+  border-radius: 10px;
+  padding: 24px;
+}
+.mode-picker h2 {
+  font-size: 19px;
+}
+.mode-bar {
+  gap: 4px;
+}
+.mode-bar button {
+  padding: 8px 10px;
+  font-size: 12px;
+}
+:root[data-theme] .mode-bar .mode-simulate {
+  border-color: var(--ui-line);
+}
+:root[data-theme] .mode-bar button[aria-pressed='true'] {
+  background: var(--ui-soft);
+  color: var(--ui-accent);
+}
+
+/* Free/world mode shares the same calm surfaces as the creation workspaces. */
+:root[data-theme] .workspace-shell {
+  background: var(--ui-bg) !important;
+}
+:root[data-theme] :is(.workspace-sidebar, .workspace-topbar) {
+  background: var(--ui-rail) !important;
+  border-color: var(--ui-line) !important;
+  box-shadow: none;
+}
+.workspace-sidebar::before,
+.welcome-orbit {
+  display: none;
+}
+:root[data-theme] :is(.workspace-main, .editor-scroll) {
+  background: var(--ui-bg);
+}
+:root[data-theme] .workspace-shell :is(input, textarea, select) {
+  background: var(--ui-input) !important;
+  color: var(--ui-text) !important;
+  border-color: var(--ui-line) !important;
+}
+:root[data-theme] .welcome-panel {
+  border: 1px solid var(--ui-line);
+}
+:root[data-theme] :is(.welcome-actions, .welcome-copy, .welcome-panel::before) {
+  background: transparent;
+}
+:root[data-theme] :is(.brand-mark, .project-action-icon, .welcome-stats) {
+  background: var(--ui-soft);
+  color: var(--ui-accent);
+  border-color: var(--ui-line);
+}
+:root[data-theme] :is(.welcome-hero h1, .project-action-copy strong, .action-heading > span) {
+  color: var(--ui-text);
+}
+.welcome-hero h1 {
+  font-size: clamp(30px, 3.4vw, 46px);
+}
+.welcome-stats {
+  border-radius: 10px;
+  padding: 16px;
+}
+
+/* Library = cross-book management; desk = the opened book. */
+.book-home {
+  overflow: hidden;
+}
+.book-rail {
+  overflow-y: auto;
+  gap: 6px;
+  padding: 24px 16px;
+}
+.book-rail > .desk-kicker {
+  padding: 20px 12px 8px;
+}
+.book-library,
+.dash-main {
+  padding: 32px clamp(20px, 3vw, 48px) 48px;
+}
+.book-library > header {
+  margin-bottom: 30px;
+}
+.book-grid {
+  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+}
+.book-cover {
+  box-shadow: none;
+  max-height: 260px;
+}
+.book-add {
+  max-height: 260px;
+}
+.dash-top-grid {
+  gap: 18px;
+  align-items: stretch;
+}
+.dash-jot {
+  margin: 0;
+}
+.dash-card h2 {
+  font-size: 14px;
+}
+.dash-book strong {
+  font-size: 15px;
+}
+.dash-book small,
+.dash-book p,
+.dash-card h2 > small,
+.dash-card h2 > button {
+  font-size: 11px;
+}
+.dash-card h2 {
+  flex-wrap: wrap;
+}
+.dash-card .dash-resume {
+  display: block;
+  margin-block: 4px;
+}
+.dash-resume {
+  color: var(--ui-accent) !important;
+}
+.desk-shell {
+  grid-template-columns: 176px minmax(0, 1fr);
+}
+.desk-rail {
+  gap: 6px;
+}
+.desk-project {
+  padding: 12px 10px;
+  margin-bottom: 0;
+}
+.desk-project > svg {
+  display: none;
+}
+.desk-project h2 {
+  font-size: 16px;
+}
+.desk-rail nav {
+  gap: 18px;
+  margin: 12px 0;
+}
+.desk-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.desk-nav-group > .desk-kicker {
+  padding: 0 12px 5px;
+  letter-spacing: 1px;
+}
+.desk-nav-group button {
+  padding-block: 8px;
+}
+.desk-top {
+  padding: 14px 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.desk-top > div:first-child {
+  min-width: 0;
+}
+.desk-top .desk-kicker {
+  display: block;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.desk-top .desk-row {
+  max-width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.desk-writing {
+  grid-template-columns: 172px minmax(0, 1fr) 248px;
+  min-height: 100%;
+}
+.desk-context-hidden {
+  grid-template-columns: 172px minmax(0, 1fr);
+}
+.desk-context[hidden] {
+  display: none;
+}
+.desk-manuscript {
+  padding: 24px clamp(20px, 3vw, 48px);
+}
+.desk-manuscript footer {
+  flex-wrap: wrap;
+}
+.desk-manuscript .rich-editor {
+  box-shadow: none;
+}
+.desk-focus {
+  grid-template-columns: minmax(0, 1fr);
+}
+.desk-focus .desk-writing {
+  grid-template-columns: minmax(0, 1fr);
+}
+.desk-empty {
+  line-height: 1.8;
+}
+.book-filter,
+.home-library-heading {
+  flex-wrap: wrap;
+}
+.book-filter input {
+  min-width: 0;
+  width: 100%;
+}
+.desk-tools > .desk-row {
+  flex-wrap: wrap;
+}
+.desk-tools > .desk-row > p {
+  flex: 1 1 280px;
+}
+@media (max-width: 1180px) {
+  .desk-top {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .desk-top .desk-row {
+    justify-content: flex-start;
+  }
+  .desk-shell {
+    grid-template-columns: 152px minmax(0, 1fr);
+  }
+  .desk-writing {
+    grid-template-columns: 150px minmax(0, 1fr);
+  }
+  .desk-context {
+    grid-column: 2;
+    border-top: 1px solid var(--ui-line);
+    border-left: 0;
+  }
+  .desk-chapters {
+    grid-row: 1 / span 2;
+  }
+  .desk-focus {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .home-entry-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 800px) {
+  .book-home {
+    grid-template-columns: 150px minmax(0, 1fr);
+  }
+  .book-rail {
+    padding: 16px 8px;
+  }
+  .book-logo {
+    gap: 6px;
+  }
+  .book-logo svg {
+    display: none;
+  }
+  .book-logo strong {
+    font-size: 12px;
+  }
+  .book-logo small {
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+  .dash-top-grid,
+  .dash-middle-grid,
+  .studio-layout,
+  .home-work-grid,
+  .home-project-grid,
+  .home-entry-grid,
+  .home-asset-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .studio-layout {
+    overflow: auto;
+  }
+  .studio-editor,
+  .studio-assistant {
+    overflow: visible;
+  }
+  .studio-assistant {
+    border-left: 0;
+    border-top: 1px solid var(--ui-line);
+  }
+  .studio-heading,
+  .book-library > header,
+  .dash-welcome {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .studio-home-nav {
+    overflow-x: auto;
+    padding-inline: 16px;
+  }
+  .studio-home-nav button {
+    flex-shrink: 0;
+  }
+  .desk-shell {
+    grid-template-columns: 132px minmax(0, 1fr);
+  }
+  .desk-writing {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .desk-chapters {
+    grid-row: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--ui-line);
+    max-height: 200px;
+    overflow: auto;
+  }
+  .desk-context {
+    grid-column: 1;
+  }
+  .desk-focus {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .desk-top,
+  .desk-tools,
+  .studio-editor,
+  .lan-workspace {
+    padding: 18px;
+  }
+  .desk-top .desk-row {
+    justify-content: flex-start;
+  }
+  .lore-link-grid,
+  .desk-note-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .home-checklist {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mode-picker > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

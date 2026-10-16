@@ -1,5 +1,6 @@
 import { t } from '@/lib/i18n'
 import { generateId } from '@/lib/utils'
+import { validWorkbench, type Workbench } from './workbench'
 
 export type NovelStep = 'idea' | 'world' | 'outline' | 'chapters' | 'write' | 'review' | 'canon'
 export type AITask = 'idea' | 'world' | 'outline' | 'chapters' | 'write' | 'rewrite' | 'summary' | 'review'
@@ -51,6 +52,7 @@ export interface Generation {
   contextDigest?: string
 }
 export interface NovelContent {
+  workbench?: Workbench
   instructions?: Partial<Record<NovelStep, string>>
   seeds?: Partial<Record<NovelStep, string>>
   worldDraft?: { type: 'character' | 'lore'; title: string; content: string }
@@ -63,6 +65,8 @@ export interface NovelContent {
   issues: ReviewIssue[]
 }
 export interface NovelDocument extends NovelContent {
+  worldLinks?: Record<string, import('./loreLinks').NovelWorldLink>
+  activity?: import('./activity').WritingDay[]
   version: 1
   step: NovelStep
   selectedChapterId: string | null
@@ -157,8 +161,39 @@ export function validateNovel(value: unknown): asserts value is NovelDocument {
   }
   const object = (v: unknown): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v)
   const strings = (v: Record<string, any>, keys: string[]) => keys.every((key) => typeof v[key] === 'string')
+  if (
+    object(value) &&
+    value.worldLinks !== undefined &&
+    (!object(value.worldLinks) ||
+      Object.keys(value.worldLinks).length > 2000 ||
+      !Object.entries(value.worldLinks).every(
+        ([key, link]) =>
+          key.length <= 250 &&
+          object(link) &&
+          strings(link, ['entryId', 'sourceText', 'entryContent', 'entryTitle']) &&
+          link.entryId.length <= 200 &&
+          link.sourceText.length <= 1000000 &&
+          link.entryContent.length <= 2000000 &&
+          link.entryTitle.length <= 200,
+      ))
+  )
+    fail()
+  if (
+    object(value) &&
+    value.activity !== undefined &&
+    (!Array.isArray(value.activity) ||
+      value.activity.length > 366 ||
+      !value.activity.every(
+        (d: any) =>
+          object(d) &&
+          /^\d{4}-\d{2}-\d{2}$/.test(d.date) &&
+          ['manual', 'ai'].every((k) => Number.isSafeInteger(d[k]) && d[k] >= 0),
+      ))
+  )
+    fail()
   const content = (v: unknown): boolean => {
     if (!object(v) || !strings(v, ['idea', 'genre', 'style', 'outline'])) return false
+    if (v.workbench !== undefined && !validWorkbench(v.workbench)) return false
     if (
       v.seeds !== undefined &&
       (!object(v.seeds) || !Object.values(v.seeds).every((s) => typeof s === 'string' && s.length <= 80))

@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { enableTestModes } from './plugin-fixtures'
+beforeEach(enableTestModes)
 import { Database } from '@/lib/storage/database'
 import { emptyStudio, studioSources } from '@/features/studio/model'
 import { parseTavernWorld, tavernWorldPrompt } from '@/features/studio/tavernWorld'

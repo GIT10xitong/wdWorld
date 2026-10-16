@@ -72,6 +72,7 @@ function render(next) {
         : tr('主持人控制回复', 'Host controls replies')
   $('roleSection').hidden = state.mode !== 'tavern'
   const mine = state.players.find((p) => p.id === access?.playerId)
+  renderPlay(mine)
   for (const input of $('character').querySelectorAll('input, textarea, button'))
     input.disabled = !!mine?.roleId
   $('releaseRole').disabled = !mine?.roleId
@@ -133,6 +134,89 @@ function render(next) {
       return el
     }),
   )
+}
+async function playAction(body) {
+  try {
+    render(await api('/action', body))
+  } catch (e) {
+    error(e)
+  }
+}
+function renderPlay(mine) {
+  const round = state.round
+  $('trpgPanel').hidden = state.mode !== 'trpg'
+  $('roundStatus').textContent = round?.enabled
+    ? `${tr('回合', 'Round')} ${round.number} · ${round.phase === 'ready' ? tr('等待主持回应', 'Waiting for GM response') : tr('每位在场玩家提交一次行动', 'Each active player submits one action')}`
+    : tr('自由发言；主持人可开启回合等待。', 'Free chat. The host can enable coordinated rounds.')
+  $('roundPlayers').replaceChildren(
+    ...(round?.enabled ? state.players : []).map((p) => {
+      const el = document.createElement('p')
+      el.textContent = `${p.name} · ${p.away ? tr('暂离', 'Away') : round.submitted.includes(p.id) ? tr('已提交', 'Submitted') : tr('等待行动', 'Waiting for action')}`
+      return el
+    }),
+  )
+  $('away').hidden = !round?.enabled
+  $('away').textContent = mine?.away ? tr('回到跑团', 'Return to play') : tr('暂离本轮', 'Step away')
+  $('away').disabled = !!state.paused
+  $('sendChat').disabled =
+    !$('ooc').checked &&
+    (state.paused ||
+      (round?.enabled && (mine?.away || round.phase === 'ready' || round.submitted.includes(mine?.id))))
+  $('checks').replaceChildren(
+    ...(state.checks || [])
+      .slice(-20)
+      .reverse()
+      .map((c) => {
+        const row = document.createElement('div'),
+          label = document.createElement('p')
+        const result =
+          c.status === 'pending'
+            ? tr('等待掷骰', 'Awaiting roll')
+            : c.status === 'cancelled'
+              ? tr('已取消', 'Cancelled')
+              : `${c.result.total} · ${c.result.success ? tr('成功', 'Success') : tr('失败', 'Failure')}`
+        label.textContent = `${c.playerName} · ${c.label} · ${c.rule} / ${c.target} · ${result}${c.result ? ' [' + c.result.rolls.join(', ') + ']' : ''}`
+        row.append(label)
+        if (c.status === 'pending' && c.playerId === access?.playerId) {
+          const button = document.createElement('button')
+          button.type = 'button'
+          button.textContent = tr('进行检定', 'Roll check')
+          button.disabled = !!state.paused
+          button.onclick = () => {
+            button.disabled = true
+            void playAction({ action: 'check-roll', id: c.id }).finally(() => {
+              button.disabled = !!state.paused
+            })
+          }
+          row.append(button)
+        }
+        return row
+      }),
+  )
+  $('storyPanel').hidden = state.mode !== 'tavern' || !state.story
+  $('storyState').textContent = state.story
+    ? `${tr('当前位置', 'Location')}: ${state.story.location}\n${tr('当前目标', 'Goal')}: ${state.story.goal}\n${state.story.summary}`
+    : ''
+  $('storyChoices').replaceChildren(
+    ...(state.story?.choices || []).map((choice) => {
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.textContent = choice
+      button.disabled = !!state.paused || !!state.automation?.busy
+      button.onclick = () => {
+        $('text').value = choice
+        $('ooc').checked = false
+        renderPlay(mine)
+        $('text').focus()
+      }
+      return button
+    }),
+  )
+}
+$('away').onclick = () =>
+  void playAction({ action: 'away', away: !state?.players.find((p) => p.id === access?.playerId)?.away })
+$('ooc').onchange = () => {
+  if (state) renderPlay(state.players.find((p) => p.id === access?.playerId))
 }
 function fillCharacter() {
   const c = state?.players.find((p) => p.id === access?.playerId)?.character

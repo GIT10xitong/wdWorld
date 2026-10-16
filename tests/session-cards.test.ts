@@ -1,4 +1,6 @@
-import { it, expect } from 'vitest'
+import { beforeEach, it, expect } from 'vitest'
+import { enableTestModes } from './plugin-fixtures'
+beforeEach(enableTestModes)
 import { emptyStudio, validateStudio } from '@/features/studio/model'
 import { trpgPresets, moduleFile, importModule } from '@/features/studio/trpg'
 import { scenarioFromStudio, scenarioFile, importScenario } from '@/features/studio/scenario'

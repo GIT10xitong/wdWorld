@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, safeStorage, dialog, Menu, session } = require('electron')
+const { app, BrowserWindow, ipcMain, shell, safeStorage, dialog, Menu, session, net } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { registerAI } = require('./ai')
@@ -7,6 +7,10 @@ const { createProjectStorage } = require('./protected-storage')
 const { trustedSender, externalUrl } = require('./security')
 const { installMenu, menuText, nativeMessage } = require('./menu')
 const { registerLan } = require('./lan')
+const { createPluginManager, registerPlugins } = require('./plugins')
+const { registerUpdates } = require('./updates')
+const { registerNovelHome } = require('./novel-home')
+let installingUpdate = false
 
 // Keep the same data location in source and packaged builds.
 app.setPath('userData', path.join(app.getPath('appData'), 'wdworld'))
@@ -26,7 +30,41 @@ const trustedIPC = {
     }),
 }
 const ai = registerAI({ ipcMain: trustedIPC, app, safeStorage })
-registerLan({ ipcMain: trustedIPC, app, safeStorage, generate: ai.generate })
+registerNovelHome({ app, ipcMain: trustedIPC, safeStorage })
+let lan
+const plugins = createPluginManager({
+  root: app.getPath('userData'),
+  safeStorage,
+  appVersion: app.getVersion(),
+  // Use system proxy settings without attaching session cookies to plugin requests.
+  fetchImpl: (url, options) => net.fetch(url, { ...options, credentials: 'omit' }),
+  guardChange: () => {
+    if (lan?.state()) throw new Error('End the running room before changing plugins')
+  },
+})
+lan = registerLan({
+  ipcMain: trustedIPC,
+  app,
+  safeStorage,
+  generate: ai.generate,
+  requireMode: plugins.requireMode,
+  getMemory: plugins.memoryContext,
+})
+registerPlugins({ ipcMain: trustedIPC, manager: plugins, getRoom: () => lan.state(), generate: ai.generate })
+registerUpdates({
+  app,
+  ipcMain: trustedIPC,
+  BrowserWindow,
+  shell,
+  net,
+  beforeInstall: async () => {
+    if (lan?.state()) throw new Error('End the room before installing')
+    installingUpdate = true
+  },
+  installFailed: () => {
+    installingUpdate = false
+  },
+})
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -53,7 +91,7 @@ function createWindow() {
   let closing = false
   let closeTimer
   win.on('close', (event) => {
-    if (canClose) return
+    if (canClose || installingUpdate) return
     event.preventDefault()
     if (closing) return
     closing = true
@@ -193,6 +231,7 @@ trustedIPC.handle('list-projects', async () => {
         projects.push({
           id: projectId,
           name: project.name,
+          mode: project.mode || 'free',
           createdAt: project.createdAt,
           updatedAt: project.updatedAt,
         })

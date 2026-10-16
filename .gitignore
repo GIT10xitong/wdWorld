@@ -15,6 +15,6 @@ test-results/
 *.wdw.bak
 ai-settings.json
 *.tsbuildinfo
-# Retired generated resources, retained locally when cleanup is unavailable.
+# Prevent retired generated resources from being committed again.
 /public/sql-wasm.wasm
 /docs/screenshots/

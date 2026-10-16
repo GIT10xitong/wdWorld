@@ -92,6 +92,18 @@ function installMenu({ app, Menu, dialog, BrowserWindow, safeStorage, ipcMain })
           label: t('设置', 'Settings'),
           submenu: [
             {
+              id: 'plugin-center',
+              label: t('插件中心', 'Plugin center'),
+              click: () => {
+                const win = BrowserWindow.getAllWindows().find(
+                  (w) =>
+                    w.webContents.getURL().includes('index.html') ||
+                    w.webContents.getURL().startsWith('http://localhost:5173'),
+                )
+                win?.webContents.send('app:plugins')
+              },
+            },
+            {
               label: t('语言', 'Language'),
               submenu: [
                 {
@@ -141,6 +153,11 @@ function installMenu({ app, Menu, dialog, BrowserWindow, safeStorage, ipcMain })
         {
           label: t('帮助', 'Help'),
           submenu: [
+            {
+              id: 'app-updates',
+              label: t('检查应用更新', 'Application updates'),
+              click: () => BrowserWindow.getAllWindows()[0]?.webContents.send('updates:open'),
+            },
             {
               label: t('关于 WD World', 'About WD World'),
               click: () =>

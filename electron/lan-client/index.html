@@ -36,6 +36,22 @@
         <button id="leave" data-zh="离开房间" data-en="Leave room"></button>
         <h2 data-zh="公开场景" data-en="Public scene"></h2>
         <pre id="scene"></pre>
+        <section id="storyPanel" hidden>
+          <h2 data-zh="剧情状态与行动建议" data-en="Story state & suggested actions"></h2>
+          <p
+            data-zh="AI 剧情参考；选择建议会填入输入框，确认后再发送。"
+            data-en="AI narrative reference. Select a suggestion to edit it before sending."
+          ></p>
+          <pre id="storyState"></pre>
+          <div id="storyChoices"></div>
+        </section>
+        <section id="trpgPanel" hidden>
+          <h2 data-zh="回合与规则检定" data-en="Rounds & rule checks"></h2>
+          <p id="roundStatus"></p>
+          <div id="roundPlayers"></div>
+          <button type="button" id="away"></button>
+          <div id="checks"></div>
+        </section>
         <div class="columns">
           <article>
             <h2 data-zh="对话与掷骰" data-en="Chat & dice"></h2>
@@ -49,7 +65,7 @@
               ></label>
               <p id="pauseStatus"></p>
               <textarea id="text" maxlength="4000" required aria-label="Message"></textarea
-              ><button data-zh="发送" data-en="Send"></button>
+              ><button id="sendChat" data-zh="发送" data-en="Send"></button>
             </form>
             <form id="dice">
               <input id="expression" value="1d20" maxlength="14" aria-label="Dice" /><button

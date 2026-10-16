@@ -50,7 +50,7 @@ export const PROFILES: Record<
       return t('自由模式')
     },
     get description() {
-      return t('开放全部世界观工具，自由组合小说、OC、TRPG 与酒馆创作。已有项目默认归入此模式。')
+      return t('开放全部世界观工具，组合小说、OC 与已安装的模式插件。已有项目默认归入此模式。')
     },
     focus: [],
     views: ['editor', 'wiki', 'map', 'graph', 'timeline', 'template', 'export', 'collab', 'card'],

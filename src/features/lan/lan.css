@@ -4,7 +4,7 @@
   padding: 28px;
   max-width: 1500px;
   margin: auto;
-  color: #e1e7eb;
+  color: var(--ui-text);
 }
 .lan-workspace header {
   display: flex;
@@ -16,7 +16,7 @@
 }
 .lan-workspace h2 {
   font-size: 19px;
-  color: #e4be7b;
+  color: var(--ui-accent);
   margin-bottom: 12px;
 }
 .lan-workspace h3 {
@@ -25,18 +25,18 @@
 }
 .lan-workspace section {
   padding: 20px;
-  border: 1px solid #33424e;
-  background: #14202b;
+  border: 1px solid var(--ui-line);
+  background: var(--ui-panel);
   border-radius: 12px;
   margin: 16px 0;
 }
 .lan-workspace p {
   margin: 10px 0;
-  color: #aebdca;
+  color: var(--ui-muted);
 }
 .lan-workspace button {
   padding: 8px 14px;
-  background: #364653;
+  background: var(--ui-panel);
   border-radius: 7px;
   margin: 5px;
 }
@@ -50,11 +50,11 @@
 .lan-workspace input,
 .lan-workspace textarea,
 .lan-workspace select {
-  background: #0d1720;
-  border: 1px solid #40505e;
+  background: var(--ui-input);
+  border: 1px solid var(--ui-line);
   border-radius: 7px;
   padding: 9px;
-  color: white;
+  color: var(--ui-text);
 }
 .lan-workspace textarea {
   display: block;
@@ -76,10 +76,29 @@
   grid-template-columns: 1.6fr 1fr;
   gap: 18px;
 }
+.lan-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.lan-form-grid select {
+  width: 100%;
+}
+.lan-checks li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--ui-line);
+}
+.lan-story {
+  border-left: 3px solid var(--ui-accent);
+  padding: 0 16px;
+}
+.lan-story li {
+  padding: 6px 0;
+}
 .lan-messages {
   height: 320px;
   overflow: auto;
-  background: #0a141d;
+  background: var(--ui-panel);
   padding: 12px;
 }
 .lan-messages p,
@@ -90,7 +109,7 @@
 }
 .lan-invite strong {
   letter-spacing: 3px;
-  color: #e4be7b;
+  color: var(--ui-accent);
 }
 @media (max-width: 900px) {
   .lan-grid {

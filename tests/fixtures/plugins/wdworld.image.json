@@ -1,0 +1,22 @@
+{
+  "schema": "wdworld-plugin",
+  "apiVersion": 1,
+  "id": "wdworld.image",
+  "version": "1.0.0",
+  "minAppVersion": "1.8.0",
+  "name": {
+    "zh": "文字转图片",
+    "en": "Text to image"
+  },
+  "description": {
+    "zh": "连接 OpenAI 兼容图片服务，确认提示词后生成",
+    "en": "Generate images through an OpenAI-compatible service"
+  },
+  "author": "actrox",
+  "license": "MIT",
+  "kind": "extension",
+  "dependencies": ["wdworld.tavern"],
+  "permissions": ["network.request", "media.create"],
+  "capability": "image",
+  "protocol": "openai-image"
+}

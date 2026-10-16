@@ -1,4 +1,8 @@
-# WD World 1.7
+# WD World 1.10
+
+界面整理：小说书架负责作品管理、写作进度与跨作品灵感；打开作品后，在写作台使用章节、资料和 AI 工具。本章资料可收起，专注模式扩大正文区域。OC、TRPG、酒馆、世界观、局域网与插件页面统一使用简洁的蓝灰日夜主题。详见[界面与模块分工](docs/UI-GUIDE.md)。
+
+1.10.0 新增统一的小说界面与日夜主题、小说资料到世界观的确认式同步、智能体候选追加正文，以及所有模式的 WD WORLD 返回主页入口。外层插件中心仅安装酒馆／TRPG 完整模式，小插件在各模式的扩展页下载。详见[主题与模式扩展](docs/THEMES-AND-EXTENSIONS.md)和[小说工作台](docs/NOVEL-DESK.md)。
 
 [English](README.en.md) | 简体中文
 
@@ -8,15 +12,22 @@
 
 ## 下载与开始
 
-从 [GitHub Releases](https://github.com/actrox/wdWorld/releases) 下载 **WDWorld-Desktop-1.7.0-win-x64.zip**，完整解压后运行 `WD World.exe`。保留整个目录，不能只复制 EXE。Windows 桌面包未签名，目前没有自动更新。
+当前源码与本地构建为 **1.10.0**。运行 `npm run desktop` 启动，`npm run package` 生成便携目录，`npm run electron:build` 生成支持应用内更新的 NSIS 安装包。本轮未上传或发布 GitHub Release；下载时请核对[发布页](https://github.com/actrox/wdWorld/releases)中的实际版本。当前构建未签名。便携版迁移到安装版后可下载更新并确认重启安装。
 
-启动时选择模式，再新建或打开世界。专用模式进入对应创作界面；自由模式进入世界观并开放全部工具。菜单「文件 → 切换创作模式」或 `Ctrl+Shift+M` 返回模式选择。界面和原生菜单支持简体中文、English。
+启动时默认只提供自由、OC、小说模式。通过「插件中心」安装 TRPG、酒馆后才显示对应入口。专用模式进入对应创作界面；自由模式使用内置工具与已安装插件。菜单「文件 → 切换创作模式」或 `Ctrl+Shift+M` 返回模式选择。界面和原生菜单支持简体中文、English。
+
+OC、TRPG 和酒馆拥有独立项目库与创作主页，提供资料统计、准备清单、当前草稿和编辑入口。点击顶部 WD WORLD 保存并返回本模式主页；主题开关切换白天／夜晚。详见[三种模式主页](docs/MODE-HOMES.md)。
 
 - [快速入门](QUICKSTART.md)
 - [完整使用说明](docs/NOVEL-STUDIO.md)
 - [发布说明](CHANGELOG.md)
+- [小说书架与写作台](docs/NOVEL-DESK.md)
+- [GitHub 更新与发布](docs/UPDATES.md)
+- [主题、主页与模式扩展](docs/THEMES-AND-EXTENSIONS.md)
 
 ## 功能
+
+小说首页汇总书架、写作进度和灵感便笺，打开作品进入章节写作台。提供结构卡片、资源库、作者记忆、自定义笔记面板、可编辑的策划／写作／审校智能体、文风修订、TXT／Markdown 拆书与设定体检。资料可确认同步到本书世界观，AI 工具结果先存为待确认笔记；智能体候选经作者确认后追加到章节并保留版本。七阶段创作旅程仍可使用。
 
 | 模式              | 主要功能                                                                                         |
 | ----------------- | ------------------------------------------------------------------------------------------------ |
@@ -31,6 +42,14 @@
 TRPG 内置三套原创、无系统短篇：奇幻探索《雾钟遗迹》、悬疑调查《无声旅馆》、科幻求生《最后一班信标》。支持本软件副本 JSON、世界观导出 JSON、TXT、Markdown。酒馆支持 V2 / 旧版角色卡 JSON、世界书 JSON 和本软件场景卡 JSON。暂不解析 PNG 角色卡、PDF 或 Word。
 
 ## AI 与局域网
+
+TRPG 支持多人回合等待、暂离与主持人推进、d20／d100 检定；酒馆支持剧情状态栏、行动建议和主持人修订。操作与规则边界见[使用说明](docs/NOVEL-STUDIO.md)。
+
+## 模式包与模式内扩展
+
+「设置 → 插件中心」仅安装酒馆／TRPG 完整模式包。小插件在对应模式的「插件扩展 → 管理与下载扩展」中获取，酒馆入口名为「酒馆扩展」。两处均支持从[独立插件仓库](https://github.com/actrox/wdWorld-plugins)下载、导入 JSON／HTTPS 地址、预览权限、启用、停用与卸载，并校验适用模式。主程序保留编辑、存储和联机引擎，模式包提供模式声明、提示词和独立资源。停用不删除项目，运行房间期间不能更换插件。
+
+酒馆模式另有「酒馆扩展」界面，可安装项目记忆、文字转图片和文字转语音。记忆经过作者确认后用于本项目的自动回复；图片、语音使用独立的加密服务配置。第三方可提供 WDWorld v1 声明式插件包和 HTTP 服务适配器。SillyTavern 原生 JS 不能直接运行，需按[插件 API](https://github.com/actrox/wdWorld-plugins/blob/main/docs/API.md)适配。项目备份不包含插件密钥与记忆，迁移记忆需手动复制。
 
 桌面版「AI 设置」支持 DeepSeek、MiMo、OpenAI / Codex、Gemini、自定义及本机服务，适配 Chat Completions、Responses、Gemini 原生协议。填写自己的接口与密钥，获取模型后选择并测试。软件不附带 API 密钥或额度。
 
@@ -56,7 +75,7 @@ npm run package        # Windows 可移动桌面目录
 npm run electron:build # Windows NSIS 安装包
 ```
 
-`start-desktop.cmd` 优先打开本机 `release/v1.7.0/WDWorld-Desktop-1.7.0/` 桌面包；否则从源码启动，需先安装依赖。`package` 拒绝覆盖同版本输出目录。二进制通过 GitHub Release 分发，不提交到源码仓库。
+源码和 Electron 依赖齐全时，`start-desktop.cmd` 优先构建并启动当前代码，避免旧桌面包掩盖界面更新；否则尝试打开本机 `release/v1.10.0/WDWorld-Desktop-1.10.0/` 桌面包。`package` 拒绝覆盖同版本输出目录。二进制不提交到源码仓库。
 
 ## 开发检查
 
@@ -75,6 +94,10 @@ npm run test:studio     # 创作模式和世界推演
 npm run test:world      # 整套世界、待确认设定和模式入口
 npm run test:lan        # 双玩家联机、资料隔离和界面语言
 npm run test:automation # 自动回复、场景卡、副本和主持人控制
+npm run test:plugins    # 默认模式、安装权限、加密记忆、图片、音频与重启恢复
+npm run test:novel-desk # 小说工具、主题、世界观联动与加密恢复
+npm run test:mode-homes # OC、TRPG、酒馆主页和项目库
+npm run test:theme      # 日夜主题、实际鼠标悬停和弹窗配色
 ```
 
 常规测试不调用真实模型。`scripts/test-live-ai.js` 需显式设置 `WDWORLD_LIVE_AI=1`，才使用本机配置进行真实模型测试，可能产生 API 用量。
@@ -95,3 +118,7 @@ docs/           使用说明
 技术栈：Electron、React 18、TypeScript、Vite、Tailwind CSS、Zustand、TipTap、sql.js、Vitest、Playwright。内置素材保留，SQLite WASM 直接从依赖构建。
 
 [CI](.github/workflows/ci.yml) 检查格式、Lint、覆盖率和构建；[Pages](.github/workflows/deploy-pages.yml) 部署 main 的浏览器版本。构建、报告、测试截图、日志和本地配置均不进入源码仓库。
+
+## 清理本地产物
+
+在 PowerShell 运行 `./scripts/clean-generated.ps1` 预览清单，核对后加 `-Apply` 执行。脚本仅清理已识别的旧版打包目录、旧安装包、测试报告、启动日志和已废弃的 WASM 副本；保留 package.json 指定版本的便携版、安装包、源码、开发依赖和 dist。检测到用户密文或目录链接时中止。完整软件文档位于 docs，打包时与根目录入门和版本说明一起分发。

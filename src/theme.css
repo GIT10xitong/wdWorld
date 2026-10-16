@@ -1,0 +1,202 @@
+:root[data-theme='day'] {
+  --ui-bg: #edf3f6;
+  --ui-panel: #f9fbfc;
+  --ui-rail: #e4edf2;
+  --ui-input: #f0f5f8;
+  --ui-text: #304959;
+  --ui-muted: #607c8f;
+  --ui-line: #cad9e3;
+  --ui-accent: #547e9f;
+  --ui-soft: #dbe8f2;
+  --ui-on-accent: #fff;
+  --ui-danger: #a53b40;
+  --ui-warning: #85550e;
+  --ui-warning-soft: #f4ead8;
+  --ui-hover: #d2e2ed;
+  --ui-accent-hover: #456b8c;
+  --ui-success: #246744;
+  --ui-success-soft: #e0eee5;
+  --ui-danger-soft: #f6e4e6;
+  --ui-shadow: #15334a14;
+  --ink-950: #edf3f6;
+  --ink-900: #f9fbfc;
+  --ink-850: #eaf1f5;
+  --ink-800: #e1ebf2;
+  --text: #304959;
+  --muted: #607c8f;
+  --line: #cad9e3;
+  --line-strong: #aebfcc;
+  --gold: #547e9f;
+  --gold-light: #3f6b8b;
+}
+:root[data-theme='night'] {
+  --ui-bg: #101b25;
+  --ui-panel: #172632;
+  --ui-rail: #14222e;
+  --ui-input: #10212e;
+  --ui-text: #dce7ef;
+  --ui-muted: #9db3c4;
+  --ui-line: #344b5c;
+  --ui-accent: #90bad8;
+  --ui-soft: #253f52;
+  --ui-on-accent: #102332;
+  --ui-danger: #f2a0a4;
+  --ui-warning: #edc77e;
+  --ui-warning-soft: #3e3424;
+  --ui-hover: #304c61;
+  --ui-accent-hover: #a9cbe1;
+  --ui-success: #a0d4b2;
+  --ui-success-soft: #203c30;
+  --ui-danger-soft: #452c35;
+  --ui-shadow: #00000033;
+}
+:root[data-theme] {
+  --text: var(--ui-text);
+  --muted: var(--ui-muted);
+  --line: var(--ui-line);
+  --line-strong: var(--ui-line);
+  --ink-950: var(--ui-bg);
+  --ink-900: var(--ui-panel);
+  --ink-850: var(--ui-rail);
+  --ink-800: var(--ui-soft);
+}
+:root[data-theme] body {
+  background: var(--ui-bg);
+  color: var(--ui-text);
+}
+/* Shared controls also apply to dialogs outside a feature's workspace shell. */
+:root[data-theme] :is(.start-toolbar, .theme-toggle, .language-picker) {
+  background: var(--ui-rail);
+  color: var(--ui-text);
+  border-color: var(--ui-line);
+}
+.novel-modal {
+  color: var(--ui-text);
+  --novel-muted: var(--ui-muted);
+  --novel-border: var(--ui-line);
+}
+.novel-modal label {
+  display: grid;
+  gap: 8px;
+  margin-block: 12px;
+  font-size: 13px;
+}
+.novel-modal :is(input:not([type='checkbox']), select, textarea) {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-line);
+  border-radius: 7px;
+  background: var(--ui-input);
+  color: var(--ui-text);
+}
+.novel-modal button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border: 1px solid var(--ui-line);
+  border-radius: 7px;
+  background: var(--ui-panel);
+  color: var(--ui-text);
+}
+.novel-modal button:hover:not(:disabled) {
+  background: var(--ui-hover);
+}
+.novel-modal .novel-primary {
+  background: var(--ui-accent);
+  color: var(--ui-on-accent);
+}
+.novel-modal .novel-primary:hover:not(:disabled) {
+  background: var(--ui-accent-hover);
+}
+.novel-modal .novel-check {
+  display: flex;
+  align-items: center;
+}
+.dash-main progress::-webkit-progress-value,
+.dash-bars span {
+  background: var(--ui-accent);
+}
+.dash-main progress::-moz-progress-bar {
+  background: var(--ui-accent);
+}
+:root[data-theme] :is(.desk-rail nav, .desk-chapters) button[aria-current] {
+  background: var(--ui-soft);
+  color: var(--ui-accent);
+}
+:root[data-theme] :is(.desk-shell, .book-home) button:hover:not(:disabled) {
+  background-color: var(--ui-hover);
+}
+:root[data-theme]
+  :is(.desk-shell, .book-home)
+  :is(.desk-primary, .dash-primary, .novel-primary):hover:not(:disabled) {
+  background: var(--ui-accent-hover) !important;
+  color: var(--ui-on-accent) !important;
+}
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.app-brand {
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
+}
+.start-toolbar .app-brand {
+  margin-right: auto;
+}
+.start-toolbar {
+  left: 20px;
+  padding: 0 4px;
+}
+:root[data-creation-mode='novel']
+  :is(.book-library h1, .dash-welcome h1, .novel-page-heading h1, .desk-top h1) {
+  font-family: Georgia, 'Songti SC', SimSun, serif;
+  font-size: 26px;
+  font-weight: 400;
+}
+.lore-link-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 2fr;
+  gap: 20px;
+}
+.book-rail > button.book-logo {
+  margin: 4px 0 24px;
+  padding: 9px 5px;
+  letter-spacing: 0.5px;
+}
+.book-logo strong,
+.book-logo small {
+  white-space: nowrap;
+}
+.lore-link-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 550px;
+  overflow: auto;
+}
+.lore-link-list button {
+  text-align: left;
+}
+.lore-link-preview pre {
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1200px) {
+  .theme-toggle span {
+    display: none;
+  }
+  .mode-bar {
+    gap: 3px;
+    padding: 8px;
+  }
+  .mode-bar button {
+    padding: 8px;
+  }
+}
