@@ -54,7 +54,7 @@ async function main() {
     await page.getByRole('button', { name: /新建世界/ }).click()
     await page.getByPlaceholder('例如：雾海纪元').fill('整套世界验收')
     await page.getByRole('button', { name: '创建并进入', exact: true }).click()
-    await page.getByRole('heading', { name: '酒馆制作', exact: true }).waitFor()
+    await page.locator('.studio-home').waitFor()
     await require('./test-plugin-helper').openStudioEditor(page)
     assert.equal(
       await page.locator('.mode-bar').getByRole('button', { name: '切换创作模式', exact: true }).count(),
@@ -113,7 +113,7 @@ async function main() {
     await launch()
     await page.locator('[data-mode="tavern"]').click()
     await page.getByTitle('打开 整套世界验收', { exact: true }).click()
-    await page.getByRole('heading', { name: '酒馆制作', exact: true }).waitFor()
+    await page.locator('.studio-home').waitFor()
     await require('./test-plugin-helper').openStudioEditor(page)
     assert.equal(await page.getByLabel('角色卡名称', { exact: true }).inputValue(), '守灯人')
     assert.equal(await page.getByLabel('选择收藏角色卡').locator('option').count(), 3)

@@ -1,4 +1,6 @@
-# WD World 1.10
+# WD World 1.10.1
+
+1.10.1 为本地稳定性候选版：包含界面修复、Windows 桌面回归与旧项目兼容验收。候选包构建和安装验收见[候选版流程](docs/RELEASE-CANDIDATE.md)，不自动公开发布。
 
 界面整理：小说书架负责作品管理、写作进度与跨作品灵感；打开作品后，在写作台使用章节、资料和 AI 工具。本章资料可收起，专注模式扩大正文区域。OC、TRPG、酒馆、世界观、局域网与插件页面统一使用简洁的蓝灰日夜主题。详见[界面与模块分工](docs/UI-GUIDE.md)。
 
@@ -12,7 +14,7 @@
 
 ## 下载与开始
 
-当前源码与本地构建为 **1.10.0**。运行 `npm run desktop` 启动，`npm run package` 生成便携目录，`npm run electron:build` 生成支持应用内更新的 NSIS 安装包。本轮未上传或发布 GitHub Release；下载时请核对[发布页](https://github.com/actrox/wdWorld/releases)中的实际版本。当前构建未签名。便携版迁移到安装版后可下载更新并确认重启安装。
+当前源码与本地构建为 **1.10.1**。运行 `npm run desktop` 启动，`npm run package` 生成便携目录，`npm run electron:build` 生成支持应用内更新的 NSIS 安装包。本轮未上传或发布 GitHub Release；下载时请核对[发布页](https://github.com/actrox/wdWorld/releases)中的实际版本。当前构建未签名。便携版迁移到安装版后可下载更新并确认重启安装。
 
 启动时默认只提供自由、OC、小说模式。通过「插件中心」安装 TRPG、酒馆后才显示对应入口。专用模式进入对应创作界面；自由模式使用内置工具与已安装插件。菜单「文件 → 切换创作模式」或 `Ctrl+Shift+M` 返回模式选择。界面和原生菜单支持简体中文、English。
 
@@ -75,7 +77,7 @@ npm run package        # Windows 可移动桌面目录
 npm run electron:build # Windows NSIS 安装包
 ```
 
-源码和 Electron 依赖齐全时，`start-desktop.cmd` 优先构建并启动当前代码，避免旧桌面包掩盖界面更新；否则尝试打开本机 `release/v1.10.0/WDWorld-Desktop-1.10.0/` 桌面包。`package` 拒绝覆盖同版本输出目录。二进制不提交到源码仓库。
+源码和 Electron 依赖齐全时，`start-desktop.cmd` 优先构建并启动当前代码，避免旧桌面包掩盖界面更新；否则尝试打开本机 `release/v1.10.1/WDWorld-Desktop-1.10.1/` 桌面包。`package` 拒绝覆盖同版本输出目录。二进制不提交到源码仓库。
 
 ## 开发检查
 
@@ -98,6 +100,7 @@ npm run test:plugins    # 默认模式、安装权限、加密记忆、图片、
 npm run test:novel-desk # 小说工具、主题、世界观联动与加密恢复
 npm run test:mode-homes # OC、TRPG、酒馆主页和项目库
 npm run test:theme      # 日夜主题、实际鼠标悬停和弹窗配色
+npm run test:desktop:all # 构建一次，顺序运行全部九组桌面回归
 ```
 
 常规测试不调用真实模型。`scripts/test-live-ai.js` 需显式设置 `WDWORLD_LIVE_AI=1`，才使用本机配置进行真实模型测试，可能产生 API 用量。
@@ -117,7 +120,7 @@ docs/           使用说明
 
 技术栈：Electron、React 18、TypeScript、Vite、Tailwind CSS、Zustand、TipTap、sql.js、Vitest、Playwright。内置素材保留，SQLite WASM 直接从依赖构建。
 
-[CI](.github/workflows/ci.yml) 检查格式、Lint、覆盖率和构建；[Pages](.github/workflows/deploy-pages.yml) 部署 main 的浏览器版本。构建、报告、测试截图、日志和本地配置均不进入源码仓库。
+[CI](.github/workflows/ci.yml) 检查格式、Lint、关键文件覆盖率、构建和 Windows 桌面回归；[候选构建](.github/workflows/candidate.yml) 手动运行打包与安装验收；[Pages](.github/workflows/deploy-pages.yml) 部署 main 的浏览器版本。构建、报告、测试截图、日志和本地配置均不进入源码仓库。
 
 ## 清理本地产物
 

@@ -10,12 +10,14 @@ const { registerLan } = require('./lan')
 const { createPluginManager, registerPlugins } = require('./plugins')
 const { registerUpdates } = require('./updates')
 const { registerNovelHome } = require('./novel-home')
+const { testProfile } = require('./test-profile')
+const isolatedProfile = testProfile(app.isPackaged)
 let installingUpdate = false
 
 // Keep the same data location in source and packaged builds.
 app.setPath('userData', path.join(app.getPath('appData'), 'wdworld'))
-if (!app.isPackaged && process.env.WDWORLD_TEST_USER_DATA) {
-  app.setPath('userData', path.resolve(process.env.WDWORLD_TEST_USER_DATA))
+if (isolatedProfile) {
+  app.setPath('userData', isolatedProfile)
 }
 
 const appUrl =
@@ -52,6 +54,7 @@ lan = registerLan({
 })
 registerPlugins({ ipcMain: trustedIPC, manager: plugins, getRoom: () => lan.state(), generate: ai.generate })
 registerUpdates({
+  testMode: !!isolatedProfile,
   app,
   ipcMain: trustedIPC,
   BrowserWindow,
@@ -68,14 +71,14 @@ registerUpdates({
 
 function createWindow() {
   const win = new BrowserWindow({
-    show: !process.env.WDWORLD_TEST_USER_DATA,
+    show: !isolatedProfile,
     width: 1440,
     height: 940,
     minWidth: 1100,
     minHeight: 720,
     title: menuText('WD World · 世界创作', 'WD World · Worldbuilding'),
     webPreferences: {
-      backgroundThrottling: !process.env.WDWORLD_TEST_USER_DATA,
+      backgroundThrottling: !isolatedProfile,
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,

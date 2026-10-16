@@ -14,8 +14,16 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
-      include: ['src/lib/utils.ts', 'src/lib/markdown.ts'],
+      include: [
+        'src/lib/utils.ts',
+        'src/lib/markdown.ts',
+        'src/lib/storage/saveQueue.ts',
+        'src/features/novel/autoSave.ts',
+        'electron/protected-storage.js',
+        'electron/test-profile.js',
+      ],
       thresholds: {
+        perFile: true,
         lines: 80,
         functions: 80,
         statements: 80,

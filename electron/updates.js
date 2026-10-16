@@ -137,7 +137,16 @@ function createUpdates({
     },
   }
 }
-function registerUpdates({ app, ipcMain, BrowserWindow, shell, net, beforeInstall, installFailed }) {
+function registerUpdates({
+  app,
+  ipcMain,
+  BrowserWindow,
+  shell,
+  net,
+  beforeInstall,
+  installFailed,
+  testMode = false,
+}) {
   const settingsFile = path.join(app.getPath('userData'), 'updates.json')
   const supported =
     app.isPackaged &&
@@ -179,7 +188,7 @@ function registerUpdates({ app, ipcMain, BrowserWindow, shell, net, beforeInstal
     })
   ipcMain.handle('updates:releases', () => shell.openExternal(RELEASES))
   // Do not contact GitHub automatically from tests or source previews.
-  if (app.isPackaged)
+  if (app.isPackaged && !testMode)
     app.whenReady().then(() =>
       setTimeout(() => {
         if (manager.state().automatic) void manager.check()

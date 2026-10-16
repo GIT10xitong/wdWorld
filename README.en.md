@@ -1,4 +1,6 @@
-# WD World 1.10
+# WD World 1.10.1
+
+1.10.1 is a local stabilization candidate with theme fixes, Windows desktop regression and legacy-project acceptance checks. See the [candidate workflow](docs/RELEASE-CANDIDATE.md). Building a candidate does not publish a release.
 
 The bookshelf now focuses on book management, writing progress and shared ideas. Open a book to access chapters, references and AI tools in the writing desk, with collapsible chapter notes and a wider focus view. OC, TRPG, Tavern, worldbuilding, LAN and plugin screens share a restrained blue-gray day/night theme. See the [interface guide](docs/UI-GUIDE.md) (Chinese).
 
@@ -14,7 +16,7 @@ A local-first desktop workbench for worldbuilding, novels, original characters, 
 
 ## Download
 
-Current source and local builds are **1.10.0**. Run `npm run desktop`, build a portable folder with `npm run package`, or an NSIS installer with `npm run electron:build`. NSIS builds can download, verify and restart into updates after saving; portable builds only check versions. This round did not upload or publish a GitHub Release; check the actual version on the [release page](https://github.com/actrox/wdWorld/releases). Builds remain unsigned.
+Current source and local builds are **1.10.1**. Run `npm run desktop`, build a portable folder with `npm run package`, or an NSIS installer with `npm run electron:build`. NSIS builds can download, verify and restart into updates after saving; portable builds only check versions. This round did not upload or publish a GitHub Release; check the actual version on the [release page](https://github.com/actrox/wdWorld/releases). Builds remain unsigned.
 
 Free, OC and Novel are available by default. Install TRPG and Tavern through the plugin center to add their modes. Specialized projects open their creator workspace; Free mode combines built-in tools and installed plugins. **File → Switch creation mode** (`Ctrl+Shift+M`) returns to mode selection. Simplified Chinese and English cover the interface and native menus while preserving authored text.
 
@@ -72,7 +74,7 @@ npm run package        # Windows portable directory
 npm run electron:build # Windows NSIS installer
 ```
 
-When source files and Electron dependencies are available, `start-desktop.cmd` builds and launches the current source so an older packaged build cannot hide UI updates. Otherwise it tries `release/v1.10.0/WDWorld-Desktop-1.10.0/`. Packaging refuses to overwrite an existing version directory. Binaries are not committed to Git.
+When source files and Electron dependencies are available, `start-desktop.cmd` builds and launches the current source so an older packaged build cannot hide UI updates. Otherwise it tries `release/v1.10.1/WDWorld-Desktop-1.10.1/`. Packaging refuses to overwrite an existing version directory. Binaries are not committed to Git.
 
 ```sh
 npm run format:check
@@ -88,6 +90,7 @@ npm run test:plugins
 npm run test:novel-desk
 npm run test:mode-homes
 npm run test:theme      # Day/night surfaces, actual pointer hover and dialog colors
+npm run test:desktop:all # Build once and run all nine desktop suites in sequence
 ```
 
 Desktop tests run on Windows with isolated profiles and local mock models. Regular tests never call a real model. `scripts/test-live-ai.js` requires explicit `WDWORLD_LIVE_AI=1` and may incur API usage using locally saved credentials.

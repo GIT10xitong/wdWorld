@@ -1,0 +1,42 @@
+name: Windows release candidate
+
+on:
+  workflow_dispatch:
+
+jobs:
+  candidate:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run test:coverage
+      - run: npm run test:desktop:all
+      - run: npm run release:candidate
+      - name: Install and verify candidate on the clean runner
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          ./scripts/test-installer.ps1 -Installer "release/v$version/installer/WDWorld-Setup-$version.exe"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: candidate-validation
+          path: test-results/
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-candidate
+          path: |
+            release/v*/installer/*.exe
+            release/v*/installer/*.blockmap
+            release/v*/installer/latest.yml
+            release/v*/candidate.json
+            release/v*/SHA256SUMS.txt
+          retention-days: 14
