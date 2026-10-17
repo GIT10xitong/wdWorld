@@ -15,7 +15,7 @@ $taskRegistryRoots = @(
   'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
 )
 $taskExisting = Get-ItemProperty $taskRegistryRoots -ErrorAction SilentlyContinue |
-  Where-Object { $_.DisplayName -eq 'WD World' }
+  Where-Object { $_.DisplayName -like 'WD World*' }
 if ($taskExisting) { throw 'An existing WD World installation was found. Use a clean Windows test account.' }
 if (Get-Process -Name 'WD World' -ErrorAction SilentlyContinue) {
   throw 'A WD World process is running. Close it before installer acceptance.'
@@ -45,10 +45,11 @@ try {
   }
   Install-Candidate $taskInstaller
   $taskInstalledVersion = (Get-Item -LiteralPath $taskExe).VersionInfo.ProductVersion
-  if ($taskInstalledVersion -ne $taskVersion) { throw "Installed version mismatch: $taskInstalledVersion" }
+  # Windows PE metadata uses four components even when package.json uses SemVer.
+  if ($taskInstalledVersion -notin @($taskVersion, "$taskVersion.0")) { throw "Installed version mismatch: $taskInstalledVersion" }
   $taskRegistration = Get-ItemProperty $taskRegistryRoots -ErrorAction SilentlyContinue |
-    Where-Object { $_.DisplayName -eq 'WD World' }
-  if (-not $taskRegistration -or $taskRegistration.DisplayVersion -ne $taskVersion) { throw 'Installer registration mismatch' }
+    Where-Object { $_.DisplayName -like 'WD World*' }
+  if (-not $taskRegistration -or $taskRegistration.DisplayVersion -notin @($taskVersion, "$taskVersion.0")) { throw 'Installer registration mismatch' }
   & node (Join-Path $PSScriptRoot 'test-packaged.js') $taskExe installer
   if ($LASTEXITCODE -ne 0) { throw 'Installed application acceptance failed' }
 } finally {
@@ -60,7 +61,7 @@ try {
 }
 if (Test-Path -LiteralPath $taskExe) { throw 'QA uninstall left the executable installed' }
 $taskRemaining = Get-ItemProperty $taskRegistryRoots -ErrorAction SilentlyContinue |
-  Where-Object { $_.DisplayName -eq 'WD World' }
+  Where-Object { $_.DisplayName -like 'WD World*' }
 if ($taskRemaining) { throw 'QA uninstall left an installation registration' }
 $taskReport = @{
   passed = $true
