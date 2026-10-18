@@ -1,4 +1,6 @@
+import { FilePicker } from '@/components/FilePicker'
 import { useState } from 'react'
+import { CollectionPicker } from './CollectionPicker'
 import { saveAs } from 'file-saver'
 import { t } from '@/lib/i18n'
 import { generateId } from '@/lib/utils'
@@ -17,6 +19,7 @@ export function TrpgWorkshop({
   onError,
   flush,
   random,
+  onLoaded,
 }: {
   doc: StudioDocument
   change: (fn: (d: StudioDocument) => StudioDocument) => void
@@ -26,6 +29,7 @@ export function TrpgWorkshop({
   onError: (v: string) => void
   flush: () => Promise<void>
   random: () => void
+  onLoaded: () => void
 }) {
   const [pending, setPending] = useState<TrpgModule | null>(null)
   const [selected, setSelected] = useState('preset-0')
@@ -72,21 +76,15 @@ export function TrpgWorkshop({
             '根据已有设定和随机种子生成世界与副本；留空时自由随机。预设为原创、无系统短篇，可按你的规则改编。',
           )}
         </p>
-        <label>
-          {t('选择跑团副本')}
-          <select
-            aria-label={t('选择跑团副本')}
-            value={selected}
-            onChange={(e) => setSelected(e.target.value)}
-          >
-            {choices.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.draft.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <CollectionPicker
+          label={t('选择跑团副本')}
+          value={selected}
+          onChange={setSelected}
+          allowEmpty={false}
+          items={choices.map((m) => ({ id: m.id, title: m.draft.name, description: m.draft.premise }))}
+        />
         <button
+          disabled={!selected}
           onClick={() => setPending(structuredClone(choices.find((m) => m.id === selected) || choices[0]))}
         >
           {t('预览所选副本')}
@@ -112,22 +110,19 @@ export function TrpgWorkshop({
         >
           {t('导出 TRPG 副本')}
         </button>
-        <label>
-          {t('导入世界或跑团文件')}
-          <input
-            type="file"
-            accept=".json,.txt,.md,.markdown"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              e.target.value = ''
-              if (file)
-                void act(async () => {
-                  if (file.size > 2 * 1024 * 1024) throw new Error(t('跑团资料不能超过 2 MB'))
-                  setPending(importModule(await file.text(), file.name))
-                })
-            }}
-          />
-        </label>
+        <FilePicker
+          label={t('导入世界或跑团文件')}
+          accept=".json,.txt,.md,.markdown"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            e.target.value = ''
+            if (file)
+              void act(async () => {
+                if (file.size > 2 * 1024 * 1024) throw new Error(t('跑团资料不能超过 2 MB'))
+                setPending(importModule(await file.text(), file.name))
+              })
+          }}
+        />
         <p>
           {t('支持副本 JSON、世界观导出 JSON、TXT、Markdown。文本资料先载入主持人场景草稿，不会自动公开。')}
         </p>
@@ -163,6 +158,7 @@ export function TrpgWorkshop({
                   await useStore.getState().fetchEntries()
                   setPending(null)
                   setSelected(module.id)
+                  onLoaded()
                 })
               }
             >

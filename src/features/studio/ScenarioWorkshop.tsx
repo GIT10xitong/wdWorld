@@ -1,4 +1,6 @@
+import { FilePicker } from '@/components/FilePicker'
 import { useState } from 'react'
+import { CollectionPicker } from './CollectionPicker'
 import { saveAs } from 'file-saver'
 import { t } from '@/lib/i18n'
 import type { ScenarioCard, StudioDocument } from './model'
@@ -9,11 +11,13 @@ export function ScenarioWorkshop({
   change,
   disabled,
   onError,
+  onLoaded,
 }: {
   doc: StudioDocument
   change: (fn: (d: StudioDocument) => StudioDocument) => void
   disabled: boolean
   onError: (s: string) => void
+  onLoaded: () => void
 }) {
   const [selected, setSelected] = useState('')
   const [pending, setPending] = useState<ScenarioCard | null>(null)
@@ -42,17 +46,12 @@ export function ScenarioWorkshop({
         >
           {t('保存角色场景卡')}
         </button>
-        <label>
-          {t('选择场景卡')}
-          <select aria-label={t('选择场景卡')} value={selected} onChange={(e) => setSelected(e.target.value)}>
-            <option value="">{t('选择场景卡')}</option>
-            {(doc.scenarios || []).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
-        </label>
+        <CollectionPicker
+          label={t('选择场景卡')}
+          value={selected}
+          onChange={setSelected}
+          items={(doc.scenarios || []).map((c) => ({ id: c.id, title: c.title, description: c.scene }))}
+        />
         <button
           disabled={!selected}
           onClick={() => {
@@ -76,22 +75,19 @@ export function ScenarioWorkshop({
         >
           {t('导出场景卡')}
         </button>
-        <label>
-          {t('导入场景卡')}
-          <input
-            type="file"
-            accept=".json"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              e.target.value = ''
-              if (file)
-                void act(async () => {
-                  if (file.size > 4 * 1024 * 1024) throw new Error(t('导入文件不能超过 4 MB'))
-                  setPending(importScenario(JSON.parse(await file.text())))
-                })
-            }}
-          />
-        </label>
+        <FilePicker
+          label={t('导入场景卡')}
+          accept=".json"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            e.target.value = ''
+            if (file)
+              void act(async () => {
+                if (file.size > 4 * 1024 * 1024) throw new Error(t('导入文件不能超过 4 MB'))
+                setPending(importScenario(JSON.parse(await file.text())))
+              })
+          }}
+        />
         {pending && (
           <div className="studio-book">
             <h3>{pending.title}</h3>
@@ -128,6 +124,7 @@ export function ScenarioWorkshop({
                   }))
                   setSelected(pending.id)
                   setPending(null)
+                  onLoaded()
                 })
               }
             >

@@ -239,9 +239,18 @@ async function main() {
       await inspect(`${mode}-editor`, true)
       if (mode === 'oc') await inspectAISettings('studio-ai-settings')
       if (mode === 'trpg') {
+        await require('./test-plugin-helper').openStudioSection(page, 'Module library')
+        await inspect('module-library', true)
         await button('LAN room').click()
         await page.locator('.lan-workspace').waitFor()
         await inspect('lan-workspace', true)
+      }
+      if (mode === 'tavern') {
+        await require('./test-plugin-helper').openStudioSection(page, 'World book')
+        await button('New worldbook entry').click()
+        await inspect('worldbook-directory', true)
+        await require('./test-plugin-helper').openStudioSection(page, 'Character workshop')
+        await inspect('character-library', true)
       }
     }
     assert.deepEqual(errors, [])

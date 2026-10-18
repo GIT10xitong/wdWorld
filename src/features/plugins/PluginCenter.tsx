@@ -1,3 +1,4 @@
+import { FilePicker } from '@/components/FilePicker'
 import { useState } from 'react'
 import { t, message } from '@/lib/i18n'
 import {
@@ -157,22 +158,19 @@ export function PluginCenter({ onClose, scope = 'modes' }: { onClose: () => void
           <button disabled={!url.trim()} onClick={() => void prepare({ url })}>
             {t('预览地址中的插件')}
           </button>
-          <label>
-            {t('选择插件 JSON')}
-            <input
-              type="file"
-              accept=".json,application/json"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                e.target.value = ''
-                if (file)
-                  void act(async () => {
-                    if (file.size > 2 * 1024 * 1024) throw new Error(t('插件包不能超过 2 MB'))
-                    await prepare({ json: await file.text() })
-                  })
-              }}
-            />
-          </label>
+          <FilePicker
+            label={t('选择插件 JSON')}
+            accept=".json,application/json"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ''
+              if (file)
+                void act(async () => {
+                  if (file.size > 2 * 1024 * 1024) throw new Error(t('插件包不能超过 2 MB'))
+                  await prepare({ json: await file.text() })
+                })
+            }}
+          />
           {review && (
             <article className="plugin-review">
               <h2>

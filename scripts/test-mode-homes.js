@@ -17,6 +17,7 @@ async function main() {
     await page.locator('.studio-home').waitFor()
   }
   const editor = () => button('编辑工作台').click()
+  const section = (name) => require('./test-plugin-helper').openStudioSection(page, name)
   const switchModes = async () => {
     await app.evaluate(({ Menu }) =>
       Menu.getApplicationMenu().getMenuItemById('switch-creation-mode').click(),
@@ -74,6 +75,9 @@ async function main() {
     await switchModes()
     await create('trpg', '雾港调查团')
     await button('选择或导入副本').click()
+    await page.getByLabel('搜索：选择跑团副本', { exact: true }).fill('没有匹配副本')
+    assert(await button('预览所选副本').isDisabled())
+    await page.getByLabel('搜索：选择跑团副本', { exact: true }).fill('')
     await button('预览所选副本').click()
     await button('确认载入副本').click()
     await page.waitForFunction(() => document.querySelector('[aria-label="团务名称"]')?.value.length > 0)
@@ -99,12 +103,15 @@ async function main() {
     await page.getByLabel('角色卡名称', { exact: true }).fill('守灯人')
     await page.getByLabel('角色描述', { exact: true }).fill('守着海边最后一座灯塔，等待夜航的客人。')
     await page.getByLabel('开场白', { exact: true }).fill('{{user}}，今晚的潮声和往常不同。')
+    await section('角色卡工坊')
     await button('收藏当前角色卡').click()
+    await section('世界书')
     await button('新建世界书条目').click()
     await page.getByLabel('世界书标题 1', { exact: true }).fill('灯塔规则')
     await shot('mode-editor-tavern-day')
     await page.getByLabel('触发词 1', { exact: true }).fill('灯塔')
     await page.getByLabel('世界书正文 1', { exact: true }).fill('入夜之后必须保持灯光。')
+    await section('场景卡')
     await button('保存角色场景卡').click()
     await home()
     assert.deepEqual(await page.locator('.home-stat-grid strong').allTextContents(), ['1', '1', '1', '1'])
@@ -124,6 +131,9 @@ async function main() {
     await button('Craft character card').waitFor()
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1100, 720))
     await shot('mode-home-tavern-compact-en')
+    const englishSave = await button('Save this page').boundingBox()
+    const englishPlugins = await button('Plugin center').boundingBox()
+    assert(Math.abs(englishSave.y - englishPlugins.y) < 5)
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
     await button('WD WORLD · Home').click()
     await page.getByRole('heading', { name: 'A whole world, starting with one character card.' }).waitFor()
@@ -131,6 +141,80 @@ async function main() {
     await page.locator('.studio-home').waitFor()
     assert.deepEqual(await page.locator('.home-stat-grid strong').allTextContents(), ['1', '1', '1', '1'])
     await button('Save this page').click()
+    // Exercise a long library through the actual import and editing UI.
+    await page.locator('.language-picker').selectOption('zh-CN')
+    await editor()
+    await section('角色卡工坊')
+    await page.getByLabel('搜索：选择收藏角色卡').fill('不存在的角色')
+    assert.equal(await page.getByLabel('选择收藏角色卡').locator('option').count(), 1)
+    await page.getByLabel('搜索：选择收藏角色卡').fill('守灯')
+    assert.equal(await page.getByLabel('选择收藏角色卡').locator('option').count(), 2)
+    await page.getByLabel('导入世界书 JSON', { exact: true }).setInputFiles({
+      name: 'large-worldbook.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(
+        JSON.stringify({
+          entries: Array.from({ length: 120 }, (_, i) => ({
+            comment: `港口档案 ${i + 1}`,
+            key: [`KEY-${i}`],
+            content: `BODY-${i}：记录航路、潮汐与来访者。`,
+            disable: i % 3 === 0,
+            constant: i % 4 === 0,
+            order: i,
+          })),
+        }),
+      ),
+    })
+    await button('确认导入').click()
+    await page.locator('.worldbook-workspace').waitFor()
+    assert.equal(await page.locator('.worldbook-list button').count(), 121)
+    assert.equal(await page.locator('.worldbook-detail textarea').count(), 1)
+    const searchBook = page.getByLabel('搜索世界书条目')
+    await searchBook.fill('BODY-119')
+    assert.equal(await page.locator('.worldbook-list button').count(), 1)
+    await page.getByLabel('世界书标题 121', { exact: true }).fill('远航终点')
+    await page.getByLabel('世界书正文 121', { exact: true }).fill('修订后的航海记录')
+    // Editing away the search match must keep the current editor and draft intact.
+    assert.equal(await page.locator('.worldbook-list button').count(), 0)
+    assert.equal(await page.getByLabel('世界书正文 121', { exact: true }).inputValue(), '修订后的航海记录')
+    await button('清除筛选').click()
+    await page.getByLabel('筛选世界书条目').selectOption('disabled')
+    assert.equal(await page.locator('.worldbook-list button').count(), 40)
+    await page.locator('.worldbook-detail').getByLabel('启用', { exact: true }).check()
+    assert.equal(await page.locator('.worldbook-list button').count(), 39)
+    await page.locator('.worldbook-detail').getByLabel('启用', { exact: true }).uncheck()
+    assert.equal(await page.locator('.worldbook-list button').count(), 40)
+    await page.getByLabel('筛选世界书条目').selectOption('constant')
+    assert.equal(await page.locator('.worldbook-list button').count(), 30)
+    await button('清除筛选').click()
+    await searchBook.fill('KEY-119')
+    await home()
+    await editor()
+    assert.equal(await page.getByLabel('世界书标题 121', { exact: true }).inputValue(), '远航终点')
+    await page.locator('.mode-bar').getByRole('button', { name: '世界观设定', exact: true }).click()
+    await page.locator('.workspace-shell').waitFor()
+    assert.equal(await page.locator('.studio-toolbar').count(), 0)
+    await page.locator('.mode-bar').getByRole('button', { name: '酒馆制作', exact: true }).click()
+    await page.locator('.worldbook-workspace').waitFor()
+    assert.equal(await page.getByLabel('世界书正文 121', { exact: true }).inputValue(), '修订后的航海记录')
+    await shot('worldbook-directory-compact-day')
+    await button('夜晚模式').click()
+    await page.locator('.worldbook-list button').last().hover()
+    await shot('worldbook-directory-compact-night')
+    const toolbar = page.locator('.mode-bar')
+    assert.equal(await toolbar.getByRole('button', { name: '保存本页', exact: true }).count(), 1)
+    const saveBox = await button('保存本页').boundingBox()
+    const pluginsBox = await toolbar.getByRole('button', { name: '插件中心', exact: true }).boundingBox()
+    assert(Math.abs(saveBox.y - pluginsBox.y) < 5, 'Save and plugin center share the application bar row')
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+    await searchBook.fill('没有匹配内容')
+    await page.getByText('没有匹配的条目。', { exact: true }).waitFor()
+    await button('新建世界书条目').click()
+    await page.getByLabel('世界书标题 122', { exact: true }).fill('新条目')
+    assert.equal(await searchBook.inputValue(), '')
+    await button('移除此世界书条目').click()
+    assert.equal(await page.locator('.worldbook-list button').count(), 121)
+    await button('保存本页').click()
     assert.deepEqual(errors, [])
     console.log(
       'OC/TRPG/tavern home navigation, counters, project library, lore links, module loading, card preservation, LAN isolation and bilingual layout passed. Profile: ' +

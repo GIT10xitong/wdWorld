@@ -136,6 +136,7 @@ async function main() {
       开场白: '{{user}}，我是{{char}}，欢迎。',
     }))
       await page.getByLabel(label, { exact: true }).fill(content)
+    await require('./test-plugin-helper').openStudioSection(page, '场景卡')
     await button('保存角色场景卡').click()
     const card = JSON.parse(await download('导出场景卡', 'automation.scenario.json'))
     assert.equal(card.cards[0].data.name, '守灯人')
@@ -185,10 +186,12 @@ async function main() {
     await visitor.close()
     console.log('Tavern scenario roundtrip, automatic greeting, background reply and host intervention PASS')
     await mode('TRPG 主持人')
+    await require('./test-plugin-helper').openStudioSection(page, '副本库')
     await button('预览所选副本').click()
     await button('确认载入副本').click()
     await value('团务名称', '奇幻探索：雾钟遗迹')
     await page.getByLabel('实际跑团记录', { exact: true }).fill('REAL SESSION LOG')
+    await require('./test-plugin-helper').openStudioSection(page, '副本库')
     await page.getByLabel('导入世界或跑团文件', { exact: true }).setInputFiles({
       name: 'private.md',
       mimeType: 'text/markdown',
@@ -197,11 +200,13 @@ async function main() {
     await button('确认载入副本').click()
     await value('场景与分支', 'PRIVATE IMPORTED NOTES')
     assert.equal(await page.getByLabel('玩家可见背景', { exact: true }).inputValue(), '')
+    await require('./test-plugin-helper').openStudioSection(page, '副本库')
     await button('一键随机 TRPG 世界').click()
     await button('采纳到本模式草稿').waitFor()
     await button('采纳到本模式草稿').click()
     await value('团务名称', '随机星港')
     assert.equal(await page.getByLabel('实际跑团记录', { exact: true }).inputValue(), 'REAL SESSION LOG')
+    await require('./test-plugin-helper').openStudioSection(page, '副本库')
     const module = JSON.parse(await download('导出 TRPG 副本', 'automation.trpg.json'))
     assert.equal(module.draft.sessionLog, '')
     await button('保存当前副本').click()

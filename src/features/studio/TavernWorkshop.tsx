@@ -1,4 +1,6 @@
+import { FilePicker } from '@/components/FilePicker'
 import { useState } from 'react'
+import { CollectionPicker } from './CollectionPicker'
 import { t } from '@/lib/i18n'
 import { generateId } from '@/lib/utils'
 import type { StudioDocument, Draft, BookEntry } from './model'
@@ -9,11 +11,13 @@ export function TavernWorkshop({
   change,
   disabled,
   onError,
+  onLoaded,
 }: {
   doc: StudioDocument
   change: (fn: (doc: StudioDocument) => StudioDocument) => void
   disabled: boolean
   onError: (error: string) => void
+  onLoaded: (target: 'draft' | 'book') => void
 }) {
   const [pending, setPending] = useState<{ draft?: Draft; book: BookEntry[] } | null>(null)
   const [scan, setScan] = useState('')
@@ -59,28 +63,22 @@ export function TavernWorkshop({
             '支持 V2 / 旧版角色卡 JSON 和世界书 JSON。高级世界书规则会保留用于导出，本机触发预览使用常驻与普通关键词。',
           )}
         </p>
-        <label>
-          {t('导入角色卡 JSON')}
-          <input
-            type="file"
-            accept=".json,application/json"
-            onChange={(e) => {
-              void read(e.target.files?.[0], 'card')
-              e.target.value = ''
-            }}
-          />
-        </label>
-        <label>
-          {t('导入世界书 JSON')}
-          <input
-            type="file"
-            accept=".json,application/json"
-            onChange={(e) => {
-              void read(e.target.files?.[0], 'book')
-              e.target.value = ''
-            }}
-          />
-        </label>
+        <FilePicker
+          label={t('导入角色卡 JSON')}
+          accept=".json,application/json"
+          onChange={(e) => {
+            void read(e.target.files?.[0], 'card')
+            e.target.value = ''
+          }}
+        />
+        <FilePicker
+          label={t('导入世界书 JSON')}
+          accept=".json,application/json"
+          onChange={(e) => {
+            void read(e.target.files?.[0], 'book')
+            e.target.value = ''
+          }}
+        />
         {pending && (
           <div className="studio-book">
             <h3>{pending.draft?.name || t('世界书导入预览')}</h3>
@@ -105,6 +103,7 @@ export function TavernWorkshop({
                 }))
                 setPending(null)
                 setSelected('')
+                onLoaded(pending.draft ? 'draft' : 'book')
               }}
             >
               {t('确认导入')}
@@ -140,18 +139,16 @@ export function TavernWorkshop({
         >
           {t('收藏当前角色卡')}
         </button>
-        <select
-          aria-label={t('选择收藏角色卡')}
+        <CollectionPicker
+          label={t('选择收藏角色卡')}
           value={selected}
-          onChange={(e) => setSelected(e.target.value)}
-        >
-          <option value="">{t('选择收藏角色卡')}</option>
-          {(doc.cards || []).map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.draft.name}
-            </option>
-          ))}
-        </select>
+          onChange={setSelected}
+          items={(doc.cards || []).map((c) => ({
+            id: c.id,
+            title: c.draft.name,
+            description: c.draft.description,
+          }))}
+        />
         <button
           disabled={!selected}
           onClick={() => {

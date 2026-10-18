@@ -114,7 +114,7 @@ async function main() {
     await page.getByLabel('Title', { exact: true }).fill('The missing key')
     await page.getByLabel('Content', { exact: true }).fill('Reveal the key in the second act.')
     await nav().getByRole('button', { name: 'Resource library', exact: true }).click()
-    await page.locator('.desk-import input').setInputFiles({
+    await page.getByLabel('Import TXT / Markdown (up to 1 MB)', { exact: true }).setInputFiles({
       name: 'source.md',
       mimeType: 'text/markdown',
       buffer: Buffer.from('A traveler wants to cross a bridge, but the ferryman refuses.'),

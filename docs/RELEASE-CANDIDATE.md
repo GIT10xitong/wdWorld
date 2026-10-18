@@ -6,7 +6,7 @@
 
 1. 保存并提交源码，确认工作区干净。候选构建会将该提交写入产物清单。
 2. 执行 `npm run format:check`、`npm run lint`、`npm run test:coverage`。
-3. 执行 `npm run test:desktop:all`。前端只构建一次，九组桌面测试顺序运行，避免多个窗口互相干扰。
+3. 执行 `npm run test:desktop:all`，随后执行 `npm run test:ui-layout`。前者构建一次并顺序运行九组桌面测试；后者单独检查中英文文件控件与四档窗口布局，尚未并入九组汇总。桌面测试应顺序执行，避免多个窗口互相干扰。
 4. 执行 `npm run release:candidate`。构建便携目录与 x64 NSIS 安装包，校验更新清单，再分别启动实际打包程序进行数据迁移和保存恢复测试。
 
 输出目录为 `release/v<版本>/`，包含便携目录、`installer/`、`candidate.json` 和 `SHA256SUMS.txt`。若目录已存在，构建直接停止；应保留旧产物并使用新版本号，或将失败构建目录明确归档后重试。不要直接覆盖已分发包。
@@ -18,7 +18,8 @@
 在没有 WD World 正式安装的 Windows 测试账号中运行：
 
 ```powershell
-./scripts/test-installer.ps1 -Installer 'release/v1.10.1/installer/WDWorld-Setup-1.10.1.exe'
+$candidateVersion = (Get-Content package.json | ConvertFrom-Json).version
+./scripts/test-installer.ps1 -Installer "release/v$candidateVersion/installer/WDWorld-Setup-$candidateVersion.exe"
 ```
 
 若有保存的上一版安装包，可增加 `-PreviousInstaller 'release/installer/WDWorld-Setup-1.10.0.exe'`。脚本先在临时目录安装旧版，再运行候选安装包验证升级。不会启动旧版程序；旧数据兼容性另由 1.7.0 项目样本检验。最后启动新安装程序，验证版本、更新能力、项目迁移、编辑保存与重启，然后卸载临时安装并检查注册信息清理。

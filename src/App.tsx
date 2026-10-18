@@ -8,7 +8,7 @@ import { Bookshelf } from '@/features/novel/Bookshelf'
 import { UpdateCenter } from '@/features/updates/UpdateCenter'
 import { flushDrafts } from '@/lib/storage/saveQueue'
 import { MODES, type AppMode } from '@/features/studio/model'
-import { StudioWorkspace } from '@/features/studio/StudioWorkspace'
+import { StudioWorkspace, type StudioLocation } from '@/features/studio/StudioWorkspace'
 import '@/features/studio/studio.css'
 import { PROFILES, creationMode } from '@/features/studio/profiles'
 import type { CreationMode } from '@/types'
@@ -33,6 +33,8 @@ function App() {
   const [switching, setSwitching] = useState(false)
   const [busy, setBusy] = useState(false)
   const [modeError, setModeError] = useState('')
+  const [studioToolbar, setStudioToolbar] = useState<HTMLDivElement | null>(null)
+  const studioLocations = useRef<Record<string, StudioLocation>>({})
   useEffect(() => {
     if (selectedMode && !modeAvailable(selectedMode)) setSelectedMode(null)
   }, [installedPlugins, selectedMode])
@@ -204,60 +206,66 @@ function App() {
             </button>
           </details>
         )}
-        {MODES.filter(
-          (mode) =>
-            modeAvailable(mode.id) &&
-            (projectMode === 'free' || mode.id === 'world' || mode.id === projectMode),
-        ).map((mode) => (
-          <button
-            key={mode.id}
-            aria-current={
-              view === mode.id || (view === 'simulation' && mode.id === 'world') ? 'page' : undefined
-            }
-            disabled={switching || busy}
-            title={busy ? t('请先停止生成或等待当前操作完成') : mode.hint}
-            onClick={() => void switchMode(mode.id)}
-          >
-            {mode.label}
-          </button>
-        ))}
-        {['free', 'trpg', 'tavern'].includes(projectMode) &&
-          (modeAvailable('trpg') || modeAvailable('tavern')) && (
+        <div className="mode-links">
+          {MODES.filter(
+            (mode) =>
+              modeAvailable(mode.id) &&
+              (projectMode === 'free' || mode.id === 'world' || mode.id === projectMode),
+          ).map((mode) => (
+            <button
+              key={mode.id}
+              aria-current={
+                view === mode.id || (view === 'simulation' && mode.id === 'world') ? 'page' : undefined
+              }
+              disabled={switching || busy}
+              title={busy ? t('请先停止生成或等待当前操作完成') : mode.hint}
+              onClick={() => void switchMode(mode.id)}
+            >
+              {mode.label}
+            </button>
+          ))}
+          {['free', 'trpg', 'tavern'].includes(projectMode) &&
+            (modeAvailable('trpg') || modeAvailable('tavern')) && (
+              <button
+                disabled={busy || switching}
+                aria-current={view === 'lan' ? 'page' : undefined}
+                onClick={() => void switchMode('lan')}
+              >
+                {t('局域网房间')}
+              </button>
+            )}
+          {
             <button
               disabled={busy || switching}
-              aria-current={view === 'lan' ? 'page' : undefined}
-              onClick={() => void switchMode('lan')}
+              aria-current={view === 'extensions' ? 'page' : undefined}
+              onClick={() => {
+                setExtensionMode(projectMode === 'free' && view === 'tavern' ? 'tavern' : projectMode)
+                void switchMode('extensions')
+              }}
             >
-              {t('局域网房间')}
+              {projectMode === 'tavern' || (projectMode === 'free' && view === 'tavern')
+                ? t('酒馆扩展')
+                : st('插件扩展', 'Plugin extensions')}
             </button>
-          )}
-        {
+          }
+
           <button
-            disabled={busy || switching}
-            aria-current={view === 'extensions' ? 'page' : undefined}
-            onClick={() => {
-              setExtensionMode(projectMode === 'free' && view === 'tavern' ? 'tavern' : projectMode)
-              void switchMode('extensions')
-            }}
+            className="mode-simulate"
+            aria-pressed={view === 'simulation'}
+            disabled={switching || busy}
+            onClick={() => void switchMode('simulation')}
           >
-            {projectMode === 'tavern' || (projectMode === 'free' && view === 'tavern')
-              ? t('酒馆扩展')
-              : st('插件扩展', 'Plugin extensions')}
+            {t('推演世界变更')}
           </button>
-        }
-        <button disabled={busy || switching} onClick={() => void openPlugins()}>
-          {t('插件中心')}
-        </button>
-        <button
-          className="mode-simulate"
-          aria-pressed={view === 'simulation'}
-          disabled={switching || busy}
-          onClick={() => void switchMode('simulation')}
-        >
-          {t('推演世界变更')}
-        </button>
-        <LanguagePicker />
-        <ThemeToggle />
+        </div>
+        <div className="mode-command-group">
+          <button disabled={busy || switching} onClick={() => void openPlugins()}>
+            {t('插件中心')}
+          </button>
+          <div className="mode-workspace-actions" ref={setStudioToolbar} />
+          <LanguagePicker />
+          <ThemeToggle />
+        </div>
       </nav>
       {modeError && (
         <p className="mode-error" role="alert">
@@ -304,7 +312,11 @@ function App() {
               if (next === 'extensions') setExtensionMode(view === 'tavern' ? 'tavern' : projectMode)
               void switchMode(next)
             }}
-            onLibrary={() => void returnToModes(projectMode)}
+            toolbarHost={studioToolbar}
+            initialLocation={studioLocations.current[currentProject.id + ':' + view]}
+            onLocationChange={(location) => {
+              studioLocations.current[currentProject.id + ':' + view] = location
+            }}
           />
         )}
       </div>

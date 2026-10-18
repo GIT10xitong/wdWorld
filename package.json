@@ -1,6 +1,6 @@
 {
   "name": "wdworld",
-  "version": "1.10.1",
+  "version": "1.10.2",
   "description": "本地优先的世界观、小说、OC、TRPG 与酒馆创作工作台",
   "engines": {
     "node": ">=22.12.0"
@@ -30,6 +30,7 @@
     "test:novel-desk": "npm run build && node scripts/test-novel-desk.js",
     "test:mode-homes": "npm run build && node scripts/test-mode-homes.js",
     "test:theme": "npm run build && node scripts/test-theme-desktop.js",
+    "test:ui-layout": "npm run build && node scripts/test-ui-layout.js",
     "test:desktop:all": "npm run build && node scripts/test-desktop-all.js",
     "release:candidate": "node scripts/release-candidate.js",
     "test:packaged": "node scripts/test-packaged.js"

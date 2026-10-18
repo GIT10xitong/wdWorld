@@ -1,8 +1,10 @@
-# WD World 1.10.1
+# WD World 1.10.2
 
-1.10.1 为本地稳定性候选版：包含界面修复、Windows 桌面回归与旧项目兼容验收。候选包构建和安装验收见[候选版流程](docs/RELEASE-CANDIDATE.md)，不自动公开发布。
+1.10.2 为源码更新版（2026-10-18），重点改善世界书编辑、工作台导航、文件选择翻译与小窗口布局。详见 [1.10.2 版本说明](docs/RELEASE-NOTES-1.10.2.md)。本轮未生成或公开发布 1.10.2 安装包；打包与安装验收见[候选版流程](docs/RELEASE-CANDIDATE.md)。
 
 界面整理：小说书架负责作品管理、写作进度与跨作品灵感；打开作品后，在写作台使用章节、资料和 AI 工具。本章资料可收起，专注模式扩大正文区域。OC、TRPG、酒馆、世界观、局域网与插件页面统一使用简洁的蓝灰日夜主题。详见[界面与模块分工](docs/UI-GUIDE.md)。
+
+最新源码进一步整理酒馆、TRPG 与 OC 工作台：按分区切换编辑内容，世界书采用可搜索、筛选的双栏目录，收藏与副本库支持搜索。创作主页、保存和 AI 设置集中到插件中心所在顶栏，跨模块返回恢复编辑位置；这些改动需从源码启动查看，已有候选安装包不随源码更新。
 
 1.10.0 新增统一的小说界面与日夜主题、小说资料到世界观的确认式同步、智能体候选追加正文，以及所有模式的 WD WORLD 返回主页入口。外层插件中心仅安装酒馆／TRPG 完整模式，小插件在各模式的扩展页下载。详见[主题与模式扩展](docs/THEMES-AND-EXTENSIONS.md)和[小说工作台](docs/NOVEL-DESK.md)。
 
@@ -14,7 +16,7 @@
 
 ## 下载与开始
 
-当前源码与本地构建为 **1.10.1**。运行 `npm run desktop` 启动，`npm run package` 生成便携目录，`npm run electron:build` 生成支持应用内更新的 NSIS 安装包。本轮未上传或发布 GitHub Release；下载时请核对[发布页](https://github.com/actrox/wdWorld/releases)中的实际版本。当前构建未签名。便携版迁移到安装版后可下载更新并确认重启安装。
+当前源码版本为 **1.10.2**。运行 `npm run desktop` 启动，`npm run package` 生成便携目录，`npm run electron:build` 生成支持应用内更新的 NSIS 安装包。本轮未上传或发布 GitHub Release；下载时请核对[发布页](https://github.com/actrox/wdWorld/releases)中的实际版本。当前构建未签名。便携版迁移到安装版后可下载更新并确认重启安装。
 
 启动时默认只提供自由、OC、小说模式。通过「插件中心」安装 TRPG、酒馆后才显示对应入口。专用模式进入对应创作界面；自由模式使用内置工具与已安装插件。菜单「文件 → 切换创作模式」或 `Ctrl+Shift+M` 返回模式选择。界面和原生菜单支持简体中文、English。
 
@@ -23,6 +25,7 @@ OC、TRPG 和酒馆拥有独立项目库与创作主页，提供资料统计、�
 - [快速入门](QUICKSTART.md)
 - [完整使用说明](docs/NOVEL-STUDIO.md)
 - [发布说明](CHANGELOG.md)
+- [1.10.2 版本说明与升级方式](docs/RELEASE-NOTES-1.10.2.md)
 - [小说书架与写作台](docs/NOVEL-DESK.md)
 - [GitHub 更新与发布](docs/UPDATES.md)
 - [主题、主页与模式扩展](docs/THEMES-AND-EXTENSIONS.md)
@@ -77,7 +80,7 @@ npm run package        # Windows 可移动桌面目录
 npm run electron:build # Windows NSIS 安装包
 ```
 
-源码和 Electron 依赖齐全时，`start-desktop.cmd` 优先构建并启动当前代码，避免旧桌面包掩盖界面更新；否则尝试打开本机 `release/v1.10.1/WDWorld-Desktop-1.10.1/` 桌面包。`package` 拒绝覆盖同版本输出目录。二进制不提交到源码仓库。
+源码和 Electron 依赖齐全时，`start-desktop.cmd` 优先构建并启动当前代码，避免旧桌面包掩盖界面更新；否则依次尝试本机 `release/v1.10.2/WDWorld-Desktop-1.10.2/` 和旧的 `release/v1.10.1/WDWorld-Desktop-1.10.1/` 桌面包。旧包不包含本轮修复。`package` 拒绝覆盖同版本输出目录。二进制不提交到源码仓库。
 
 ## 开发检查
 
@@ -100,6 +103,7 @@ npm run test:plugins    # 默认模式、安装权限、加密记忆、图片、
 npm run test:novel-desk # 小说工具、主题、世界观联动与加密恢复
 npm run test:mode-homes # OC、TRPG、酒馆主页和项目库
 npm run test:theme      # 日夜主题、实际鼠标悬停和弹窗配色
+npm run test:ui-layout  # 文件选择翻译、重复导入与四档窗口布局
 npm run test:desktop:all # 构建一次，顺序运行全部九组桌面回归
 ```
 

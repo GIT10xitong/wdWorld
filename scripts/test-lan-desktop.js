@@ -252,6 +252,7 @@ async function main() {
     await page.getByLabel('Character card name', { exact: true }).fill('Harbor keeper')
     await page.getByLabel('Character description', { exact: true }).fill('A quiet harbor keeper.')
     await page.getByLabel('Creator notes', { exact: true }).fill('PRIVATE-CREATOR-NOTE')
+    await require('./test-plugin-helper').openStudioSection(page, 'Character workshop')
     await page.getByRole('button', { name: 'Save character to library', exact: true }).click()
     await page.getByRole('button', { name: 'Save this page', exact: true }).click()
     await page.evaluate(

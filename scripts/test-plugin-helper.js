@@ -27,5 +27,9 @@ async function openStudioEditor(page) {
     .locator('.studio-home-nav')
     .getByRole('button', { name: /^(编辑工作台|Editing workbench)$/ })
     .click()
+  await page.locator('.studio-sections button').first().click()
 }
-module.exports = { installTestModes, openStudioEditor }
+async function openStudioSection(page, name) {
+  await page.locator('.studio-sections').getByRole('button', { name, exact: true }).click()
+}
+module.exports = { installTestModes, openStudioEditor, openStudioSection }

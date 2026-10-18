@@ -1,6 +1,8 @@
-# WD World 1.10.1
+# WD World 1.10.2
 
-1.10.1 is a local stabilization candidate with theme fixes, Windows desktop regression and legacy-project acceptance checks. See the [candidate workflow](docs/RELEASE-CANDIDATE.md). Building a candidate does not publish a release.
+1.10.2 is a source update dated 2026-10-18, focused on world book editing, workspace navigation, translated file controls and smaller windows. See the [1.10.2 notes](docs/RELEASE-NOTES-1.10.2.md) (Chinese). No 1.10.2 installer was built or published in this update; packaging and installation checks follow the [candidate workflow](docs/RELEASE-CANDIDATE.md).
+
+The latest source adds section navigation to Tavern, TRPG and OC, a searchable two-column world book editor, and search in saved card and module libraries. Home, save and AI settings share the plugin center's application bar; returning from another module restores the editing location. Run from source to see these changes; existing candidate installers are unchanged.
 
 The bookshelf now focuses on book management, writing progress and shared ideas. Open a book to access chapters, references and AI tools in the writing desk, with collapsible chapter notes and a wider focus view. OC, TRPG, Tavern, worldbuilding, LAN and plugin screens share a restrained blue-gray day/night theme. See the [interface guide](docs/UI-GUIDE.md) (Chinese).
 
@@ -16,7 +18,7 @@ A local-first desktop workbench for worldbuilding, novels, original characters, 
 
 ## Download
 
-Current source and local builds are **1.10.1**. Run `npm run desktop`, build a portable folder with `npm run package`, or an NSIS installer with `npm run electron:build`. NSIS builds can download, verify and restart into updates after saving; portable builds only check versions. This round did not upload or publish a GitHub Release; check the actual version on the [release page](https://github.com/actrox/wdWorld/releases). Builds remain unsigned.
+The current source version is **1.10.2**. Run `npm run desktop`, build a portable folder with `npm run package`, or an NSIS installer with `npm run electron:build`. NSIS builds can download, verify and restart into updates after saving; portable builds only check versions. This round did not upload or publish a GitHub Release; check the actual version on the [release page](https://github.com/actrox/wdWorld/releases). Builds remain unsigned.
 
 Free, OC and Novel are available by default. Install TRPG and Tavern through the plugin center to add their modes. Specialized projects open their creator workspace; Free mode combines built-in tools and installed plugins. **File → Switch creation mode** (`Ctrl+Shift+M`) returns to mode selection. Simplified Chinese and English cover the interface and native menus while preserving authored text.
 
@@ -74,7 +76,7 @@ npm run package        # Windows portable directory
 npm run electron:build # Windows NSIS installer
 ```
 
-When source files and Electron dependencies are available, `start-desktop.cmd` builds and launches the current source so an older packaged build cannot hide UI updates. Otherwise it tries `release/v1.10.1/WDWorld-Desktop-1.10.1/`. Packaging refuses to overwrite an existing version directory. Binaries are not committed to Git.
+When source files and Electron dependencies are available, `start-desktop.cmd` builds and launches the current source so an older packaged build cannot hide UI updates. Otherwise it tries `release/v1.10.2/WDWorld-Desktop-1.10.2/`, then the older `release/v1.10.1/WDWorld-Desktop-1.10.1/`. The older package does not include these fixes. Packaging refuses to overwrite an existing version directory. Binaries are not committed to Git.
 
 ```sh
 npm run format:check
@@ -90,6 +92,7 @@ npm run test:plugins
 npm run test:novel-desk
 npm run test:mode-homes
 npm run test:theme      # Day/night surfaces, actual pointer hover and dialog colors
+npm run test:ui-layout  # Translated file controls, repeat imports and four window sizes
 npm run test:desktop:all # Build once and run all nine desktop suites in sequence
 ```
 

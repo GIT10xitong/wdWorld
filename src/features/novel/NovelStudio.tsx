@@ -1,3 +1,4 @@
+import { FilePicker } from '@/components/FilePicker'
 import { useEffect, useRef, useState } from 'react'
 import {
   BookOpen,
@@ -267,37 +268,32 @@ function WritingDesk({
         </button>
       </div>
       {key === 'resources' && (
-        <label className="desk-import">
-          {nt('导入 TXT / Markdown（最多 1 MB）', 'Import TXT / Markdown (up to 1 MB)')}
-          <input
-            type="file"
-            accept=".txt,.md,.markdown"
-            disabled={busy || wb.resources.length >= 100}
-            onChange={async (e) => {
-              const file = e.target.files?.[0]
-              e.target.value = ''
-              if (!file) return
-              try {
-                if (!/\.(txt|md|markdown)$/i.test(file.name) || file.size > 1000000)
-                  throw new Error(
-                    nt('请选择不超过 1 MB 的文本文件', 'Choose a text file no larger than 1 MB'),
-                  )
-                const content = await file.text()
-                if (!alive.current) return
-                if (content.includes('\u0000')) throw new Error(nt('文件不是有效文本', 'Invalid text file'))
-                patch((w) => ({
-                  ...w,
-                  resources: [
-                    ...w.resources,
-                    { ...newCard('reference'), title: file.name.slice(0, 200), content },
-                  ].slice(0, 100),
-                }))
-              } catch (err) {
-                session.setError(String(err))
-              }
-            }}
-          />
-        </label>
+        <FilePicker
+          label={nt('导入 TXT / Markdown（最多 1 MB）', 'Import TXT / Markdown (up to 1 MB)')}
+          accept=".txt,.md,.markdown"
+          disabled={busy || wb.resources.length >= 100}
+          onChange={async (e) => {
+            const file = e.target.files?.[0]
+            e.target.value = ''
+            if (!file) return
+            try {
+              if (!/\.(txt|md|markdown)$/i.test(file.name) || file.size > 1000000)
+                throw new Error(nt('请选择不超过 1 MB 的文本文件', 'Choose a text file no larger than 1 MB'))
+              const content = await file.text()
+              if (!alive.current) return
+              if (content.includes('\u0000')) throw new Error(nt('文件不是有效文本', 'Invalid text file'))
+              patch((w) => ({
+                ...w,
+                resources: [
+                  ...w.resources,
+                  { ...newCard('reference'), title: file.name.slice(0, 200), content },
+                ].slice(0, 100),
+              }))
+            } catch (err) {
+              session.setError(String(err))
+            }
+          }}
+        />
       )}
       <div className="desk-note-grid">
         {wb[key].map((card) => (

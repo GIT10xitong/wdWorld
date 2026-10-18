@@ -98,11 +98,11 @@ async function main() {
       .getByRole('alert')
       .getByText(/草稿在生成后已修改/)
       .waitFor()
-    assert.equal(await page.getByLabel('选择收藏角色卡').locator('option').count(), 1)
+    assert.equal(await page.getByLabel('选择收藏角色卡', { exact: true }).locator('option').count(), 1)
     await page.getByLabel('角色卡名称', { exact: true }).fill('')
     await page.getByRole('button', { name: '采纳整套世界与角色卡', exact: true }).click()
     await page.waitForFunction(() => document.querySelector('[aria-label="角色卡名称"]')?.value === '守灯人')
-    assert.equal(await page.getByLabel('选择收藏角色卡').locator('option').count(), 3)
+    assert.equal(await page.getByLabel('选择收藏角色卡', { exact: true }).locator('option').count(), 3)
     await page.getByRole('status').filter({ hasText: '已保存到本机' }).waitFor()
     await app.evaluate(({ Menu }) =>
       Menu.getApplicationMenu().getMenuItemById('switch-creation-mode').click(),
@@ -116,7 +116,12 @@ async function main() {
     await page.locator('.studio-home').waitFor()
     await require('./test-plugin-helper').openStudioEditor(page)
     assert.equal(await page.getByLabel('角色卡名称', { exact: true }).inputValue(), '守灯人')
-    assert.equal(await page.getByLabel('选择收藏角色卡').locator('option').count(), 3)
+    assert.equal(await page.getByLabel('选择收藏角色卡', { exact: true }).locator('option').count(), 3)
+    await require('./test-plugin-helper').openStudioSection(page, '世界书')
+    await page
+      .locator('.worldbook-list')
+      .getByRole('button', { name: /测绘师的愿望/ })
+      .click()
     assert.equal(await page.getByLabel('世界书标题 6', { exact: true }).inputValue(), '测绘师的愿望')
     await mode('世界观设定')
     await page.locator('.workspace-sidebar').getByRole('button', { name: /^设定/ }).click()

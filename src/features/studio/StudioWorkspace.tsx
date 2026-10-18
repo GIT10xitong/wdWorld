@@ -1,22 +1,15 @@
 import { t, message } from '@/lib/i18n'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { WorldBookEditor } from './WorldBookEditor'
 import { saveAs } from 'file-saver'
-import { Save, Sparkles, Settings2, Square, Plus, Download } from 'lucide-react'
+import { Save, Sparkles, Settings2, Square, Download } from 'lucide-react'
 import { useStore } from '@/store'
 import type { Database } from '@/lib/storage/database'
 import type { Project } from '@/types'
-import { generateId } from '@/lib/utils'
 import { plainText, textToHtml } from '@/features/novel/model'
 import { AISettingsModal } from '@/features/novel/AISettingsModal'
-import {
-  FIELDS,
-  MODES,
-  parseDraft,
-  studioPrompt,
-  studioSources,
-  type BookEntry,
-  type StudioMode,
-} from './model'
+import { FIELDS, MODES, parseDraft, studioPrompt, studioSources, type StudioMode } from './model'
 import { characterCard, worldBook } from './tavern'
 import { useStudioSession } from './useStudioSession'
 import { SeedControls } from './seed'
@@ -28,20 +21,26 @@ import { StudioHome, type StudioTarget, type StudioPage } from './StudioHome'
 import { st } from './homeModel'
 import '@/features/novel/novel.css'
 
+export type StudioLocation = { home: boolean; target: StudioTarget; bookId?: string }
+
 export function StudioWorkspace({
   mode,
   database,
   project,
   onBusyChange,
   onNavigate,
-  onLibrary,
+  toolbarHost,
+  initialLocation,
+  onLocationChange,
 }: {
   mode: StudioMode
   database: Database
   project: Project
   onBusyChange: (busy: boolean) => void
   onNavigate: (page: StudioPage) => void
-  onLibrary: () => void
+  toolbarHost: HTMLDivElement | null
+  initialLocation?: StudioLocation
+  onLocationChange: (location: StudioLocation) => void
 }) {
   const session = useStudioSession(database, project.id, mode)
   const { doc, change, dirty, error, setError, busy, stream, progress, flush } = session
@@ -53,18 +52,19 @@ export function StudioWorkspace({
   const [model, setModel] = useState('')
   const [notice, setNotice] = useState('')
   const [working, setWorking] = useState(false)
-  const [home, setHome] = useState(mode !== 'simulation')
-  const [target, setTarget] = useState<StudioTarget>('draft')
+  const [location, setLocation] = useState<StudioLocation>(
+    initialLocation || { home: mode !== 'simulation', target: 'draft' },
+  )
+  const { home, target } = location
   const workspace = useRef<HTMLElement>(null)
-  const edit = (next: StudioTarget) => {
-    setTarget(next)
-    setHome(false)
+  const navigate = (next: Partial<StudioLocation>) => {
+    const value = { ...location, ...next }
+    setLocation(value)
+    onLocationChange(value)
   }
+  const edit = (next: StudioTarget) => navigate({ target: next, home: false })
   useEffect(() => {
-    if (!home)
-      workspace.current
-        ?.querySelector(`[data-studio-section="${target}"]`)
-        ?.scrollIntoView({ block: 'start' })
+    workspace.current?.querySelector('.studio-editor')?.scrollTo({ top: 0 })
   }, [home, target])
   const lock = useRef(false)
   const draft = doc.drafts[mode]
@@ -146,8 +146,6 @@ export function StudioWorkspace({
       new Blob([JSON.stringify(value, null, 2)], { type: 'application/json;charset=utf-8' }),
       name.replace(/[<>:"/\\|?*]/g, '_') + '.json',
     )
-  const updateBook = (id: string, patch: Partial<BookEntry>) =>
-    change((d) => ({ ...d, book: d.book.map((b) => (b.id === id ? { ...b, ...patch } : b)) }))
   const confirmImpact = (simulationId: string, impactId: string, revert = false) =>
     action(async () => {
       const next = await database.applyWorldImpact(project.id, simulationId, impactId, revert)
@@ -158,12 +156,45 @@ export function StudioWorkspace({
         throw new Error(t('设定已在当前会话更新，但磁盘保存失败，请立即重试保存。'))
       setNotice(revert ? t('已恢复变更前的正文') : t('已确认并更新世界设定'))
     })
+  const toolbar = (
+    <div className="studio-toolbar">
+      {mode !== 'simulation' && (
+        <nav className="studio-home-nav" aria-label={st('模式工作台导航', 'Mode workspace navigation')}>
+          <button
+            disabled={busy || working}
+            aria-current={home ? 'page' : undefined}
+            onClick={() => navigate({ home: true })}
+          >
+            {st('创作主页', 'Creative home')}
+          </button>
+          <button
+            disabled={busy || working}
+            aria-current={!home ? 'page' : undefined}
+            onClick={() => edit(target)}
+          >
+            {st('编辑工作台', 'Editing workbench')}
+          </button>
+        </nav>
+      )}
+      <div className="studio-actions">
+        <button onClick={() => void action(flush)} disabled={working}>
+          <Save size={16} />
+          {t('保存本页')}
+        </button>
+        <button onClick={() => setSettings(true)} disabled={busy}>
+          <Settings2 size={16} />
+          {t('AI 设置')}
+        </button>
+      </div>
+    </div>
+  )
   return (
     <section
       ref={workspace}
       className={`studio-shell ${mode !== 'simulation' ? `home-theme-${mode} studio-themed` : ''}`}
     >
-      <header className="studio-heading">
+      {toolbarHost ? createPortal(toolbar, toolbarHost) : toolbar}
+      <header className={`studio-heading ${home ? '' : 'studio-heading-compact'}`}>
         <div>
           <small>
             {project.name}
@@ -172,25 +203,15 @@ export function StudioWorkspace({
           <h1>{title}</h1>
           <p>{description}</p>
         </div>
-        <div className="studio-actions">
-          <span role="status">
-            {saveStatus === 'error'
-              ? t('保存失败，请重试')
-              : saveStatus === 'saving'
-                ? t('正在保存')
-                : dirty
-                  ? t('待保存 · 每 10 秒自动保存')
-                  : t('已保存到本机')}
-          </span>
-          <button onClick={() => void action(flush)} disabled={working}>
-            <Save size={16} />
-            {t('保存本页')}
-          </button>
-          <button onClick={() => setSettings(true)} disabled={busy}>
-            <Settings2 size={16} />
-            {t('AI 设置')}
-          </button>
-        </div>
+        <span role="status">
+          {saveStatus === 'error'
+            ? t('保存失败，请重试')
+            : saveStatus === 'saving'
+              ? t('正在保存')
+              : dirty
+                ? t('待保存 · 每 10 秒自动保存')
+                : t('已保存到本机')}
+        </span>
       </header>
       {(error || saveError) && (
         <p role="alert" className="mode-error">
@@ -201,30 +222,6 @@ export function StudioWorkspace({
         <p role="status" className="studio-notice">
           {notice}
         </p>
-      )}
-      {mode !== 'simulation' && (
-        <nav className="studio-home-nav" aria-label={st('模式工作台导航', 'Mode workspace navigation')}>
-          <button disabled={busy || working} onClick={onLibrary}>
-            {st('返回项目库', 'Project library')}
-          </button>
-          <button
-            disabled={busy || working}
-            aria-current={home ? 'page' : undefined}
-            onClick={() => setHome(true)}
-          >
-            {st('创作主页', 'Creative home')}
-          </button>
-          <button
-            disabled={busy || working}
-            aria-current={!home ? 'page' : undefined}
-            onClick={() => edit('draft')}
-          >
-            {st('编辑工作台', 'Editing workbench')}
-          </button>
-          <button disabled={busy || working} onClick={() => onNavigate('world')}>
-            {st('查看世界观', 'Open worldbuilding')}
-          </button>
-        </nav>
       )}
       {home && mode !== 'simulation' && (
         <StudioHome
@@ -242,10 +239,42 @@ export function StudioWorkspace({
           }}
         />
       )}
-      <div className="studio-layout" hidden={home}>
-        <main className="studio-editor">
+      {!home && mode !== 'simulation' && (
+        <nav className="studio-sections" aria-label={st('编辑分区', 'Editor sections')}>
+          {(
+            [
+              [
+                'draft',
+                mode === 'oc'
+                  ? st('人物档案', 'Character profile')
+                  : mode === 'trpg'
+                    ? st('备团草稿', 'Session draft')
+                    : st('角色草稿', 'Character draft'),
+              ],
+              ...(mode === 'trpg' ? [['modules', st('副本库', 'Module library')]] : []),
+              ...(mode === 'tavern'
+                ? [
+                    ['book', st('世界书', 'World book')],
+                    ['cards', st('角色卡工坊', 'Character workshop')],
+                    ['scenarios', st('场景卡', 'Scenario cards')],
+                  ]
+                : []),
+              ['assistant', t('AI 创作助手')],
+            ] as [StudioTarget, string][]
+          ).map(([id, label]) => (
+            <button key={id} aria-current={target === id ? 'page' : undefined} onClick={() => edit(id)}>
+              {label}
+            </button>
+          ))}
+        </nav>
+      )}
+      <div
+        className={`studio-layout ${target !== 'draft' && mode !== 'simulation' ? 'studio-layout-single' : ''}`}
+        hidden={home}
+      >
+        <main className="studio-editor" hidden={target === 'assistant'}>
           {mode === 'trpg' && (
-            <div data-studio-section="modules">
+            <div data-studio-section="modules" hidden={target !== 'modules'}>
               <TrpgWorkshop
                 doc={doc}
                 change={change}
@@ -254,16 +283,30 @@ export function StudioWorkspace({
                 projectId={project.id}
                 onError={setError}
                 flush={flush}
-                random={() => void session.run('trpg-world')}
+                onLoaded={() => edit('draft')}
+                random={() => {
+                  edit('assistant')
+                  void session.run('trpg-world')
+                }}
               />
             </div>
           )}
           {mode === 'tavern' && (
-            <div data-studio-section="scenarios">
-              <ScenarioWorkshop doc={doc} change={change} disabled={busy || working} onError={setError} />
+            <div data-studio-section="scenarios" hidden={target !== 'scenarios'}>
+              <ScenarioWorkshop
+                doc={doc}
+                change={change}
+                disabled={busy || working}
+                onError={setError}
+                onLoaded={() => edit('draft')}
+              />
             </div>
           )}
-          <section className="studio-card" data-studio-section="draft">
+          <section
+            className="studio-card"
+            data-studio-section="draft"
+            hidden={target !== 'draft' && mode !== 'simulation'}
+          >
             <h2>{mode === 'simulation' ? t('变更条件') : t('创作草稿')}</h2>
             <div className="studio-fields">
               {Object.entries(FIELDS[mode]).map(([key, label]) => (
@@ -381,136 +424,28 @@ export function StudioWorkspace({
             )}
           </section>
           {mode === 'tavern' && (
-            <div data-studio-section="cards">
-              <TavernWorkshop doc={doc} change={change} disabled={busy || working} onError={setError} />
+            <div data-studio-section="cards" hidden={target !== 'cards'}>
+              <TavernWorkshop
+                doc={doc}
+                change={change}
+                disabled={busy || working}
+                onError={setError}
+                onLoaded={edit}
+              />
             </div>
           )}
           {mode === 'tavern' && (
-            <section className="studio-card" data-studio-section="book">
-              <h2>{t('世界书制作')}</h2>
-              <p className="studio-muted">
-                {t('触发词用逗号分隔；常驻条目无需触发词。导出文件为明文，不包含 API 配置。')}
-              </p>
-              <div className="studio-actions">
-                <button
-                  onClick={() =>
-                    change((d) => ({
-                      ...d,
-                      book: [
-                        ...d.book,
-                        {
-                          id: generateId('book'),
-                          title: '',
-                          keys: '',
-                          content: '',
-                          enabled: true,
-                          constant: false,
-                          order: 100,
-                        },
-                      ],
-                    }))
-                  }
-                >
-                  <Plus size={16} />
-                  {t('新建世界书条目')}
-                </button>
-                <button
-                  disabled={!sources.length}
-                  onClick={() =>
-                    change((d) => ({
-                      ...d,
-                      book: [
-                        ...d.book,
-                        ...sources
-                          .filter((e) => !d.book.some((b) => b.id === 'book_' + e.id))
-                          .map((e) => ({
-                            id: 'book_' + e.id,
-                            title: e.title,
-                            keys: e.title,
-                            content: plainText(e.content) || e.summary,
-                            enabled: true,
-                            constant: false,
-                            order: 100,
-                          })),
-                      ],
-                    }))
-                  }
-                >
-                  {t('从所选世界设定添加')}
-                </button>
-                <button
-                  onClick={() => void action(() => download(worldBook(doc.book), project.name + t('世界书')))}
-                >
-                  <Download size={16} />
-                  {t('导出世界书 JSON')}
-                </button>
-              </div>
-              {doc.book.map((b, i) => (
-                <article className="studio-book" key={b.id}>
-                  <h3>
-                    {t('条目')}
-                    {i + 1}
-                  </h3>
-                  <label>
-                    {t('世界书标题')}
-                    <input
-                      aria-label={t('世界书标题 {0}', { 0: i + 1 })}
-                      value={b.title}
-                      onChange={(e) => updateBook(b.id, { title: e.target.value })}
-                    />
-                  </label>
-                  <label>
-                    {t('触发词')}
-                    <input
-                      aria-label={t('触发词 {0}', { 0: i + 1 })}
-                      value={b.keys}
-                      onChange={(e) => updateBook(b.id, { keys: e.target.value })}
-                    />
-                  </label>
-                  <label>
-                    {t('条目正文')}
-                    <textarea
-                      aria-label={t('世界书正文 {0}', { 0: i + 1 })}
-                      value={b.content}
-                      rows={4}
-                      onChange={(e) => updateBook(b.id, { content: e.target.value })}
-                    />
-                  </label>
-                  <div className="studio-actions">
-                    <label className="studio-check">
-                      <input
-                        type="checkbox"
-                        checked={b.enabled}
-                        onChange={(e) => updateBook(b.id, { enabled: e.target.checked })}
-                      />
-                      {t('启用')}
-                    </label>
-                    <label className="studio-check">
-                      <input
-                        type="checkbox"
-                        checked={b.constant}
-                        onChange={(e) => updateBook(b.id, { constant: e.target.checked })}
-                      />
-                      {t('常驻')}
-                    </label>
-                    <label>
-                      {t('插入顺序')}
-                      <input
-                        type="number"
-                        aria-label={t('插入顺序 {0}', { 0: i + 1 })}
-                        value={b.order}
-                        onChange={(e) => updateBook(b.id, { order: Number(e.target.value) })}
-                      />
-                    </label>
-                    <button
-                      onClick={() => change((d) => ({ ...d, book: d.book.filter((x) => x.id !== b.id) }))}
-                    >
-                      {t('移除此世界书条目')}
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </section>
+            <div data-studio-section="book" hidden={target !== 'book'}>
+              <WorldBookEditor
+                doc={doc}
+                change={change}
+                sources={sources}
+                disabled={busy || working}
+                selectedId={location.bookId}
+                select={(bookId) => navigate({ bookId })}
+                onExport={() => void action(() => download(worldBook(doc.book), project.name + t('世界书')))}
+              />
+            </div>
           )}
           {mode === 'simulation' && (
             <section className="studio-card">
@@ -628,7 +563,11 @@ export function StudioWorkspace({
             </section>
           )}
         </main>
-        <aside className="studio-assistant" data-studio-section="assistant">
+        <aside
+          className="studio-assistant"
+          data-studio-section="assistant"
+          hidden={mode !== 'simulation' && target !== 'draft' && target !== 'assistant'}
+        >
           <h2>{t('AI 创作助手')}</h2>
           <p className="studio-muted">
             {t('当前模型：')}
